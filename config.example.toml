@@ -1,0 +1,73 @@
+[[agents]]
+id = "agent1"
+name = "Research Assistant"
+endpoint = "https://api.openai.com/v1"
+protocol = "openai"
+capabilities = ["research", "analysis"]
+timeout_seconds = 30
+max_retries = 3
+
+[agents.metadata]
+model = "gpt-4"
+temperature = "0.7"
+max_tokens = "1000"
+
+[[agents]]
+id = "agent2"
+name = "Code Reviewer"
+endpoint = "http://localhost:8081"
+protocol = "a2a"
+capabilities = ["code_review", "security_analysis"]
+timeout_seconds = 60
+max_retries = 2
+
+[agents.metadata]
+model = "claude-3"
+temperature = "0.5"
+
+[[teams]]
+id = "team1"
+name = "Development Team"
+description = "Team for software development tasks"
+mode = "supervisor"
+
+[teams.scheduler_config]
+type = "supervisor"
+supervisor_agent_id = "agent1"
+
+[[teams.agents]]
+agent_id = "agent1"
+role = "researcher"
+capabilities = ["research"]
+
+[[teams.agents]]
+agent_id = "agent2"
+role = "reviewer"
+capabilities = ["code_review"]
+
+[[teams]]
+id = "team2"
+name = "Analysis Pipeline"
+description = "Sequential analysis workflow"
+mode = "workflow"
+
+[teams.scheduler_config]
+type = "workflow"
+
+[[teams.scheduler_config.steps]]
+agent_id = "agent1"
+order = 1
+
+[[teams.scheduler_config.steps]]
+agent_id = "agent2"
+order = 2
+
+[[teams.agents]]
+agent_id = "agent1"
+role = "analyzer"
+capabilities = ["analysis"]
+
+[[teams.agents]]
+agent_id = "agent2"
+role = "validator"
+capabilities = ["validation"]

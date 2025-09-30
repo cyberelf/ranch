@@ -1,0 +1,28 @@
+[package]
+name = "multi-agent"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+reqwest.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+config = "0.13"
+toml = "0.8"
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+# Local dependencies
+a2a-protocol = { path = "../a2a-protocol" }

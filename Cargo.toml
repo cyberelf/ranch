@@ -1,9 +1,19 @@
-[package]
-name = "multi_agent"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+    "multi-agent",
+    "a2a-protocol",
+]
+resolver = "2"
 
-[dependencies]
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/multi-agent-framework"
+
+[workspace.dependencies]
+# Common dependencies that can be shared across crates
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -14,8 +24,6 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 anyhow = "1.0"
 thiserror = "1.0"
-config = "0.13"
-toml = "0.8"
 axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }

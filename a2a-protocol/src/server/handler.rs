@@ -1,0 +1,223 @@
+//! A2A protocol request handler trait
+
+use async_trait::async_trait;
+use crate::{Message, MessageResponse, AgentCard, MessagePart, A2aResult};
+
+/// Trait for handling A2A protocol requests
+#[async_trait]
+pub trait A2aHandler: Send + Sync {
+    /// Handle an incoming message
+    async fn handle_message(&self, message: Message) -> A2aResult<MessageResponse>;
+
+    /// Get the agent card for this handler
+    async fn get_agent_card(&self) -> A2aResult<AgentCard>;
+
+    /// Handle health check requests
+    async fn health_check(&self) -> A2aResult<HealthStatus>;
+
+    /// Optional: Handle streaming requests
+    async fn handle_streaming_message(&self, _message: Message) -> A2aResult<StreamingResponse> {
+        Err(crate::A2aError::ProtocolViolation(
+            "Streaming not supported".to_string(),
+        ))
+    }
+}
+
+/// Health status response
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HealthStatus {
+    /// Overall health status
+    pub status: HealthStatusType,
+
+    /// Optional status message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    /// Optional version information
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
+    /// Optional detailed status information
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+}
+
+/// Health status types
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HealthStatusType {
+    /// Service is healthy
+    Healthy,
+
+    /// Service is degraded but still functional
+    Degraded,
+
+    /// Service is unhealthy
+    Unhealthy,
+}
+
+impl HealthStatus {
+    /// Create a healthy status
+    pub fn healthy() -> Self {
+        Self {
+            status: HealthStatusType::Healthy,
+            message: Some("Service is healthy".to_string()),
+            version: None,
+            details: None,
+        }
+    }
+
+    /// Create a degraded status
+    pub fn degraded<S: Into<String>>(message: S) -> Self {
+        Self {
+            status: HealthStatusType::Degraded,
+            message: Some(message.into()),
+            version: None,
+            details: None,
+        }
+    }
+
+    /// Create an unhealthy status
+    pub fn unhealthy<S: Into<String>>(message: S) -> Self {
+        Self {
+            status: HealthStatusType::Unhealthy,
+            message: Some(message.into()),
+            version: None,
+            details: None,
+        }
+    }
+
+    /// Set version information
+    pub fn with_version<S: Into<String>>(mut self, version: S) -> Self {
+        self.version = Some(version.into());
+        self
+    }
+
+    /// Set details
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = Some(details);
+        self
+    }
+}
+
+/// Streaming response for handling streaming messages
+#[derive(Debug)]
+pub struct StreamingResponse {
+    /// Stream of message parts
+    pub stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>,
+
+    /// Complete message when streaming is done
+    pub final_message: Option<Message>,
+}
+
+impl StreamingResponse {
+    /// Create a new streaming response
+    pub fn new(stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>) -> Self {
+        Self {
+            stream,
+            final_message: None,
+        }
+    }
+
+    /// Create a streaming response with final message
+    pub fn with_final_message(
+        stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>,
+        final_message: Message,
+    ) -> Self {
+        Self {
+            stream,
+            final_message: Some(final_message),
+        }
+    }
+}
+
+/// Basic handler implementation
+pub struct BasicA2aHandler {
+    agent_card: AgentCard,
+}
+
+impl BasicA2aHandler {
+    /// Create a new basic handler
+    pub fn new(agent_card: AgentCard) -> Self {
+        Self { agent_card }
+    }
+
+    /// Set the agent card
+    pub fn with_agent_card(mut self, agent_card: AgentCard) -> Self {
+        self.agent_card = agent_card;
+        self
+    }
+}
+
+#[async_trait]
+impl A2aHandler for BasicA2aHandler {
+    async fn handle_message(&self, message: Message) -> A2aResult<MessageResponse> {
+        // Simple echo handler for demonstration
+        let content = message.text_content().unwrap_or("No content");
+        let echo_content = format!("Echo: {}", content);
+        let response_message = Message::new_text(
+            "assistant",
+            echo_content.as_str(),
+        );
+
+        Ok(MessageResponse::success(message.id, response_message))
+    }
+
+    async fn get_agent_card(&self) -> A2aResult<AgentCard> {
+        Ok(self.agent_card.clone())
+    }
+
+    async fn health_check(&self) -> A2aResult<HealthStatus> {
+        Ok(HealthStatus::healthy()
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_details(serde_json::json!({
+                "handler": "BasicA2aHandler",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{AgentId, MessageId};
+    use url::Url;
+
+    #[tokio::test]
+    async fn test_basic_handler() {
+        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
+        let agent_card = AgentCard::new(agent_id, "Test Agent",
+            Url::parse("https://example.com").unwrap());
+
+        let handler = BasicA2aHandler::new(agent_card);
+
+        let message = Message::new_text("user", "Hello, world!");
+        let response = handler.handle_message(message).await.unwrap();
+
+        assert_eq!(response.message.text_content(), Some("Echo: Hello, world!"));
+    }
+
+    #[tokio::test]
+    async fn test_health_check() {
+        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
+        let agent_card = AgentCard::new(agent_id, "Test Agent",
+            Url::parse("https://example.com").unwrap());
+
+        let handler = BasicA2aHandler::new(agent_card);
+        let health = handler.health_check().await.unwrap();
+
+        assert!(matches!(health.status, HealthStatusType::Healthy));
+        assert!(health.version.is_some());
+    }
+
+    #[test]
+    fn test_health_status_creation() {
+        let status = HealthStatus::healthy()
+            .with_version("1.0.0")
+            .with_details(serde_json::json!({"key": "value"}));
+
+        assert!(matches!(status.status, HealthStatusType::Healthy));
+        assert_eq!(status.version, Some("1.0.0".to_string()));
+        assert!(status.details.is_some());
+    }
+}

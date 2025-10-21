@@ -15,28 +15,33 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```no_run
 //! use a2a_protocol::{
 //!     prelude::*,
 //!     client::A2aClient,
-//!     transport::HttpTransport,
+//!     transport::JsonRpcTransport,
 //! };
+//! use std::sync::Arc;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create client
-//!     let transport = HttpTransport::new("https://agent.example.com")?;
+//!     let transport = Arc::new(JsonRpcTransport::new("https://agent.example.com/rpc")?);
 //!     let client = A2aClient::new(transport);
 //!
-//!     // Send message
-//!     let response = client.send_message(Message {
-//!         id: uuid::Uuid::new_v4().to_string(),
-//!         role: "user".to_string(),
-//!         content: "Hello, agent!".to_string(),
-//!         metadata: std::collections::HashMap::new(),
-//!     }).await?;
+//!     // Send message using new A2A v0.3.0 compliant API
+//!     let message = Message::user_text("Hello, agent!");
+//!     let response = client.send_message(message).await?;
 //!
-//!     println!("Response: {}", response.content);
+//!     // Response is either a Task (async) or Message (immediate)
+//!     match response {
+//!         SendResponse::Message(msg) => {
+//!             println!("Immediate response: {}", msg.text_content().unwrap_or(""));
+//!         }
+//!         SendResponse::Task(task) => {
+//!             println!("Task created: {}", task.id);
+//!         }
+//!     }
 //!     Ok(())
 //! }
 //! ```
@@ -46,17 +51,29 @@ pub mod transport;
 pub mod client;
 pub mod server;
 pub mod auth;
-pub mod streaming;
 
 // Re-export commonly used types
 pub mod prelude {
     pub use crate::core::{
-        Message, MessageResponse, AgentCard, A2aError, A2aResult,
+        Message, MessageRole, Part, TextPart, FilePart, DataPart,
+        Task, TaskState, TaskStatus, SendResponse,
+        AgentCard, A2aError, A2aResult,
         agent_id::AgentId, message_id::MessageId,
+        // A2A request types
+        MessageSendRequest, TaskGetRequest, TaskCancelRequest, TaskStatusRequest,
+        AgentCardGetRequest,
     };
     pub use crate::client::A2aClient;
-    pub use crate::transport::Transport;
+    pub use crate::transport::{
+        Transport, TransportExt,
+        // JSON-RPC 2.0 protocol types
+        JsonRpcRequest, JsonRpcResponse, JsonRpcError,
+    };
     pub use crate::auth::Authenticator;
+    
+    // Backwards compatibility
+    #[allow(deprecated)]
+    pub use crate::core::MessageResponse;
 }
 
 pub use crate::core::*;

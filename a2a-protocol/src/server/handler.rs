@@ -1,13 +1,17 @@
 //! A2A protocol request handler trait
 
 use async_trait::async_trait;
-use crate::{Message, MessageResponse, AgentCard, MessagePart, A2aResult};
+use crate::{
+    Message, SendResponse, AgentCard, Part, A2aResult,
+    MessageSendRequest, TaskGetRequest, TaskCancelRequest, 
+    TaskStatusRequest, AgentCardGetRequest, Task, TaskStatus,
+};
 
 /// Trait for handling A2A protocol requests
 #[async_trait]
 pub trait A2aHandler: Send + Sync {
-    /// Handle an incoming message
-    async fn handle_message(&self, message: Message) -> A2aResult<MessageResponse>;
+    /// Handle an incoming message - returns Task (async) or Message (immediate)
+    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse>;
 
     /// Get the agent card for this handler
     async fn get_agent_card(&self) -> A2aResult<AgentCard>;
@@ -20,6 +24,45 @@ pub trait A2aHandler: Send + Sync {
         Err(crate::A2aError::ProtocolViolation(
             "Streaming not supported".to_string(),
         ))
+    }
+
+    /// RPC method: message/send
+    /// Handle a message/send request with optional immediate flag
+    async fn rpc_message_send(&self, request: MessageSendRequest) -> A2aResult<SendResponse> {
+        // Default implementation delegates to handle_message
+        // Subclasses can override to handle the immediate flag differently
+        self.handle_message(request.message).await
+    }
+
+    /// RPC method: task/get
+    /// Retrieve a task by ID
+    async fn rpc_task_get(&self, _request: TaskGetRequest) -> A2aResult<Task> {
+        Err(crate::A2aError::Server(
+            "task/get not implemented".to_string(),
+        ))
+    }
+
+    /// RPC method: task/cancel
+    /// Cancel a running task
+    async fn rpc_task_cancel(&self, _request: TaskCancelRequest) -> A2aResult<TaskStatus> {
+        Err(crate::A2aError::Server(
+            "task/cancel not implemented".to_string(),
+        ))
+    }
+
+    /// RPC method: task/status
+    /// Get the status of a task
+    async fn rpc_task_status(&self, _request: TaskStatusRequest) -> A2aResult<TaskStatus> {
+        Err(crate::A2aError::Server(
+            "task/status not implemented".to_string(),
+        ))
+    }
+
+    /// RPC method: agent/card
+    /// Get agent card (optionally for a specific agent)
+    async fn rpc_agent_card(&self, _request: AgentCardGetRequest) -> A2aResult<AgentCard> {
+        // Default implementation returns this handler's agent card
+        self.get_agent_card().await
     }
 }
 
@@ -104,7 +147,7 @@ impl HealthStatus {
 #[derive(Debug)]
 pub struct StreamingResponse {
     /// Stream of message parts
-    pub stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>,
+    pub stream: tokio::sync::mpsc::UnboundedReceiver<Part>,
 
     /// Complete message when streaming is done
     pub final_message: Option<Message>,
@@ -112,7 +155,7 @@ pub struct StreamingResponse {
 
 impl StreamingResponse {
     /// Create a new streaming response
-    pub fn new(stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>) -> Self {
+    pub fn new(stream: tokio::sync::mpsc::UnboundedReceiver<Part>) -> Self {
         Self {
             stream,
             final_message: None,
@@ -121,7 +164,7 @@ impl StreamingResponse {
 
     /// Create a streaming response with final message
     pub fn with_final_message(
-        stream: tokio::sync::mpsc::UnboundedReceiver<MessagePart>,
+        stream: tokio::sync::mpsc::UnboundedReceiver<Part>,
         final_message: Message,
     ) -> Self {
         Self {
@@ -151,16 +194,13 @@ impl BasicA2aHandler {
 
 #[async_trait]
 impl A2aHandler for BasicA2aHandler {
-    async fn handle_message(&self, message: Message) -> A2aResult<MessageResponse> {
-        // Simple echo handler for demonstration
+    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse> {
+        // Simple echo handler for demonstration - returns immediate message response
         let content = message.text_content().unwrap_or("No content");
         let echo_content = format!("Echo: {}", content);
-        let response_message = Message::new_text(
-            "assistant",
-            echo_content.as_str(),
-        );
+        let response_message = Message::agent_text(echo_content);
 
-        Ok(MessageResponse::success(message.id, response_message))
+        Ok(SendResponse::message(response_message))
     }
 
     async fn get_agent_card(&self) -> A2aResult<AgentCard> {
@@ -191,10 +231,13 @@ mod tests {
 
         let handler = BasicA2aHandler::new(agent_card);
 
-        let message = Message::new_text("user", "Hello, world!");
+        let message = Message::user_text("Hello, world!");
         let response = handler.handle_message(message).await.unwrap();
 
-        assert_eq!(response.message.text_content(), Some("Echo: Hello, world!"));
+        // Response should be immediate message
+        assert!(response.is_message());
+        let response_msg = response.as_message().unwrap();
+        assert_eq!(response_msg.text_content(), Some("Echo: Hello, world!"));
     }
 
     #[tokio::test]

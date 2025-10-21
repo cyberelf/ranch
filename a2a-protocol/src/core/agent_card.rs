@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use url::Url;
 use crate::AgentId;
 
-/// A2A Agent Card - metadata about an agent
+/// A2A Agent Card - metadata about an agent (A2A v0.3.0 compliant)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentCard {
     /// Agent identifier
@@ -25,15 +25,31 @@ pub struct AgentCard {
     /// Agent URL or endpoint
     pub url: Url,
 
-    /// List of supported protocols
+    /// A2A Protocol version (REQUIRED per spec) - semver format
+    #[serde(rename = "protocolVersion")]
+    pub protocol_version: String,
+
+    /// Preferred transport protocol (REQUIRED per spec)
+    /// Examples: "json-rpc", "http+json", "grpc"
+    #[serde(rename = "preferredTransport")]
+    pub preferred_transport: String,
+
+    /// Additional transport interfaces supported (REQUIRED per spec)
+    /// List of alternative transport endpoints
+    #[serde(rename = "additionalInterfaces", skip_serializing_if = "Vec::is_empty", default)]
+    pub additional_interfaces: Vec<TransportInterface>,
+
+    /// List of supported protocols (deprecated - use preferredTransport and additionalInterfaces)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    #[deprecated(note = "Use preferredTransport and additionalInterfaces instead")]
     pub protocols: Vec<ProtocolSupport>,
 
     /// Agent capabilities
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub capabilities: Vec<AgentCapability>,
 
     /// Agent skills
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub skills: Vec<AgentSkill>,
 
     /// Authentication requirements
@@ -45,12 +61,45 @@ pub struct AgentCard {
     pub rate_limits: Option<RateLimit>,
 
     /// Additional metadata
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-/// Protocol support information
+/// Transport interface definition (A2A v0.3.0 spec)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TransportInterface {
+    /// Transport protocol type (e.g., "json-rpc", "http+json", "grpc")
+    #[serde(rename = "type")]
+    pub transport_type: String,
+
+    /// Transport endpoint URL
+    pub url: Url,
+
+    /// Optional transport-specific configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<HashMap<String, serde_json::Value>>,
+}
+
+impl TransportInterface {
+    /// Create a new transport interface
+    pub fn new<S: Into<String>>(transport_type: S, url: Url) -> Self {
+        Self {
+            transport_type: transport_type.into(),
+            url,
+            config: None,
+        }
+    }
+
+    /// Add configuration to this transport interface
+    pub fn with_config(mut self, config: HashMap<String, serde_json::Value>) -> Self {
+        self.config = Some(config);
+        self
+    }
+}
+
+/// Protocol support information (deprecated - use TransportInterface)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[deprecated(note = "Use TransportInterface instead")]
 pub struct ProtocolSupport {
     /// Protocol name (e.g., "a2a-http", "a2a-jsonrpc")
     pub name: String,
@@ -230,7 +279,7 @@ pub enum RateLimitStrategy {
 }
 
 impl AgentCard {
-    /// Create a minimal agent card
+    /// Create a minimal agent card with required A2A v0.3.0 fields
     pub fn new<S: Into<String>>(id: AgentId, name: S, url: Url) -> Self {
         Self {
             id,
@@ -238,6 +287,10 @@ impl AgentCard {
             description: None,
             version: None,
             url,
+            protocol_version: "0.3.0".to_string(), // Default to A2A v0.3.0
+            preferred_transport: "json-rpc".to_string(), // Default to JSON-RPC
+            additional_interfaces: Vec::new(),
+            #[allow(deprecated)]
             protocols: Vec::new(),
             capabilities: Vec::new(),
             skills: Vec::new(),
@@ -247,9 +300,31 @@ impl AgentCard {
         }
     }
 
-    /// Add a protocol support
+    /// Set the A2A protocol version
+    pub fn with_protocol_version<S: Into<String>>(mut self, version: S) -> Self {
+        self.protocol_version = version.into();
+        self
+    }
+
+    /// Set the preferred transport protocol
+    pub fn with_preferred_transport<S: Into<String>>(mut self, transport: S) -> Self {
+        self.preferred_transport = transport.into();
+        self
+    }
+
+    /// Add an additional transport interface
+    pub fn add_transport_interface(mut self, interface: TransportInterface) -> Self {
+        self.additional_interfaces.push(interface);
+        self
+    }
+
+    /// Add a protocol support (deprecated - use add_transport_interface)
+    #[deprecated(note = "Use add_transport_interface instead")]
     pub fn with_protocol(mut self, protocol: ProtocolSupport) -> Self {
-        self.protocols.push(protocol);
+        #[allow(deprecated)]
+        {
+            self.protocols.push(protocol);
+        }
         self
     }
 

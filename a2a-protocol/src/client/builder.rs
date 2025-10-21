@@ -1,7 +1,7 @@
 //! A2A client builder
 
 use crate::{
-    prelude::A2aClient, AgentId, transport::{Transport, TransportConfig, HttpTransport, JsonRpcTransport},
+    prelude::A2aClient, AgentId, transport::{Transport, TransportConfig, JsonRpcTransport},
 };
 use std::sync::Arc;
 
@@ -15,9 +15,7 @@ pub struct ClientBuilder {
 /// Supported transport types
 #[derive(Debug, Clone)]
 pub enum TransportType {
-    /// HTTP transport
-    Http { endpoint: String },
-    /// JSON-RPC transport
+    /// JSON-RPC transport (A2A spec-compliant)
     JsonRpc { endpoint: String },
     /// Custom transport
     Custom(Arc<dyn Transport>),
@@ -29,7 +27,7 @@ impl ClientBuilder {
         Self {
             agent_id: None,
             transport_config: TransportConfig::default(),
-            transport_type: TransportType::Http {
+            transport_type: TransportType::JsonRpc {
                 endpoint: String::new(),
             },
         }
@@ -75,15 +73,7 @@ impl ClientBuilder {
         self
     }
 
-    /// Use HTTP transport
-    pub fn with_http<S: Into<String>>(mut self, endpoint: S) -> Self {
-        self.transport_type = TransportType::Http {
-            endpoint: endpoint.into(),
-        };
-        self
-    }
-
-    /// Use JSON-RPC transport
+    /// Use JSON-RPC transport (A2A spec-compliant)
     pub fn with_json_rpc<S: Into<String>>(mut self, endpoint: S) -> Self {
         self.transport_type = TransportType::JsonRpc {
             endpoint: endpoint.into(),
@@ -100,9 +90,6 @@ impl ClientBuilder {
     /// Build the A2A client
     pub fn build(self) -> Result<A2aClient, crate::A2aError> {
         let transport: Arc<dyn Transport> = match self.transport_type {
-            TransportType::Http { endpoint } => {
-                Arc::new(HttpTransport::with_config(endpoint, self.transport_config)?)
-            }
             TransportType::JsonRpc { endpoint } => {
                 Arc::new(JsonRpcTransport::with_config(endpoint, self.transport_config)?)
             }
@@ -154,14 +141,14 @@ mod tests {
     }
 
     #[test]
-    fn test_client_builder_with_http() {
-        let builder = ClientBuilder::new().with_http("https://example.com");
+    fn test_client_builder_with_json_rpc() {
+        let builder = ClientBuilder::new().with_json_rpc("https://example.com/rpc");
 
         match builder.transport_type {
-            TransportType::Http { endpoint } => {
-                assert_eq!(endpoint, "https://example.com");
+            TransportType::JsonRpc { endpoint } => {
+                assert_eq!(endpoint, "https://example.com/rpc");
             }
-            _ => panic!("Expected HTTP transport type"),
+            _ => panic!("Expected JSON-RPC transport type"),
         }
     }
 
@@ -170,14 +157,14 @@ mod tests {
         let client = ClientBuilder::new()
             .with_agent_id("test-agent")
             .unwrap()
-            .with_http("https://example.com")
+            .with_json_rpc("https://example.com/rpc")
             .with_timeout(30)
             .with_max_retries(3)
             .build()
             .unwrap();
 
         assert_eq!(client.agent_id().as_str(), "test-agent");
-        assert_eq!(client.transport_type(), "http");
+        assert_eq!(client.transport_type(), "json-rpc");
         assert_eq!(client.config().timeout_seconds, 30);
     }
 }

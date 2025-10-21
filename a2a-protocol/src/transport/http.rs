@@ -1,29 +1,40 @@
-//! HTTP transport implementation
+//! Internal HTTP client implementation
+//! 
+//! This module provides low-level HTTP communication functionality used by
+//! transport implementations (e.g., JsonRpcTransport). It is not a public
+//! A2A transport itself.
+//!
+//! **Note:** This is internal infrastructure. For A2A protocol communication,
+//! use `JsonRpcTransport` (JSON-RPC 2.0 over HTTP).
 
-use async_trait::async_trait;
 use crate::{
-    Message, MessageResponse, AgentCard, A2aResult, A2aError,
-    transport::{Transport, TransportConfig, RequestInfo},
+    A2aResult, A2aError,
+    transport::{TransportConfig, RequestInfo},
 };
 use reqwest::{Client, StatusCode};
 use std::time::Duration;
 
-/// HTTP transport for A2A protocol
+/// Internal HTTP client for transport implementations
+/// 
+/// This is not a public A2A transport. It provides HTTP communication
+/// primitives used by other transports like `JsonRpcTransport`.
+/// 
+/// **For A2A communication, use `JsonRpcTransport` instead.**
 #[derive(Debug)]
-pub struct HttpTransport {
+pub(crate) struct HttpClient {
     client: Client,
-    config: TransportConfig,
-    base_url: String,
+    pub(crate) config: TransportConfig,
+    pub(crate) base_url: String,
 }
 
-impl HttpTransport {
-    /// Create a new HTTP transport
-    pub fn new<S: Into<String>>(base_url: S) -> A2aResult<Self> {
+impl HttpClient {
+    /// Create a new HTTP client
+    pub(crate) fn new<S: Into<String>>(base_url: S) -> A2aResult<Self> {
         Self::with_config(base_url, TransportConfig::default())
     }
 
-    /// Create a new HTTP transport with custom configuration
-    pub fn with_config<S: Into<String>>(base_url: S, config: TransportConfig) -> A2aResult<Self> {
+    /// Create a new HTTP client with custom configuration
+    pub(crate) fn with_config<S: Into<String>>(base_url: S, config: TransportConfig) -> A2aResult<Self> {
         let base_url = base_url.into();
 
         // Ensure base_url ends with a slash
@@ -51,7 +62,7 @@ impl HttpTransport {
     }
 
     /// Send an HTTP request with retry logic
-    pub async fn send_request_with_retry(
+    pub(crate) async fn send_request_with_retry(
         &self,
         request_info: RequestInfo,
         payload: Option<serde_json::Value>,
@@ -153,71 +164,21 @@ impl HttpTransport {
     }
 }
 
-#[async_trait]
-impl Transport for HttpTransport {
-    async fn send_message(&self, message: Message) -> A2aResult<MessageResponse> {
-        let request_info = RequestInfo::new("messages")
-            .with_method("POST")
-            .with_timeout_ms(self.config.timeout_seconds * 1000);
-
-        let payload = serde_json::to_value(message)
-            .map_err(|e| A2aError::Json(e))?;
-
-        let response = self.send_request_with_retry(request_info, Some(payload)).await?;
-
-        let response_data: MessageResponse = response.json().await
-            .map_err(|e| A2aError::Network(e))?;
-
-        Ok(response_data)
-    }
-
-    async fn get_agent_card(&self, agent_id: &crate::AgentId) -> A2aResult<AgentCard> {
-        let request_info = RequestInfo::new("card")
-            .with_method("GET")
-            .with_timeout_ms(self.config.timeout_seconds * 1000);
-
-        let response = self.send_request_with_retry(request_info, None).await?;
-
-        let agent_card: AgentCard = response.json().await
-            .map_err(|e| A2aError::Network(e))?;
-
-        Ok(agent_card)
-    }
-
-    async fn is_available(&self) -> bool {
-        let request_info = RequestInfo::new("health")
-            .with_method("GET")
-            .with_timeout_ms(5000); // Short timeout for health check
-
-        // Use a single request for health check (no retries)
-        match self.send_single_request(&request_info, None).await {
-            Ok(response) => response.status().is_success(),
-            Err(_) => false,
-        }
-    }
-
-    fn config(&self) -> &TransportConfig {
-        &self.config
-    }
-
-    fn transport_type(&self) -> &'static str {
-        "http"
-    }
-}
+// No Transport implementation - HttpClient is internal only
+// Use JsonRpcTransport for A2A protocol communication
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MessageId, AgentId};
 
     #[test]
-    fn test_http_transport_creation() {
-        let transport = HttpTransport::new("https://example.com").unwrap();
-        assert_eq!(transport.base_url(), "https://example.com/");
+    fn test_http_client_creation() {
+        let client = HttpClient::new("https://example.com").unwrap();
+        assert_eq!(client.base_url, "https://example.com/");
     }
 
     #[test]
-    fn test_http_transport_with_config() {
+    fn test_http_client_with_config() {
         let config = TransportConfig {
             timeout_seconds: 60,
             max_retries: 5,
@@ -225,8 +186,8 @@ mod tests {
             extra: std::collections::HashMap::new(),
         };
 
-        let transport = HttpTransport::with_config("https://example.com", config).unwrap();
-        assert_eq!(transport.config().timeout_seconds, 60);
+        let client = HttpClient::with_config("https://example.com", config).unwrap();
+        assert_eq!(client.config.timeout_seconds, 60);
     }
 
     #[tokio::test]

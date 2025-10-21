@@ -1,8 +1,7 @@
 //! A2A client implementation
 
-use async_trait::async_trait;
 use crate::{
-    Message, MessageResponse, AgentCard, AgentId, A2aResult,
+    Message, SendResponse, AgentCard, AgentId, A2aResult,
     transport::{Transport, TransportConfig},
 };
 use std::sync::Arc;
@@ -42,14 +41,13 @@ impl A2aClient {
     }
 
     /// Send a message and wait for response
-    pub async fn send_message(&self, message: Message) -> A2aResult<MessageResponse> {
+    pub async fn send_message(&self, message: Message) -> A2aResult<SendResponse> {
         self.transport.send_message(message).await
     }
 
     /// Send a text message and wait for response
-    pub async fn send_text<S: Into<String>>(&self, text: S) -> A2aResult<MessageResponse> {
-        let content = text.into();
-        let message = Message::new_text(self.agent_id.as_str(), content.as_str());
+    pub async fn send_text<S: Into<String>>(&self, text: S) -> A2aResult<SendResponse> {
+        let message = Message::user_text(text);
         self.send_message(message).await
     }
 
@@ -74,7 +72,7 @@ impl A2aClient {
     }
 
     /// Send a message with retries for retryable errors
-    pub async fn send_message_with_retry(&self, message: Message, max_retries: u32) -> A2aResult<MessageResponse> {
+    pub async fn send_message_with_retry(&self, message: Message, max_retries: u32) -> A2aResult<SendResponse> {
         let mut last_error = None;
         let mut retry_count = 0;
 
@@ -145,16 +143,15 @@ impl Conversation {
     }
 
     /// Send a message in this conversation
-    pub async fn send_message(&mut self, message: Message) -> A2aResult<MessageResponse> {
+    pub async fn send_message(&mut self, message: Message) -> A2aResult<SendResponse> {
         let response = self.client.send_message(message.clone()).await?;
         self.messages.push(message);
         Ok(response)
     }
 
     /// Send a text message in this conversation
-    pub async fn send_text<S: Into<String>>(&mut self, text: S) -> A2aResult<MessageResponse> {
-        let content = text.into();
-        let message = Message::new_text(self.client.agent_id.as_str(), content.as_str());
+    pub async fn send_text<S: Into<String>>(&mut self, text: S) -> A2aResult<SendResponse> {
+        let message = Message::user_text(text);
         self.send_message(message).await
     }
 
@@ -172,20 +169,20 @@ impl Conversation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::HttpTransport;
+    use crate::transport::JsonRpcTransport;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_client_creation() {
-        let transport = Arc::new(HttpTransport::new("https://example.com").unwrap());
+        let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
         let client = A2aClient::new(transport);
 
-        assert_eq!(client.transport_type(), "http");
+        assert_eq!(client.transport_type(), "json-rpc");
     }
 
     #[tokio::test]
     async fn test_client_with_agent_id() {
-        let transport = Arc::new(HttpTransport::new("https://example.com").unwrap());
+        let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
         let client = A2aClient::with_agent_id(transport, agent_id.clone());
 
@@ -193,11 +190,12 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore] // Integration test - requires actual server
     async fn test_conversation_creation() {
-        let transport = Arc::new(HttpTransport::new("https://example.com").unwrap());
+        let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
         let client = A2aClient::new(transport);
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(agent_id.clone(), "Test Agent",
+        let _agent_card = AgentCard::new(agent_id.clone(), "Test Agent",
             url::Url::parse("https://example.com").unwrap());
 
         let conversation = client.start_conversation(&agent_id).await.unwrap();

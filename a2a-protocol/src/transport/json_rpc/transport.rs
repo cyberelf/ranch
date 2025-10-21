@@ -2,16 +2,17 @@
 
 use async_trait::async_trait;
 use crate::{
-    Message, MessageResponse, AgentCard, A2aResult, A2aError,
-    transport::{Transport, TransportConfig, RequestInfo, HttpTransport},
+    Message, SendResponse, AgentCard, A2aResult, A2aError,
+    transport::{Transport, TransportConfig, RequestInfo},
 };
+use crate::transport::http::HttpClient;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
 /// JSON-RPC transport for A2A protocol
 #[derive(Debug)]
 pub struct JsonRpcTransport {
-    http_transport: HttpTransport,
+    http_client: HttpClient,
 }
 
 impl JsonRpcTransport {
@@ -22,8 +23,8 @@ impl JsonRpcTransport {
 
     /// Create a new JSON-RPC transport with custom configuration
     pub fn with_config<S: Into<String>>(endpoint: S, config: TransportConfig) -> A2aResult<Self> {
-        let http_transport = HttpTransport::with_config(endpoint, config)?;
-        Ok(Self { http_transport })
+        let http_client = HttpClient::with_config(endpoint, config)?;
+        Ok(Self { http_client })
     }
 
     /// Create a JSON-RPC request
@@ -40,10 +41,10 @@ impl JsonRpcTransport {
     async fn send_json_rpc_request(&self, method: &str, params: Value) -> A2aResult<Value> {
         let request = Self::create_request(method, params);
 
-        let response = self.http_transport.send_request_with_retry(
+        let response = self.http_client.send_request_with_retry(
             RequestInfo::new("")
                 .with_method("POST")
-                .with_header("Content-Type", "application/json-rpc"),
+                .with_header("Content-Type", "application/json"),
             Some(request),
         ).await?;
 
@@ -84,12 +85,13 @@ impl JsonRpcTransport {
 
 #[async_trait]
 impl Transport for JsonRpcTransport {
-    async fn send_message(&self, message: Message) -> A2aResult<MessageResponse> {
+    async fn send_message(&self, message: Message) -> A2aResult<SendResponse> {
         let params = json!({
             "message": message
         });
 
-        let result = self.send_json_rpc_request("a2a.sendMessage", params).await?;
+        // A2A spec-compliant method name: "message/send"
+        let result = self.send_json_rpc_request("message/send", params).await?;
 
         serde_json::from_value(result)
             .map_err(|e| A2aError::Json(e))
@@ -100,25 +102,45 @@ impl Transport for JsonRpcTransport {
             "agentId": agent_id.as_str()
         });
 
-        let result = self.send_json_rpc_request("a2a.getAgentCard", params).await?;
+        // A2A spec-compliant method name: "agent/card"
+        let result = self.send_json_rpc_request("agent/card", params).await?;
 
         serde_json::from_value(result)
             .map_err(|e| A2aError::Json(e))
     }
 
     async fn is_available(&self) -> bool {
-        match self.send_json_rpc_request("a2a.ping", json!({})).await {
+        // Try to get agent card as a health check (A2A spec doesn't define a ping method)
+        match self.send_json_rpc_request("agent/card", json!({})).await {
             Ok(_) => true,
             Err(_) => false,
         }
     }
 
     fn config(&self) -> &TransportConfig {
-        self.http_transport.config()
+        &self.http_client.config
     }
 
     fn transport_type(&self) -> &'static str {
         "json-rpc"
+    }
+
+    async fn send_raw_rpc_request(
+        &self,
+        request: serde_json::Value,
+    ) -> A2aResult<serde_json::Value> {
+        // Send the raw JSON-RPC request
+        let response = self.http_client.send_request_with_retry(
+            RequestInfo::new("")
+                .with_method("POST")
+                .with_header("Content-Type", "application/json"),
+            Some(request),
+        ).await?;
+
+        let rpc_response: serde_json::Value = response.json().await
+            .map_err(|e| A2aError::Network(e))?;
+
+        Ok(rpc_response)
     }
 }
 

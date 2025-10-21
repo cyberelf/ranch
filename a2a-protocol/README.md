@@ -1,15 +1,32 @@
 # A2A Protocol Implementation
 
-A comprehensive, production-ready Rust implementation of the A2A (Agent-to-Agent) protocol specification.
+A comprehensive, production-ready Rust implementation of the A2A (Agent-to-Agent) protocol v0.3.0 specification.
 
 ## Features
 
-- **Protocol Compliance**: Full adherence to the A2A specification
-- **Multiple Transports**: HTTP, JSON-RPC, gRPC, and WebSocket support
+- **Spec Compliance**: Strict adherence to the A2A v0.3.0 specification
+- **JSON-RPC 2.0**: Full JSON-RPC 2.0 transport implementation
 - **Async Native**: Built on tokio for high-performance async communication
 - **Type Safe**: Strong typing with serde for serialization
-- **Extensible**: Plugin architecture for custom transports and authentication
+- **Task Management**: Complete task lifecycle support
 - **Production Ready**: Comprehensive error handling and testing
+
+## Specification Compliance
+
+This crate implements **A2A Protocol v0.3.0** with strict spec compliance:
+
+✅ **Supported:**
+- JSON-RPC 2.0 transport over HTTP
+- All required RPC methods (`message/send`, `task/get`, `task/cancel`, `task/status`, `agent/card`)
+- Complete Task lifecycle management
+- A2A Message format with Parts (TextPart, FilePart, DataPart)
+- AgentCard discovery
+
+🚧 **Planned:**
+- Server-Sent Events (SSE) streaming (`message/stream`, `task/resubscribe`)
+- Push notifications (`task/pushNotificationConfig/*`)
+- gRPC transport (optional)
+- HTTP+JSON/REST transport (if spec clarifies patterns)
 
 ## Quick Start
 
@@ -17,28 +34,41 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-a2a-protocol = "0.1.0"
+a2a-protocol = "0.4.0"
 ```
 
-### Basic Usage
+### Client Usage
 
 ```rust
 use a2a_protocol::{
     prelude::*,
     client::A2aClient,
-    transport::HttpTransport,
+    transport::JsonRpcTransport,
 };
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create client
-    let transport = HttpTransport::new("https://agent.example.com")?;
-    let client = A2aClient::new(Arc::new(transport));
+    // Create JSON-RPC 2.0 transport (spec-compliant)
+    let transport = Arc::new(JsonRpcTransport::new("https://agent.example.com/rpc")?);
+    let client = A2aClient::new(transport);
 
-    // Send message
-    let response = client.send_text("Hello, agent!").await?;
+    // Send message using A2A v0.3.0 API
+    let message = Message::user_text("Hello, agent!");
+    let response = client.send_message(message).await?;
 
-    println!("Response: {}", response.message.text_content().unwrap_or("No content"));
+    // Response is either Task (async) or Message (immediate)
+    match response {
+        SendResponse::Message(msg) => {
+            println!("Immediate: {}", msg.text_content().unwrap_or(""));
+        }
+        SendResponse::Task(task) => {
+            println!("Task created: {}", task.id);
+            // Poll task status
+            let task = client.get_task(&task.id).await?;
+            println!("Task state: {:?}", task.status.state);
+        }
+    }
     Ok(())
 }
 ```
@@ -52,12 +82,13 @@ use a2a_protocol::client::ClientBuilder;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = ClientBuilder::new()
         .with_agent_id("my-client")?
-        .with_http("https://agent.example.com")
+        .with_json_rpc("https://agent.example.com/rpc")
         .with_timeout(30)
         .with_max_retries(3)
         .build()?;
 
-    let response = client.send_text("Hello!").await?;
+    let message = Message::user_text("Hello!");
+    let response = client.send_message(message).await?;
     Ok(())
 }
 ```
@@ -67,9 +98,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```rust
 use a2a_protocol::{
     prelude::*,
-    server::{A2aRouter, BasicA2aHandler},
+    server::{JsonRpcRouter, TaskAwareHandler},
 };
-use axum::Server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,21 +107,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_card = AgentCard::new(
         AgentId::new("my-agent")?,
         "My Agent",
-        Url::parse("https://my-agent.example.com")?
+        url::Url::parse("https://my-agent.example.com")?
     );
 
-    // Create handler
-    let handler = BasicA2aHandler::new(agent_card);
+    // Create handler with task support
+    let handler = TaskAwareHandler::new(agent_card);
 
-    // Create router
-    let router = A2aRouter::new(handler).into_router();
+    // Create JSON-RPC 2.0 router (spec-compliant)
+    let router = JsonRpcRouter::new(handler);
 
     // Start server
-    Server::bind(&"127.0.0.1:3000".parse()?)
-        .serve(router.into_make_service())
-        .await?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    println!("A2A server listening on http://127.0.0.1:3000/rpc");
+    axum::serve(listener, router.into_router()).await?;
 
     Ok(())
+}
+```
+
+## Supported RPC Methods
+
+The server exposes these A2A v0.3.0 spec-compliant JSON-RPC 2.0 methods:
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `message/send` | Send a message to the agent | `Task` or `Message` |
+| `task/get` | Get task details and results | `Task` |
+| `task/status` | Get current task status | `TaskStatus` |
+| `task/cancel` | Cancel a running task | `TaskStatus` |
+| `agent/card` | Get agent capabilities | `AgentCard` |
+
+Example JSON-RPC request:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [{"kind": "text", "text": "Hello!"}]
+    },
+    "immediate": true
+  }
 }
 ```
 
@@ -99,12 +157,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Core Components
 
-- **Core Types**: Message, AgentCard, error handling
-- **Transport Layer**: HTTP, JSON-RPC, gRPC, WebSocket support
-- **Client**: High-level client with conversation support
-- **Server**: Axum-based server with routing
+- **Core Types**: Message, Task, AgentCard, error handling
+- **Transport Layer**: JSON-RPC 2.0 over HTTP (spec-compliant)
+- **Client**: High-level client with task management
+- **Server**: Axum-based JSON-RPC 2.0 server
 - **Authentication**: Multiple auth strategies (API key, OAuth2, Bearer)
-- **Streaming**: Real-time bidirectional streaming
+
+### Module Structure
+
+```
+a2a-protocol/
+├── core/           # Core types and error handling
+├── transport/      # JSON-RPC 2.0 transport
+├── client/         # Client implementations
+├── server/         # Server implementations (JSON-RPC)
+└── auth/           # Authentication strategies
+```
+
+## Migration from v0.3.x
+
+If upgrading from v0.3.x, note these breaking changes:
+
+### Removed Components
+- ❌ `A2aRouter` - Use `JsonRpcRouter` instead
+- ❌ Streaming module - Will be re-implemented as SSE in future
+- ❌ Direct REST endpoints - Use JSON-RPC 2.0 methods
+
+### Server Changes
+```rust
+// OLD (v0.3.x) - Non-spec REST endpoints
+use a2a_protocol::server::A2aRouter;
+let router = A2aRouter::new(handler);
+
+// NEW (v0.4.0) - Spec-compliant JSON-RPC 2.0
+use a2a_protocol::server::JsonRpcRouter;
+let router = JsonRpcRouter::new(handler);
+```
+
+### Client Changes
+```rust
+// OLD - Direct HTTP POST to /messages
+POST /messages
+{"role": "user", "parts": [...]}
+
+// NEW - JSON-RPC 2.0 to /rpc
+POST /rpc
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "message/send",
+  "params": {"message": {"role": "user", "parts": [...]}}
+}
+```
 
 ### Module Structure
 

@@ -7,7 +7,7 @@
 
 use a2a_protocol::{
     server::{JsonRpcRouter, TaskAwareHandler},
-    AgentId, AgentCard,
+    AgentCard, AgentId,
 };
 use std::net::SocketAddr;
 use url::Url;
@@ -45,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Endpoint: POST http://localhost:3000/rpc");
     println!();
     println!("Example request:");
-    println!(r#"  curl -X POST http://localhost:3000/rpc \
+    println!(
+        r#"  curl -X POST http://localhost:3000/rpc \
     -H "Content-Type: application/json" \
     -d '{{
       "jsonrpc": "2.0",
@@ -59,11 +60,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "immediate": true
       }}
     }}'
-"#);
+"#
+    );
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, router).await?;
 
     Ok(())
 }
-

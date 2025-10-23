@@ -1,7 +1,9 @@
 //! A2A client builder
 
 use crate::{
-    prelude::A2aClient, AgentId, transport::{Transport, TransportConfig, JsonRpcTransport},
+    prelude::A2aClient,
+    transport::{JsonRpcTransport, Transport, TransportConfig},
+    AgentId,
 };
 use std::sync::Arc;
 
@@ -90,9 +92,10 @@ impl ClientBuilder {
     /// Build the A2A client
     pub fn build(self) -> Result<A2aClient, crate::A2aError> {
         let transport: Arc<dyn Transport> = match self.transport_type {
-            TransportType::JsonRpc { endpoint } => {
-                Arc::new(JsonRpcTransport::with_config(endpoint, self.transport_config)?)
-            }
+            TransportType::JsonRpc { endpoint } => Arc::new(JsonRpcTransport::with_config(
+                endpoint,
+                self.transport_config,
+            )?),
             TransportType::Custom(transport) => transport,
         };
 
@@ -120,9 +123,7 @@ mod tests {
 
     #[test]
     fn test_client_builder_with_agent_id() {
-        let builder = ClientBuilder::new()
-            .with_agent_id("test-agent")
-            .unwrap();
+        let builder = ClientBuilder::new().with_agent_id("test-agent").unwrap();
 
         assert!(builder.agent_id.is_some());
     }

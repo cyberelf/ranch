@@ -1,11 +1,10 @@
 //! Transport layer traits and common types
 
-use async_trait::async_trait;
-use crate::{Message, SendResponse, AgentCard, A2aResult};
 use super::json_rpc::{
-    JsonRpcRequest, JsonRpcResponse, JsonRpcBatchRequest, 
-    JsonRpcBatchResponse, JsonRpcNotification
+    JsonRpcBatchRequest, JsonRpcBatchResponse, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse,
 };
+use crate::{A2aResult, AgentCard, Message, SendResponse};
+use async_trait::async_trait;
 
 /// Configuration for transport layer
 #[derive(Debug, Clone)]
@@ -66,15 +65,14 @@ pub trait Transport: Send + Sync + std::fmt::Debug {
         requests: JsonRpcBatchRequest,
     ) -> A2aResult<JsonRpcBatchResponse> {
         // Serialize the batch to JSON
-        let batch_json = serde_json::to_value(&requests)
-            .map_err(|e| crate::A2aError::Json(e))?;
+        let batch_json = serde_json::to_value(&requests).map_err(|e| crate::A2aError::Json(e))?;
 
         // Send the batch request
         let response_json = self.send_raw_rpc_request(batch_json).await?;
 
         // Deserialize the batch response
-        let responses: JsonRpcBatchResponse = serde_json::from_value(response_json)
-            .map_err(|e| crate::A2aError::Json(e))?;
+        let responses: JsonRpcBatchResponse =
+            serde_json::from_value(response_json).map_err(|e| crate::A2aError::Json(e))?;
 
         Ok(responses)
     }
@@ -93,15 +91,14 @@ pub trait TransportExt: Transport {
         R: serde::de::DeserializeOwned,
     {
         // Serialize the request to JSON
-        let request_json = serde_json::to_value(&request)
-            .map_err(|e| crate::A2aError::Json(e))?;
+        let request_json = serde_json::to_value(&request).map_err(|e| crate::A2aError::Json(e))?;
 
         // Send the raw request
         let response_json = self.send_raw_rpc_request(request_json).await?;
 
         // Deserialize the response
-        let response: JsonRpcResponse<R> = serde_json::from_value(response_json)
-            .map_err(|e| crate::A2aError::Json(e))?;
+        let response: JsonRpcResponse<R> =
+            serde_json::from_value(response_json).map_err(|e| crate::A2aError::Json(e))?;
 
         Ok(response)
     }
@@ -192,11 +189,7 @@ pub trait TransportExt: Transport {
     }
 
     /// Send a JSON-RPC notification (request without expecting a response)
-    async fn send_notification<T>(
-        &self,
-        method: &str,
-        params: T,
-    ) -> A2aResult<()>
+    async fn send_notification<T>(&self, method: &str, params: T) -> A2aResult<()>
     where
         T: serde::Serialize + Send + Sync,
     {
@@ -206,8 +199,8 @@ pub trait TransportExt: Transport {
             params: Some(params),
         };
 
-        let notification_json = serde_json::to_value(&notification)
-            .map_err(|e| crate::A2aError::Json(e))?;
+        let notification_json =
+            serde_json::to_value(&notification).map_err(|e| crate::A2aError::Json(e))?;
 
         // Send as a raw request but don't expect a response
         // The server should not send a response for notifications
@@ -219,7 +212,6 @@ pub trait TransportExt: Transport {
 
 // Blanket implementation: all Transport implementors automatically get TransportExt
 impl<T: Transport + ?Sized> TransportExt for T {}
-
 
 /// Request information for transport implementations
 #[derive(Debug, Clone)]

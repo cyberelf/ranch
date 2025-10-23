@@ -153,6 +153,77 @@ Example JSON-RPC request:
 }
 ```
 
+## What's New in v0.5.0
+
+### Enhanced AgentCard Metadata
+
+AgentCard now supports optional fields for richer agent discovery:
+
+```rust
+use a2a_protocol::core::{AgentCard, AgentProvider};
+use url::Url;
+
+let card = AgentCard::builder("my-agent", "1.0.0")
+    .with_description("An advanced AI assistant")
+    .with_provider(AgentProvider {
+        name: "ACME Corp".to_string(),
+        url: Some(Url::parse("https://acme.com").unwrap()),
+    })
+    .with_icon_url(Url::parse("https://acme.com/icon.png").unwrap())
+    .with_documentation_url(Url::parse("https://docs.acme.com").unwrap())
+    .add_signature(/* AgentCardSignature */)
+    .build();
+```
+
+**New fields:**
+- `provider`: Information about the agent provider (name, URL)
+- `iconUrl`: URL to the agent's icon/avatar
+- `documentationUrl`: URL to agent documentation
+- `signatures`: Cryptographic signatures for verification
+
+### A2A-Specific Error Codes
+
+The protocol now implements A2A-specific JSON-RPC error codes with structured data:
+
+| Code | Error | Description | Data Fields |
+|------|-------|-------------|-------------|
+| `-32001` | TaskNotFound | Task ID does not exist | `taskId` |
+| `-32002` | TaskNotCancelable | Task cannot be cancelled | `taskId`, `state` |
+| `-32003` | PushNotificationNotSupported | Server doesn't support push notifications | - |
+| `-32004` | UnsupportedOperation | Operation not supported | - |
+| `-32005` | ContentTypeNotSupported | Content type not accepted | `contentType` |
+| `-32006` | InvalidAgentResponse | Agent returned invalid response | - |
+| `-32007` | AuthenticatedExtendedCardNotConfigured | Auth required but not configured | - |
+
+**Example error response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32001,
+    "message": "Task not found: task_abc123",
+    "data": {
+      "taskId": "task_abc123"
+    }
+  }
+}
+```
+
+**Client error handling:**
+```rust
+match client.get_task("task_abc123").await {
+    Err(A2aError::TaskNotFound { task_id }) => {
+        println!("Task {} not found", task_id);
+    }
+    Err(A2aError::TaskNotCancelable { task_id, state }) => {
+        println!("Cannot cancel task {} in state {:?}", task_id, state);
+    }
+    Ok(task) => { /* handle task */ }
+    Err(e) => { /* other errors */ }
+}
+```
+
 ## Architecture
 
 ### Core Components

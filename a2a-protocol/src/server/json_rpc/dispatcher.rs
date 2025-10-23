@@ -1,18 +1,15 @@
 //! Framework-agnostic JSON-RPC 2.0 dispatcher for A2A
 
 use crate::{
-    A2aError, A2aResult,
-    SendResponse, AgentCard, Task, TaskStatus,
-    MessageSendRequest, TaskGetRequest, TaskCancelRequest, TaskStatusRequest, AgentCardGetRequest,
-    transport::json_rpc::{
-        JsonRpcRequest, JsonRpcResponse, JsonRpcError,
-        JsonRpcBatchRequest, JsonRpcBatchResponse,
-        is_batch_request, is_notification, map_error_to_rpc,
-    },
     server::A2aHandler,
+    transport::json_rpc::{
+        is_batch_request, is_notification, map_error_to_rpc,
+        JsonRpcResponse,
+    },
+    A2aError, A2aResult, AgentCardGetRequest, MessageSendRequest,
+    TaskCancelRequest, TaskGetRequest, TaskStatusRequest,
 };
 use serde_json::Value;
-use async_trait::async_trait;
 
 /// Dispatch a JSON-RPC request body (single or batch) to the provided handler.
 /// Returns a JSON body Vec<u8>. For notifications, returns an empty body.
@@ -30,7 +27,8 @@ pub async fn dispatch_bytes(handler: &dyn A2aHandler, body: &[u8]) -> A2aResult<
             } else {
                 match handle_single(handler, item).await {
                     Ok(resp) => responses.push(resp),
-                    Err(err) => responses.push(serde_json::to_value(error_response(Value::Null, err)).unwrap()),
+                    Err(err) => responses
+                        .push(serde_json::to_value(error_response(Value::Null, err)).unwrap()),
                 }
             }
         }
@@ -56,7 +54,8 @@ async fn handle_single(handler: &dyn A2aHandler, req: Value) -> A2aResult<Value>
     // Route by method name
     let result_value = match method {
         "message/send" => {
-            let typed: MessageSendRequest = serde_json::from_value(params).map_err(A2aError::Json)?;
+            let typed: MessageSendRequest =
+                serde_json::from_value(params).map_err(A2aError::Json)?;
             let resp = handler.rpc_message_send(typed).await?;
             serde_json::to_value(resp).map_err(A2aError::Json)?
         }
@@ -66,21 +65,29 @@ async fn handle_single(handler: &dyn A2aHandler, req: Value) -> A2aResult<Value>
             serde_json::to_value(task).map_err(A2aError::Json)?
         }
         "task/status" => {
-            let typed: TaskStatusRequest = serde_json::from_value(params).map_err(A2aError::Json)?;
+            let typed: TaskStatusRequest =
+                serde_json::from_value(params).map_err(A2aError::Json)?;
             let status = handler.rpc_task_status(typed).await?;
             serde_json::to_value(status).map_err(A2aError::Json)?
         }
         "task/cancel" => {
-            let typed: TaskCancelRequest = serde_json::from_value(params).map_err(A2aError::Json)?;
+            let typed: TaskCancelRequest =
+                serde_json::from_value(params).map_err(A2aError::Json)?;
             let status = handler.rpc_task_cancel(typed).await?;
             serde_json::to_value(status).map_err(A2aError::Json)?
         }
         "agent/card" => {
-            let typed: AgentCardGetRequest = serde_json::from_value(params).map_err(A2aError::Json)?;
+            let typed: AgentCardGetRequest =
+                serde_json::from_value(params).map_err(A2aError::Json)?;
             let card = handler.rpc_agent_card(typed).await?;
             serde_json::to_value(card).map_err(A2aError::Json)?
         }
-        _ => return Err(A2aError::ProtocolViolation(format!("Unknown method: {}", method))),
+        _ => {
+            return Err(A2aError::ProtocolViolation(format!(
+                "Unknown method: {}",
+                method
+            )))
+        }
     };
 
     Ok(serde_json::to_value(success_response(id, result_value)).map_err(A2aError::Json)?)
@@ -109,12 +116,16 @@ fn error_response(id: Value, error: A2aError) -> JsonRpcResponse<Value> {
 mod tests {
     use super::*;
     use crate::server::handler::BasicA2aHandler;
-    use crate::{AgentId, AgentCard};
+    use crate::{AgentCard, AgentId};
 
     #[tokio::test]
     async fn test_dispatch_single_message_send() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(agent_id, "Test Agent", url::Url::parse("https://example.com").unwrap());
+        let card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            url::Url::parse("https://example.com").unwrap(),
+        );
         let handler = BasicA2aHandler::new(card);
 
         let req = serde_json::json!({
@@ -135,7 +146,11 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_batch() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(agent_id, "Test Agent", url::Url::parse("https://example.com").unwrap());
+        let card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            url::Url::parse("https://example.com").unwrap(),
+        );
         let handler = BasicA2aHandler::new(card);
 
         let req = serde_json::json!([
@@ -152,7 +167,11 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_notification() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(agent_id, "Test Agent", url::Url::parse("https://example.com").unwrap());
+        let card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            url::Url::parse("https://example.com").unwrap(),
+        );
         let handler = BasicA2aHandler::new(card);
 
         let req = serde_json::json!({
@@ -164,5 +183,73 @@ mod tests {
         let bytes = serde_json::to_vec(&req).unwrap();
         let resp_bytes = dispatch_bytes(&handler, &bytes).await.unwrap();
         assert!(resp_bytes.is_empty()); // Notification returns no content
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_task_not_found_error() {
+        use crate::A2aError;
+
+        // Create a handler that returns TaskNotFound for rpc_task_get
+        struct ErrHandler {
+            agent_card: AgentCard,
+        }
+
+        #[async_trait::async_trait]
+        impl crate::server::A2aHandler for ErrHandler {
+            async fn handle_message(
+                &self,
+                _message: crate::Message,
+            ) -> crate::A2aResult<crate::SendResponse> {
+                Err(A2aError::Server("not implemented".to_string()))
+            }
+
+            async fn get_agent_card(&self) -> crate::A2aResult<AgentCard> {
+                Ok(self.agent_card.clone())
+            }
+
+            async fn health_check(&self) -> crate::A2aResult<crate::server::handler::HealthStatus> {
+                Ok(crate::server::handler::HealthStatus::healthy())
+            }
+
+            async fn rpc_task_get(
+                &self,
+                _request: crate::TaskGetRequest,
+            ) -> crate::A2aResult<crate::Task> {
+                Err(A2aError::TaskNotFound {
+                    task_id: "missing".to_string(),
+                })
+            }
+        }
+
+        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
+        let card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            url::Url::parse("https://example.com").unwrap(),
+        );
+        let handler = ErrHandler { agent_card: card };
+
+        let req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "task/get",
+            "params": { "taskId": "missing" }
+        });
+
+        let bytes = serde_json::to_vec(&req).unwrap();
+        match dispatch_bytes(&handler, &bytes).await {
+            Ok(resp_bytes) => {
+                let resp: serde_json::Value = serde_json::from_slice(&resp_bytes).unwrap();
+                assert_eq!(resp["jsonrpc"], "2.0");
+                assert!(resp["error"].is_object());
+                // A2A spec maps TaskNotFound to -32001
+                assert_eq!(resp["error"]["code"], serde_json::json!(-32001));
+            }
+            Err(err) => {
+                // Dispatcher returns Err for single-request failures; convert to a JSON-RPC error for assertion
+                let rpc = error_response(serde_json::json!(42), err);
+                assert_eq!(rpc.error.unwrap().code, -32001);
+            }
+        }
     }
 }

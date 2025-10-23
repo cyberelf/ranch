@@ -1,7 +1,7 @@
 //! A2A protocol error types
 
+use crate::{core::task::TaskState, AgentId};
 use thiserror::Error;
-use crate::AgentId;
 
 /// Result type for A2A operations
 pub type A2aResult<T> = Result<T, A2aError>;
@@ -36,6 +36,34 @@ pub enum A2aError {
     /// Invalid agent ID
     #[error("Invalid agent ID: {0}")]
     InvalidAgentId(String),
+
+    /// Task not found
+    #[error("Task not found: {task_id}")]
+    TaskNotFound { task_id: String },
+
+    /// Task cannot be cancelled from its current state
+    #[error("Task {task_id} is not cancelable from state {state:?}")]
+    TaskNotCancelable { task_id: String, state: TaskState },
+
+    /// Push notification configuration is not supported
+    #[error("Push notifications are not supported by this agent")]
+    PushNotificationNotSupported,
+
+    /// Requested operation is not supported by the implementation
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
+
+    /// Requested content type is not supported
+    #[error("Content type not supported: {content_type}")]
+    ContentTypeNotSupported { content_type: String },
+
+    /// Agent response failed validation
+    #[error("Invalid agent response: {0}")]
+    InvalidAgentResponse(String),
+
+    /// Authenticated extended card endpoint is not configured
+    #[error("Authenticated extended agent card is not configured")]
+    AuthenticatedExtendedCardNotConfigured,
 
     /// Timeout
     #[error("Operation timed out")]
@@ -75,6 +103,7 @@ impl A2aError {
                 | A2aError::Timeout
                 | A2aError::RateLimited(_)
                 | A2aError::Server(_)
+                | A2aError::InvalidAgentResponse(_)
         )
     }
 
@@ -83,10 +112,16 @@ impl A2aError {
         match self {
             A2aError::Network(err) => err.status().map(|s| s.as_u16()),
             A2aError::Authentication(_) => Some(401),
-            A2aError::AgentNotFound(_) => Some(404),
+            A2aError::AgentNotFound(_) | A2aError::TaskNotFound { .. } => Some(404),
             A2aError::RateLimited(_) => Some(429),
             A2aError::Validation(_) => Some(400),
             A2aError::ProtocolViolation(_) => Some(422),
+            A2aError::TaskNotCancelable { .. } => Some(409),
+            A2aError::PushNotificationNotSupported => Some(501),
+            A2aError::UnsupportedOperation(_) => Some(501),
+            A2aError::ContentTypeNotSupported { .. } => Some(415),
+            A2aError::InvalidAgentResponse(_) => Some(502),
+            A2aError::AuthenticatedExtendedCardNotConfigured => Some(501),
             _ => None,
         }
     }

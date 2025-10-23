@@ -1,11 +1,11 @@
 //! JSON-RPC transport implementation
 
-use async_trait::async_trait;
-use crate::{
-    Message, SendResponse, AgentCard, A2aResult, A2aError,
-    transport::{Transport, TransportConfig, RequestInfo},
-};
 use crate::transport::http::HttpClient;
+use crate::{
+    transport::{RequestInfo, Transport, TransportConfig},
+    A2aError, A2aResult, AgentCard, Message, SendResponse,
+};
+use async_trait::async_trait;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -41,31 +41,33 @@ impl JsonRpcTransport {
     async fn send_json_rpc_request(&self, method: &str, params: Value) -> A2aResult<Value> {
         let request = Self::create_request(method, params);
 
-        let response = self.http_client.send_request_with_retry(
-            RequestInfo::new("")
-                .with_method("POST")
-                .with_header("Content-Type", "application/json"),
-            Some(request),
-        ).await?;
+        let response = self
+            .http_client
+            .send_request_with_retry(
+                RequestInfo::new("")
+                    .with_method("POST")
+                    .with_header("Content-Type", "application/json"),
+                Some(request),
+            )
+            .await?;
 
-        let response_data: Value = response.json().await
-            .map_err(|e| A2aError::Network(e))?;
+        let response_data: Value = response.json().await.map_err(|e| A2aError::Network(e))?;
 
         // Parse JSON-RPC response
         if let Some(error) = response_data.get("error") {
             return Err(Self::parse_json_rpc_error(error));
         }
 
-        response_data
-            .get("result")
-            .cloned()
-            .ok_or_else(|| A2aError::ProtocolViolation("Missing result in JSON-RPC response".to_string()))
+        response_data.get("result").cloned().ok_or_else(|| {
+            A2aError::ProtocolViolation("Missing result in JSON-RPC response".to_string())
+        })
     }
 
     /// Parse JSON-RPC error
     fn parse_json_rpc_error(error: &Value) -> A2aError {
         if let Some(code) = error.get("code").and_then(|c| c.as_i64()) {
-            let message = error.get("message")
+            let message = error
+                .get("message")
                 .and_then(|m| m.as_str())
                 .unwrap_or("Unknown JSON-RPC error");
 
@@ -93,8 +95,7 @@ impl Transport for JsonRpcTransport {
         // A2A spec-compliant method name: "message/send"
         let result = self.send_json_rpc_request("message/send", params).await?;
 
-        serde_json::from_value(result)
-            .map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
     }
 
     async fn get_agent_card(&self, agent_id: &crate::AgentId) -> A2aResult<AgentCard> {
@@ -105,8 +106,7 @@ impl Transport for JsonRpcTransport {
         // A2A spec-compliant method name: "agent/card"
         let result = self.send_json_rpc_request("agent/card", params).await?;
 
-        serde_json::from_value(result)
-            .map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
     }
 
     async fn is_available(&self) -> bool {
@@ -130,15 +130,18 @@ impl Transport for JsonRpcTransport {
         request: serde_json::Value,
     ) -> A2aResult<serde_json::Value> {
         // Send the raw JSON-RPC request
-        let response = self.http_client.send_request_with_retry(
-            RequestInfo::new("")
-                .with_method("POST")
-                .with_header("Content-Type", "application/json"),
-            Some(request),
-        ).await?;
+        let response = self
+            .http_client
+            .send_request_with_retry(
+                RequestInfo::new("")
+                    .with_method("POST")
+                    .with_header("Content-Type", "application/json"),
+                Some(request),
+            )
+            .await?;
 
-        let rpc_response: serde_json::Value = response.json().await
-            .map_err(|e| A2aError::Network(e))?;
+        let rpc_response: serde_json::Value =
+            response.json().await.map_err(|e| A2aError::Network(e))?;
 
         Ok(rpc_response)
     }

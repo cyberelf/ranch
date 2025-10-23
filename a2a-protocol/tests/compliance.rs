@@ -4,7 +4,10 @@
 //! It tests all aspects of the protocol including message formatting, error handling,
 //! authentication, and transport compliance.
 
-use a2a_protocol::prelude::*;
+use a2a_protocol::{
+    core::agent_card::{AgentCardSignature, AgentProvider, TransportInterface, TransportType},
+    prelude::*,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use url::Url;
@@ -106,9 +109,78 @@ mod compliance_tests {
 
             // Test new A2A v0.3.0 fields
             assert!(!card.protocol_version.is_empty());
-            assert!(!card.preferred_transport.is_empty());
             assert_eq!(card.protocol_version, "0.3.0");
-            assert_eq!(card.preferred_transport, "json-rpc");
+            assert_eq!(card.preferred_transport, TransportType::JsonRpc);
+            assert!(card.default_input_modes.is_empty());
+            assert!(card.default_output_modes.is_empty());
+            assert!(card.provider.is_none());
+            assert!(card.icon_url.is_none());
+            assert!(card.documentation_url.is_none());
+            assert!(card.signatures.is_empty());
+            assert!(!card.supports_authenticated_extended_card);
+        }
+
+        #[test]
+        fn test_agent_card_serialization_with_transports() {
+            let agent_id = AgentId::new("test-agent".to_owned()).unwrap();
+            let url = Url::parse("https://example.com").unwrap();
+            let http_url = Url::parse("https://example.com/http").unwrap();
+            let icon_url = Url::parse("https://example.com/icon.png").unwrap();
+            let docs_url = Url::parse("https://example.com/docs").unwrap();
+            let provider_url = Url::parse("https://provider.example.com").unwrap();
+
+            let card = AgentCard::new(agent_id, "Test Agent", url)
+                .with_preferred_transport(TransportType::Grpc)
+                .with_default_input_modes(["application/json"])
+                .with_default_output_modes(["application/json"])
+                .with_supports_authenticated_extended_card(true)
+                .with_icon_url(Some(icon_url.clone()))
+                .with_documentation_url(Some(docs_url.clone()))
+                .with_provider(AgentProvider {
+                    name: "Example Provider".to_string(),
+                    description: Some("Example Org".to_string()),
+                    url: Some(provider_url.clone()),
+                    contact_email: None,
+                    contact_url: None,
+                    extra: HashMap::new(),
+                })
+                .with_signatures([AgentCardSignature {
+                    algorithm: "Ed25519".to_string(),
+                    signature: "deadbeef".to_string(),
+                    key_id: Some("key-1".to_string()),
+                    certificate_chain: vec!["cert-1".to_string()],
+                    extra: HashMap::new(),
+                }])
+                .add_transport_interface(TransportInterface::new(
+                    TransportType::HttpJson,
+                    http_url.clone(),
+                ));
+
+            let serialized = serde_json::to_value(&card).unwrap();
+
+            assert_eq!(serialized["preferredTransport"], "GRPC");
+            assert_eq!(serialized["defaultInputModes"], json!(["application/json"]));
+            assert_eq!(
+                serialized["defaultOutputModes"],
+                json!(["application/json"])
+            );
+            assert_eq!(serialized["supportsAuthenticatedExtendedCard"], true);
+            assert_eq!(serialized["iconUrl"], icon_url.as_str());
+            assert_eq!(serialized["documentationUrl"], docs_url.as_str());
+
+            let provider = serialized["provider"].as_object().unwrap();
+            assert_eq!(provider["name"], "Example Provider");
+            assert_eq!(provider["url"], provider_url.as_str());
+
+            let signatures = serialized["signatures"].as_array().unwrap();
+            assert_eq!(signatures.len(), 1);
+            assert_eq!(signatures[0]["signature"], "deadbeef");
+            assert_eq!(signatures[0]["algorithm"], "Ed25519");
+
+            let interfaces = serialized["additionalInterfaces"].as_array().unwrap();
+            assert_eq!(interfaces.len(), 1);
+            assert_eq!(interfaces[0]["type"], "HTTP+JSON");
+            assert_eq!(interfaces[0]["url"], http_url.as_str());
         }
     }
 
@@ -131,7 +203,10 @@ mod compliance_tests {
                 (A2aError::Authentication("test".to_string()), 401),
                 (A2aError::Validation("test".to_string()), 400),
                 (A2aError::ProtocolViolation("test".to_string()), 422),
-                (A2aError::RateLimited(std::time::Duration::from_secs(60)), 429),
+                (
+                    A2aError::RateLimited(std::time::Duration::from_secs(60)),
+                    429,
+                ),
             ];
 
             for (error, expected_code) in test_cases {
@@ -148,7 +223,11 @@ mod compliance_tests {
             ];
 
             for error in retryable_errors {
-                assert!(error.is_retryable(), "Error should be retryable: {:?}", error);
+                assert!(
+                    error.is_retryable(),
+                    "Error should be retryable: {:?}",
+                    error
+                );
             }
 
             let non_retryable_errors = vec![
@@ -158,7 +237,11 @@ mod compliance_tests {
             ];
 
             for error in non_retryable_errors {
-                assert!(!error.is_retryable(), "Error should not be retryable: {:?}", error);
+                assert!(
+                    !error.is_retryable(),
+                    "Error should not be retryable: {:?}",
+                    error
+                );
             }
         }
     }
@@ -169,7 +252,8 @@ mod compliance_tests {
 
         #[test]
         fn test_json_rpc_transport_compliance() {
-            let transport = a2a_protocol::transport::JsonRpcTransport::new("https://example.com/rpc").unwrap();
+            let transport =
+                a2a_protocol::transport::JsonRpcTransport::new("https://example.com/rpc").unwrap();
 
             assert_eq!(transport.transport_type(), "json-rpc");
 
@@ -201,7 +285,7 @@ mod compliance_tests {
             let invalid_ids = vec![
                 "",
                 "   ",
-                "ht tp://bad-url",  // Invalid URL format
+                "ht tp://bad-url", // Invalid URL format
             ];
 
             for id in invalid_ids {
@@ -260,7 +344,7 @@ mod compliance_tests {
         #[test]
         fn test_message_round_trip() {
             // Test that messages can be serialized and deserialized without loss
-            let original_message = Message::user_text( "Test message");
+            let original_message = Message::user_text("Test message");
 
             let serialized = serde_json::to_string(&original_message).unwrap();
             let deserialized: Message = serde_json::from_str(&serialized).unwrap();
@@ -278,7 +362,7 @@ mod compliance_tests {
 
         #[test]
         fn test_message_serialization_performance() {
-            let message = Message::user_text( "Test message content");
+            let message = Message::user_text("Test message content");
 
             let start = Instant::now();
             for _ in 0..1000 {
@@ -287,9 +371,11 @@ mod compliance_tests {
             let duration = start.elapsed();
 
             // Should serialize 1000 messages in less than 100ms
-            assert!(duration.as_millis() < 100,
+            assert!(
+                duration.as_millis() < 100,
                 "Message serialization too slow: {}ms for 1000 messages",
-                duration.as_millis());
+                duration.as_millis()
+            );
         }
 
         #[test]
@@ -301,9 +387,11 @@ mod compliance_tests {
             let duration = start.elapsed();
 
             // Should generate 1000 agent IDs in less than 50ms
-            assert!(duration.as_millis() < 50,
+            assert!(
+                duration.as_millis() < 50,
                 "Agent ID generation too slow: {}ms for 1000 IDs",
-                duration.as_millis());
+                duration.as_millis()
+            );
         }
     }
 }
@@ -368,4 +456,3 @@ impl ComplianceReport {
         )
     }
 }
-

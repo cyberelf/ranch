@@ -46,31 +46,48 @@
 //! }
 //! ```
 
-pub mod core;
-pub mod transport;
-pub mod client;
-pub mod server;
 pub mod auth;
+pub mod client;
+pub mod core;
+pub mod server;
+pub mod transport;
 
 // Re-export commonly used types
 pub mod prelude {
-    pub use crate::core::{
-        Message, MessageRole, Part, TextPart, FilePart, DataPart,
-        Task, TaskState, TaskStatus, SendResponse,
-        AgentCard, A2aError, A2aResult,
-        agent_id::AgentId, message_id::MessageId,
-        // A2A request types
-        MessageSendRequest, TaskGetRequest, TaskCancelRequest, TaskStatusRequest,
-        AgentCardGetRequest,
-    };
-    pub use crate::client::A2aClient;
-    pub use crate::transport::{
-        Transport, TransportExt,
-        // JSON-RPC 2.0 protocol types
-        JsonRpcRequest, JsonRpcResponse, JsonRpcError,
-    };
     pub use crate::auth::Authenticator;
-    
+    pub use crate::client::A2aClient;
+    pub use crate::core::{
+        agent_id::AgentId,
+        message_id::MessageId,
+        A2aError,
+        A2aResult,
+        AgentCard,
+        AgentCardGetRequest,
+        DataPart,
+        FilePart,
+        Message,
+        MessageRole,
+        // A2A request types
+        MessageSendRequest,
+        Part,
+        SendResponse,
+        Task,
+        TaskCancelRequest,
+        TaskGetRequest,
+        TaskState,
+        TaskStatus,
+        TaskStatusRequest,
+        TextPart,
+    };
+    pub use crate::transport::{
+        JsonRpcError,
+        // JSON-RPC 2.0 protocol types
+        JsonRpcRequest,
+        JsonRpcResponse,
+        Transport,
+        TransportExt,
+    };
+
     // Backwards compatibility
     #[allow(deprecated)]
     pub use crate::core::MessageResponse;

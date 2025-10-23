@@ -1,9 +1,9 @@
 //! Task storage and management
 
+use crate::{A2aError, A2aResult, Task, TaskState, TaskStatus};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::{Task, TaskState, TaskStatus, A2aResult, A2aError};
 
 /// In-memory task storage
 #[derive(Debug, Clone)]
@@ -33,19 +33,21 @@ impl TaskStore {
             .await
             .get(task_id)
             .cloned()
-            .ok_or_else(|| A2aError::Server(format!("Task not found: {}", task_id)))
+            .ok_or_else(|| A2aError::TaskNotFound {
+                task_id: task_id.to_string(),
+            })
     }
 
     /// Update a task
     pub async fn update(&self, task: Task) -> A2aResult<()> {
         let task_id = task.id.clone();
         let mut tasks = self.tasks.write().await;
-        
+
         if tasks.contains_key(&task_id) {
             tasks.insert(task_id, task);
             Ok(())
         } else {
-            Err(A2aError::Server(format!("Task not found: {}", task_id)))
+            Err(A2aError::TaskNotFound { task_id })
         }
     }
 
@@ -58,24 +60,26 @@ impl TaskStore {
     /// Update task state
     pub async fn update_state(&self, task_id: &str, new_state: TaskState) -> A2aResult<TaskStatus> {
         let mut tasks = self.tasks.write().await;
-        
+
         let task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| A2aError::Server(format!("Task not found: {}", task_id)))?;
+            .ok_or_else(|| A2aError::TaskNotFound {
+                task_id: task_id.to_string(),
+            })?;
 
         // Validate state transition
         self.validate_state_transition(&task.status.state, &new_state)?;
 
         // Create new status
         let new_status = TaskStatus::new(new_state.clone());
-        
+
         // Add current status to history
         if task.history.is_none() {
             task.history = Some(vec![task.status.clone()]);
         } else {
             task.history.as_mut().unwrap().push(task.status.clone());
         }
-        
+
         // Update to new status
         task.status = new_status.clone();
 
@@ -85,18 +89,20 @@ impl TaskStore {
     /// Cancel a task
     pub async fn cancel(&self, task_id: &str, reason: Option<String>) -> A2aResult<TaskStatus> {
         let mut tasks = self.tasks.write().await;
-        
+
         let task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| A2aError::Server(format!("Task not found: {}", task_id)))?;
+            .ok_or_else(|| A2aError::TaskNotFound {
+                task_id: task_id.to_string(),
+            })?;
 
         // Check if task can be cancelled
         match task.status.state {
             TaskState::Completed | TaskState::Cancelled | TaskState::Failed => {
-                return Err(A2aError::Server(format!(
-                    "Cannot cancel task in state: {:?}",
-                    task.status.state
-                )));
+                return Err(A2aError::TaskNotCancelable {
+                    task_id: task_id.to_string(),
+                    state: task.status.state.clone(),
+                });
             }
             _ => {}
         }
@@ -107,14 +113,14 @@ impl TaskStore {
         } else {
             TaskStatus::new(TaskState::Cancelled)
         };
-        
+
         // Add current status to history
         if task.history.is_none() {
             task.history = Some(vec![task.status.clone()]);
         } else {
             task.history.as_mut().unwrap().push(task.status.clone());
         }
-        
+
         // Update to cancelled status
         task.status = new_status.clone();
 
@@ -143,7 +149,9 @@ impl TaskStore {
             .write()
             .await
             .remove(task_id)
-            .ok_or_else(|| A2aError::Server(format!("Task not found: {}", task_id)))
+            .ok_or_else(|| A2aError::TaskNotFound {
+                task_id: task_id.to_string(),
+            })
     }
 
     /// Get task count
@@ -160,35 +168,38 @@ impl TaskStore {
     fn validate_state_transition(&self, from: &TaskState, to: &TaskState) -> A2aResult<()> {
         // Define valid transitions
         let valid_transitions: HashMap<TaskState, Vec<TaskState>> = [
-            (TaskState::Pending, vec![
+            (
+                TaskState::Pending,
+                vec![TaskState::Working, TaskState::Cancelled, TaskState::Failed],
+            ),
+            (
                 TaskState::Working,
-                TaskState::Cancelled,
-                TaskState::Failed,
-            ]),
-            (TaskState::Working, vec![
+                vec![
+                    TaskState::Blocked,
+                    TaskState::Review,
+                    TaskState::Completed,
+                    TaskState::Failed,
+                    TaskState::Cancelled,
+                    TaskState::Suspended,
+                ],
+            ),
+            (
                 TaskState::Blocked,
+                vec![TaskState::Working, TaskState::Failed, TaskState::Cancelled],
+            ),
+            (
                 TaskState::Review,
-                TaskState::Completed,
-                TaskState::Failed,
-                TaskState::Cancelled,
+                vec![
+                    TaskState::Working,
+                    TaskState::Completed,
+                    TaskState::Failed,
+                    TaskState::Cancelled,
+                ],
+            ),
+            (
                 TaskState::Suspended,
-            ]),
-            (TaskState::Blocked, vec![
-                TaskState::Working,
-                TaskState::Failed,
-                TaskState::Cancelled,
-            ]),
-            (TaskState::Review, vec![
-                TaskState::Working,
-                TaskState::Completed,
-                TaskState::Failed,
-                TaskState::Cancelled,
-            ]),
-            (TaskState::Suspended, vec![
-                TaskState::Working,
-                TaskState::Cancelled,
-                TaskState::Failed,
-            ]),
+                vec![TaskState::Working, TaskState::Cancelled, TaskState::Failed],
+            ),
             // Terminal states (no transitions out)
             (TaskState::Completed, vec![]),
             (TaskState::Cancelled, vec![]),
@@ -201,7 +212,7 @@ impl TaskStore {
             if allowed_states.contains(to) || from == to {
                 Ok(())
             } else {
-                Err(A2aError::Validation(format!(
+                Err(A2aError::UnsupportedOperation(format!(
                     "Invalid state transition from {:?} to {:?}",
                     from, to
                 )))
@@ -239,7 +250,10 @@ mod tests {
     async fn test_get_nonexistent_task() {
         let store = TaskStore::new();
         let result = store.get("nonexistent").await;
-        assert!(result.is_err());
+        match result {
+            Err(A2aError::TaskNotFound { task_id }) => assert_eq!(task_id, "nonexistent"),
+            other => panic!("Expected TaskNotFound error, got {:?}", other),
+        }
     }
 
     #[tokio::test]
@@ -251,7 +265,10 @@ mod tests {
         store.store(task).await.unwrap();
 
         // Update state: Pending -> Working
-        let status = store.update_state(&task_id, TaskState::Working).await.unwrap();
+        let status = store
+            .update_state(&task_id, TaskState::Working)
+            .await
+            .unwrap();
         assert_eq!(status.state, TaskState::Working);
         assert!(store.get(&task_id).await.unwrap().history.is_some());
 
@@ -267,10 +284,16 @@ mod tests {
         let task_id = task.id.clone();
 
         store.store(task).await.unwrap();
-        store.update_state(&task_id, TaskState::Working).await.unwrap();
+        store
+            .update_state(&task_id, TaskState::Working)
+            .await
+            .unwrap();
 
         // Cancel task
-        let status = store.cancel(&task_id, Some("User requested".to_string())).await.unwrap();
+        let status = store
+            .cancel(&task_id, Some("User requested".to_string()))
+            .await
+            .unwrap();
         assert_eq!(status.state, TaskState::Cancelled);
         assert!(status.reason.is_some());
         assert_eq!(status.reason.as_ref().unwrap(), "User requested");
@@ -283,12 +306,24 @@ mod tests {
         let task_id = task.id.clone();
 
         store.store(task).await.unwrap();
-        store.update_state(&task_id, TaskState::Working).await.unwrap();
-        store.update_state(&task_id, TaskState::Completed).await.unwrap();
+        store
+            .update_state(&task_id, TaskState::Working)
+            .await
+            .unwrap();
+        store
+            .update_state(&task_id, TaskState::Completed)
+            .await
+            .unwrap();
 
         // Try to cancel completed task
         let result = store.cancel(&task_id, None).await;
-        assert!(result.is_err());
+        match result {
+            Err(A2aError::TaskNotCancelable { task_id: id, state }) => {
+                assert_eq!(id, task_id);
+                assert_eq!(state, TaskState::Completed);
+            }
+            other => panic!("Expected TaskNotCancelable error, got {:?}", other),
+        }
     }
 
     #[tokio::test]
@@ -307,7 +342,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_tasks_by_state() {
         let store = TaskStore::new();
-        
+
         let task1 = Task::new("Task 1");
         let task2 = Task::new("Task 2");
         let task3 = Task::new("Task 3");
@@ -316,8 +351,14 @@ mod tests {
         store.store(task2.clone()).await.unwrap();
         store.store(task3.clone()).await.unwrap();
 
-        store.update_state(&task2.id, TaskState::Working).await.unwrap();
-        store.update_state(&task3.id, TaskState::Working).await.unwrap();
+        store
+            .update_state(&task2.id, TaskState::Working)
+            .await
+            .unwrap();
+        store
+            .update_state(&task3.id, TaskState::Working)
+            .await
+            .unwrap();
 
         let pending_tasks = store.list_by_state(TaskState::Pending).await.unwrap();
         assert_eq!(pending_tasks.len(), 1);

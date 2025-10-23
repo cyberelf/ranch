@@ -46,7 +46,7 @@ pub enum Part {
 pub struct TextPart {
     /// The text content
     pub text: String,
-    
+
     /// Optional metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
@@ -60,7 +60,7 @@ impl TextPart {
             metadata: None,
         }
     }
-    
+
     /// Add metadata to this part
     pub fn with_metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
         self.metadata = Some(metadata);
@@ -74,7 +74,7 @@ pub struct FilePart {
     /// The file data
     #[serde(flatten)]
     pub file: File,
-    
+
     /// Optional metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
@@ -96,11 +96,11 @@ pub struct FileWithBytes {
     /// Optional file name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    
+
     /// MIME type of the file
     #[serde(rename = "mimeType")]
     pub mime_type: String,
-    
+
     /// Base64 encoded file data
     #[serde(rename = "data")]
     pub bytes: String,
@@ -112,11 +112,11 @@ pub struct FileWithUri {
     /// Optional file name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    
+
     /// MIME type of the file
     #[serde(rename = "mimeType")]
     pub mime_type: String,
-    
+
     /// URI to the file
     pub uri: String,
 }
@@ -126,7 +126,7 @@ pub struct FileWithUri {
 pub struct DataPart {
     /// The structured data
     pub data: serde_json::Value,
-    
+
     /// Optional metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
@@ -140,7 +140,7 @@ impl DataPart {
             metadata: None,
         }
     }
-    
+
     /// Add metadata to this part
     pub fn with_metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
         self.metadata = Some(metadata);
@@ -369,9 +369,7 @@ mod tests {
 
     #[test]
     fn test_all_text_concatenation() {
-        let msg = Message::user_text("Hello")
-            .add_text(" ")
-            .add_text("World!");
+        let msg = Message::user_text("Hello").add_text(" ").add_text("World!");
 
         assert_eq!(msg.all_text(), "Hello World!");
     }

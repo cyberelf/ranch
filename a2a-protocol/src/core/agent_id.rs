@@ -40,7 +40,9 @@ impl AgentId {
     /// Validate an AgentId string
     fn validate(id: &str) -> Result<(), crate::A2aError> {
         if id.trim().is_empty() {
-            return Err(crate::A2aError::InvalidAgentId("Empty agent ID".to_string()));
+            return Err(crate::A2aError::InvalidAgentId(
+                "Empty agent ID".to_string(),
+            ));
         }
 
         // If it looks like a URL, validate it

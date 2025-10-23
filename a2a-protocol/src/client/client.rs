@@ -1,8 +1,8 @@
 //! A2A client implementation
 
 use crate::{
-    Message, SendResponse, AgentCard, AgentId, A2aResult,
     transport::{Transport, TransportConfig},
+    A2aResult, AgentCard, AgentId, Message, SendResponse,
 };
 use std::sync::Arc;
 
@@ -72,7 +72,11 @@ impl A2aClient {
     }
 
     /// Send a message with retries for retryable errors
-    pub async fn send_message_with_retry(&self, message: Message, max_retries: u32) -> A2aResult<SendResponse> {
+    pub async fn send_message_with_retry(
+        &self,
+        message: Message,
+        max_retries: u32,
+    ) -> A2aResult<SendResponse> {
         let mut last_error = None;
         let mut retry_count = 0;
 
@@ -95,15 +99,18 @@ impl A2aClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            crate::A2aError::Internal("Unknown error occurred".to_string())
-        }))
+        Err(last_error
+            .unwrap_or_else(|| crate::A2aError::Internal("Unknown error occurred".to_string())))
     }
 
     /// Create a new conversation with an agent
     pub async fn start_conversation(&self, agent_id: &AgentId) -> A2aResult<Conversation> {
         let agent_card = self.get_agent_card(agent_id).await?;
-        Ok(Conversation::new(self.clone(), agent_id.clone(), agent_card))
+        Ok(Conversation::new(
+            self.clone(),
+            agent_id.clone(),
+            agent_card,
+        ))
     }
 }
 
@@ -195,8 +202,11 @@ mod tests {
         let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
         let client = A2aClient::new(transport);
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let _agent_card = AgentCard::new(agent_id.clone(), "Test Agent",
-            url::Url::parse("https://example.com").unwrap());
+        let _agent_card = AgentCard::new(
+            agent_id.clone(),
+            "Test Agent",
+            url::Url::parse("https://example.com").unwrap(),
+        );
 
         let conversation = client.start_conversation(&agent_id).await.unwrap();
 

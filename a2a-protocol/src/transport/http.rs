@@ -1,5 +1,5 @@
 //! Internal HTTP client implementation
-//! 
+//!
 //! This module provides low-level HTTP communication functionality used by
 //! transport implementations (e.g., JsonRpcTransport). It is not a public
 //! A2A transport itself.
@@ -8,17 +8,17 @@
 //! use `JsonRpcTransport` (JSON-RPC 2.0 over HTTP).
 
 use crate::{
-    A2aResult, A2aError,
-    transport::{TransportConfig, RequestInfo},
+    transport::{RequestInfo, TransportConfig},
+    A2aError, A2aResult,
 };
 use reqwest::{Client, StatusCode};
 use std::time::Duration;
 
 /// Internal HTTP client for transport implementations
-/// 
+///
 /// This is not a public A2A transport. It provides HTTP communication
 /// primitives used by other transports like `JsonRpcTransport`.
-/// 
+///
 /// **For A2A communication, use `JsonRpcTransport` instead.**
 #[derive(Debug)]
 pub(crate) struct HttpClient {
@@ -34,7 +34,10 @@ impl HttpClient {
     }
 
     /// Create a new HTTP client with custom configuration
-    pub(crate) fn with_config<S: Into<String>>(base_url: S, config: TransportConfig) -> A2aResult<Self> {
+    pub(crate) fn with_config<S: Into<String>>(
+        base_url: S,
+        config: TransportConfig,
+    ) -> A2aResult<Self> {
         let base_url = base_url.into();
 
         // Ensure base_url ends with a slash
@@ -71,7 +74,9 @@ impl HttpClient {
         let mut retry_count = 0;
 
         while retry_count <= self.config.max_retries {
-            let result = self.send_single_request(&request_info, payload.clone()).await;
+            let result = self
+                .send_single_request(&request_info, payload.clone())
+                .await;
 
             match result {
                 Ok(response) => {
@@ -112,9 +117,7 @@ impl HttpClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            A2aError::Internal("Unknown error occurred".to_string())
-        }))
+        Err(last_error.unwrap_or_else(|| A2aError::Internal("Unknown error occurred".to_string())))
     }
 
     /// Send a single HTTP request
@@ -124,10 +127,7 @@ impl HttpClient {
         payload: Option<serde_json::Value>,
     ) -> A2aResult<reqwest::Response> {
         let url = format!("{}{}", self.base_url, request_info.endpoint);
-        let mut request = self.client.request(
-            reqwest::Method::POST,
-            &url,
-        );
+        let mut request = self.client.request(reqwest::Method::POST, &url);
 
         // Add headers
         for (key, value) in &request_info.headers {
@@ -149,7 +149,10 @@ impl HttpClient {
         // Handle HTTP errors
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
 
             return Err(match status {
                 StatusCode::UNAUTHORIZED => A2aError::Authentication(error_text),
@@ -198,7 +201,10 @@ mod tests {
             .with_timeout_ms(5000);
 
         assert_eq!(info.method, Some("POST".to_string()));
-        assert_eq!(info.headers.get("Authorization"), Some(&"Bearer token".to_string()));
+        assert_eq!(
+            info.headers.get("Authorization"),
+            Some(&"Bearer token".to_string())
+        );
         assert_eq!(info.timeout_ms, 5000);
     }
 }

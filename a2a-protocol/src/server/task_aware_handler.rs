@@ -1,12 +1,13 @@
 //! Task-aware A2A handler implementation
 
-use async_trait::async_trait;
 use crate::{
-    Message, SendResponse, AgentCard, A2aResult, A2aError,
-    MessageSendRequest, TaskGetRequest, TaskCancelRequest, 
-    TaskStatusRequest, AgentCardGetRequest, Task, TaskStatus, TaskState,
-    server::{A2aHandler, handler::{HealthStatus, HealthStatusType, StreamingResponse}, TaskStore},
+    server::{
+        handler::{HealthStatus, HealthStatusType},
+        A2aHandler, TaskStore,
+    }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, SendResponse,
+    Task, TaskCancelRequest, TaskGetRequest, TaskState, TaskStatus, TaskStatusRequest,
 };
+use async_trait::async_trait;
 
 /// Handler that supports full task lifecycle management
 #[derive(Clone)]
@@ -52,10 +53,10 @@ impl TaskAwareHandler {
         let content = message.text_content().unwrap_or("Processing message");
         let task = Task::new(format!("Processing: {}", content));
         let task_id = task.id.clone();
-        
+
         // Store the task
         self.task_store.store(task).await?;
-        
+
         // Simulate starting work
         self.task_store
             .update_state(&task_id, TaskState::Working)
@@ -93,10 +94,13 @@ impl A2aHandler for TaskAwareHandler {
 
     async fn health_check(&self) -> A2aResult<HealthStatus> {
         let task_count = self.task_store.count().await;
-        
+
         Ok(HealthStatus {
             status: HealthStatusType::Healthy,
-            message: Some(format!("Task-aware handler running with {} tasks", task_count)),
+            message: Some(format!(
+                "Task-aware handler running with {} tasks",
+                task_count
+            )),
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
             details: Some(serde_json::json!({
                 "handler": "TaskAwareHandler",
@@ -109,7 +113,7 @@ impl A2aHandler for TaskAwareHandler {
     async fn rpc_message_send(&self, request: MessageSendRequest) -> A2aResult<SendResponse> {
         // Honor the immediate flag if provided
         let use_immediate = request.immediate.unwrap_or(!self.async_by_default);
-        
+
         if use_immediate {
             let response = self.process_message_immediately(request.message).await?;
             Ok(SendResponse::message(response))
@@ -124,7 +128,9 @@ impl A2aHandler for TaskAwareHandler {
     }
 
     async fn rpc_task_cancel(&self, request: TaskCancelRequest) -> A2aResult<TaskStatus> {
-        self.task_store.cancel(&request.task_id, request.reason).await
+        self.task_store
+            .cancel(&request.task_id, request.reason)
+            .await
     }
 
     async fn rpc_task_status(&self, request: TaskStatusRequest) -> A2aResult<TaskStatus> {
@@ -139,7 +145,7 @@ impl A2aHandler for TaskAwareHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, MessageRole};
+    use crate::{A2aError, AgentId, MessageRole};
     use url::Url;
 
     fn create_test_handler() -> TaskAwareHandler {
@@ -158,7 +164,7 @@ mod tests {
         let message = Message::user_text("Test message");
 
         let response = handler.handle_message(message).await.unwrap();
-        
+
         assert!(response.is_task());
         let task = response.as_task().unwrap();
         assert_eq!(task.status.state, TaskState::Working);
@@ -173,10 +179,10 @@ mod tests {
             Url::parse("https://example.com").unwrap(),
         );
         let handler = TaskAwareHandler::with_immediate_responses(agent_card);
-        
+
         let message = Message::user_text("Test message");
         let response = handler.handle_message(message).await.unwrap();
-        
+
         assert!(response.is_message());
         let msg = response.as_message().unwrap();
         assert_eq!(msg.role, MessageRole::Agent);
@@ -207,7 +213,7 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_task_get() {
         let handler = create_test_handler();
-        
+
         // Create a task
         let message = Message::user_text("Test");
         let response = handler.handle_message(message).await.unwrap();
@@ -215,9 +221,11 @@ mod tests {
         let task_id = task.id.clone();
 
         // Retrieve task via RPC
-        let request = TaskGetRequest { task_id: task_id.clone() };
+        let request = TaskGetRequest {
+            task_id: task_id.clone(),
+        };
         let retrieved = handler.rpc_task_get(request).await.unwrap();
-        
+
         assert_eq!(retrieved.id, task_id);
         assert_eq!(retrieved.status.state, TaskState::Working);
     }
@@ -225,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_task_status() {
         let handler = create_test_handler();
-        
+
         // Create a task
         let message = Message::user_text("Test");
         let response = handler.handle_message(message).await.unwrap();
@@ -235,7 +243,7 @@ mod tests {
         // Get status via RPC
         let request = TaskStatusRequest { task_id };
         let status = handler.rpc_task_status(request).await.unwrap();
-        
+
         assert_eq!(status.state, TaskState::Working);
         let task = handler.task_store().get(&task.id).await.unwrap();
         assert!(task.history.is_some());
@@ -244,7 +252,7 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_task_cancel() {
         let handler = create_test_handler();
-        
+
         // Create a task
         let message = Message::user_text("Test");
         let response = handler.handle_message(message).await.unwrap();
@@ -257,7 +265,7 @@ mod tests {
             reason: Some("User requested".to_string()),
         };
         let status = handler.rpc_task_cancel(request).await.unwrap();
-        
+
         assert_eq!(status.state, TaskState::Cancelled);
         assert!(status.reason.is_some());
 
@@ -269,25 +277,36 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_task_get_not_found() {
         let handler = create_test_handler();
-        
+
         let request = TaskGetRequest {
             task_id: "nonexistent-task".to_string(),
         };
         let result = handler.rpc_task_get(request).await;
-        
-        assert!(result.is_err());
+
+        match result {
+            Err(A2aError::TaskNotFound { task_id }) => {
+                assert_eq!(task_id, "nonexistent-task")
+            }
+            other => panic!("Expected TaskNotFound error, got {:?}", other),
+        }
     }
 
     #[tokio::test]
     async fn test_health_check() {
         let handler = create_test_handler();
-        
+
         // Create some tasks
-        handler.handle_message(Message::user_text("Task 1")).await.unwrap();
-        handler.handle_message(Message::user_text("Task 2")).await.unwrap();
-        
+        handler
+            .handle_message(Message::user_text("Task 1"))
+            .await
+            .unwrap();
+        handler
+            .handle_message(Message::user_text("Task 2"))
+            .await
+            .unwrap();
+
         let health = handler.health_check().await.unwrap();
-        
+
         assert!(matches!(health.status, HealthStatusType::Healthy));
         assert!(health.message.unwrap().contains("2 tasks"));
     }
@@ -300,14 +319,14 @@ mod tests {
             "Test Agent",
             Url::parse("https://example.com").unwrap(),
         );
-        
+
         let mut handler = TaskAwareHandler::new(agent_card);
-        
+
         // Default: async (returns tasks)
         let msg = Message::user_text("Test");
         let response = handler.handle_message(msg.clone()).await.unwrap();
         assert!(response.is_task());
-        
+
         // Change to immediate
         handler.set_async_by_default(false);
         let response = handler.handle_message(msg).await.unwrap();

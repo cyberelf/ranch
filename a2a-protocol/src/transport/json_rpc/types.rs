@@ -1,5 +1,5 @@
 //! JSON-RPC 2.0 protocol types (spec-compliant)
-//! 
+//!
 //! These types implement the JSON-RPC 2.0 specification:
 //! https://www.jsonrpc.org/specification
 
@@ -10,23 +10,31 @@ use serde::{Deserialize, Serialize};
 pub const SERVER_ERROR: i32 = -32000;
 /// Server error: task not found
 pub const TASK_NOT_FOUND: i32 = -32001;
-/// Server error: task was cancelled
-pub const TASK_CANCELLED: i32 = -32002;
-/// Server error: agent not found
-pub const AGENT_NOT_FOUND: i32 = -32003;
+/// Server error: task not cancelable
+pub const TASK_NOT_CANCELABLE: i32 = -32002;
+/// Server error: push notifications not supported
+pub const PUSH_NOTIFICATION_NOT_SUPPORTED: i32 = -32003;
+/// Server error: unsupported operation
+pub const UNSUPPORTED_OPERATION: i32 = -32004;
+/// Server error: content type not supported
+pub const CONTENT_TYPE_NOT_SUPPORTED: i32 = -32005;
+/// Server error: invalid agent response
+pub const INVALID_AGENT_RESPONSE: i32 = -32006;
+/// Server error: authenticated extended card not configured
+pub const AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED: i32 = -32007;
 
 /// JSON-RPC 2.0 request wrapper
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonRpcRequest<T> {
     /// JSON-RPC version (always "2.0")
     pub jsonrpc: String,
-    
+
     /// Request ID (for matching responses)
     pub id: serde_json::Value,
-    
+
     /// Method name (e.g., "message/send", "task/get")
     pub method: String,
-    
+
     /// Method parameters
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<T>,
@@ -42,7 +50,7 @@ impl<T> JsonRpcRequest<T> {
             params: Some(params),
         }
     }
-    
+
     /// Create a notification (no response expected)
     pub fn notification<S: Into<String>>(method: S, params: T) -> Self {
         Self {
@@ -59,14 +67,14 @@ impl<T> JsonRpcRequest<T> {
 pub struct JsonRpcResponse<T> {
     /// JSON-RPC version (always "2.0")
     pub jsonrpc: String,
-    
+
     /// Request ID (matches request)
     pub id: serde_json::Value,
-    
+
     /// Result (if successful)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<T>,
-    
+
     /// Error (if failed)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
@@ -82,7 +90,7 @@ impl<T> JsonRpcResponse<T> {
             error: None,
         }
     }
-    
+
     /// Create an error response
     pub fn error(id: serde_json::Value, error: JsonRpcError) -> Self {
         Self {
@@ -99,10 +107,10 @@ impl<T> JsonRpcResponse<T> {
 pub struct JsonRpcError {
     /// Error code
     pub code: i32,
-    
+
     /// Error message
     pub message: String,
-    
+
     /// Optional error data
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
@@ -117,41 +125,44 @@ impl JsonRpcError {
             data: None,
         }
     }
-    
+
     /// Add error data
     pub fn with_data(mut self, data: serde_json::Value) -> Self {
         self.data = Some(data);
         self
     }
-    
+
     /// Parse error (-32700)
     pub fn parse_error() -> Self {
         Self::new(-32700, "Parse error".to_string())
     }
-    
+
     /// Invalid request (-32600)
     pub fn invalid_request() -> Self {
         Self::new(-32600, "Invalid request".to_string())
     }
-    
+
     /// Method not found (-32601)
     pub fn method_not_found() -> Self {
         Self::new(-32601, "Method not found".to_string())
     }
-    
+
     /// Invalid params (-32602)
     pub fn invalid_params() -> Self {
         Self::new(-32602, "Invalid params".to_string())
     }
-    
+
     /// Internal error (-32603)
     pub fn internal_error() -> Self {
         Self::new(-32603, "Internal error".to_string())
     }
-    
+
     /// Server error (-32000 to -32099)
     pub fn server_error<S: Into<String>>(code: i32, message: S) -> Self {
-        assert!((-32099..=-32000).contains(&code), "Server error code must be -32000 to -32099");
+        assert!(
+            (-32099..=-32000).contains(&code),
+            "Server error code must be -32000 to -32099"
+        );
         Self::new(code, message.into())
     }
 }
@@ -167,10 +178,10 @@ pub type JsonRpcBatchResponse = Vec<serde_json::Value>;
 pub struct JsonRpcNotification<T> {
     /// JSON-RPC version (always "2.0")
     pub jsonrpc: String,
-    
+
     /// Method name
     pub method: String,
-    
+
     /// Method parameters
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<T>,
@@ -190,7 +201,9 @@ impl<T> JsonRpcNotification<T> {
 /// Helper to determine if a request is a notification
 /// Per JSON-RPC 2.0: A notification is a request without an 'id' member
 pub fn is_notification(request: &serde_json::Value) -> bool {
-    !request.as_object().map_or(false, |obj| obj.contains_key("id"))
+    !request
+        .as_object()
+        .map_or(false, |obj| obj.contains_key("id"))
 }
 
 /// Helper to determine if a value is a batch request
@@ -201,7 +214,7 @@ pub fn is_batch_request(value: &serde_json::Value) -> bool {
 /// Error mapper from A2aError to JsonRpcError
 pub fn map_error_to_rpc(error: crate::A2aError) -> JsonRpcError {
     use crate::A2aError;
-    
+
     match error {
         A2aError::Json(_) => JsonRpcError::parse_error(),
         A2aError::InvalidMessage(msg) | A2aError::Validation(msg) => {
@@ -214,19 +227,39 @@ pub fn map_error_to_rpc(error: crate::A2aError) -> JsonRpcError {
                 JsonRpcError::invalid_request()
             }
         }
-        A2aError::Server(msg) => {
-            // Map to specific server error codes based on message
-            if msg.contains("not found") {
-                JsonRpcError::server_error(TASK_NOT_FOUND, msg)
-            } else if msg.contains("cancelled") || msg.contains("cancel") {
-                JsonRpcError::server_error(TASK_CANCELLED, msg)
-            } else {
-                JsonRpcError::server_error(SERVER_ERROR, msg)
-            }
+        A2aError::TaskNotFound { ref task_id } => {
+            JsonRpcError::server_error(TASK_NOT_FOUND, error.to_string())
+                .with_data(serde_json::json!({ "taskId": task_id }))
         }
-        A2aError::AgentNotFound(_) => {
-            JsonRpcError::server_error(AGENT_NOT_FOUND, error.to_string())
+        A2aError::TaskNotCancelable {
+            ref task_id,
+            ref state,
+        } => JsonRpcError::server_error(TASK_NOT_CANCELABLE, error.to_string()).with_data(
+            serde_json::json!({
+                "taskId": task_id,
+                "state": format!("{:?}", state)
+            }),
+        ),
+        A2aError::PushNotificationNotSupported => {
+            JsonRpcError::server_error(PUSH_NOTIFICATION_NOT_SUPPORTED, error.to_string())
         }
+        A2aError::UnsupportedOperation(msg) => {
+            JsonRpcError::server_error(UNSUPPORTED_OPERATION, msg)
+        }
+        A2aError::ContentTypeNotSupported { content_type } => JsonRpcError::server_error(
+            CONTENT_TYPE_NOT_SUPPORTED,
+            format!("Content type not supported: {}", content_type),
+        )
+        .with_data(serde_json::json!({ "contentType": content_type })),
+        A2aError::InvalidAgentResponse(msg) => {
+            JsonRpcError::server_error(INVALID_AGENT_RESPONSE, msg)
+        }
+        A2aError::AuthenticatedExtendedCardNotConfigured => JsonRpcError::server_error(
+            AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED,
+            error.to_string(),
+        ),
+        A2aError::Server(msg) => JsonRpcError::server_error(SERVER_ERROR, msg),
+        A2aError::AgentNotFound(_) => JsonRpcError::server_error(SERVER_ERROR, error.to_string()),
         A2aError::Internal(msg) => {
             JsonRpcError::internal_error().with_data(serde_json::json!({ "message": msg }))
         }
@@ -243,7 +276,7 @@ mod tests {
     fn test_json_rpc_request() {
         let params = serde_json::json!({"test": "value"});
         let req = JsonRpcRequest::new("test/method", params, serde_json::json!(1));
-        
+
         assert_eq!(req.jsonrpc, "2.0");
         assert_eq!(req.method, "test/method");
         assert_eq!(req.id, serde_json::json!(1));
@@ -254,7 +287,7 @@ mod tests {
         let msg = Message::agent_text("Response");
         let response = SendResponse::message(msg);
         let rpc_response = JsonRpcResponse::success(serde_json::json!(1), response);
-        
+
         assert_eq!(rpc_response.jsonrpc, "2.0");
         assert!(rpc_response.result.is_some());
         assert!(rpc_response.error.is_none());
@@ -264,27 +297,27 @@ mod tests {
     fn test_json_rpc_error_codes() {
         let parse_err = JsonRpcError::parse_error();
         assert_eq!(parse_err.code, -32700);
-        
+
         let method_err = JsonRpcError::method_not_found();
         assert_eq!(method_err.code, -32601);
-        
+
         let server_err = JsonRpcError::server_error(-32000, "Server busy");
         assert_eq!(server_err.code, -32000);
     }
-    
+
     #[test]
     fn test_json_rpc_notification() {
         let params = serde_json::json!({"test": "value"});
         let notification = JsonRpcNotification::new("test/method", params);
-        
+
         assert_eq!(notification.jsonrpc, "2.0");
         assert_eq!(notification.method, "test/method");
-        
+
         // Verify serialization doesn't include an 'id' field
         let json = serde_json::to_value(&notification).unwrap();
         assert!(json.get("id").is_none());
     }
-    
+
     #[test]
     fn test_is_notification_helper() {
         // Request with id is not a notification
@@ -294,14 +327,14 @@ mod tests {
             "id": 1
         });
         assert!(!is_notification(&request));
-        
+
         // Request without id is a notification
         let notification = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "message/send"
         });
         assert!(is_notification(&notification));
-        
+
         // Request with null id is not a notification (per JSON-RPC 2.0 spec)
         let null_id = serde_json::json!({
             "jsonrpc": "2.0",
@@ -310,7 +343,7 @@ mod tests {
         });
         assert!(!is_notification(&null_id));
     }
-    
+
     #[test]
     fn test_is_batch_request_helper() {
         // Single request
@@ -320,7 +353,7 @@ mod tests {
             "id": 1
         });
         assert!(!is_batch_request(&single));
-        
+
         // Batch request (array)
         let batch = serde_json::json!([
             {"jsonrpc": "2.0", "method": "message/send", "id": 1},
@@ -328,48 +361,125 @@ mod tests {
         ]);
         assert!(is_batch_request(&batch));
     }
-    
+
     #[test]
     fn test_map_error_to_rpc_parse_error() {
         let json_err = serde_json::from_str::<Message>("invalid json").unwrap_err();
         let rpc_err = map_error_to_rpc(crate::A2aError::Json(json_err));
-        
+
         assert_eq!(rpc_err.code, -32700); // Parse error
     }
-    
+
     #[test]
     fn test_map_error_to_rpc_validation() {
         let validation_err = crate::A2aError::Validation("Invalid parameter".to_string());
         let rpc_err = map_error_to_rpc(validation_err);
-        
+
         assert_eq!(rpc_err.code, -32602); // Invalid params
         assert!(rpc_err.data.is_some());
     }
-    
+
     #[test]
     fn test_map_error_to_rpc_task_not_found() {
-        let server_err = crate::A2aError::Server("Task not found: task-123".to_string());
-        let rpc_err = map_error_to_rpc(server_err);
-        
+        let rpc_err = map_error_to_rpc(crate::A2aError::TaskNotFound {
+            task_id: "task-123".to_string(),
+        });
+
         assert_eq!(rpc_err.code, TASK_NOT_FOUND);
         assert!(rpc_err.message.contains("not found"));
+
+        // Verify structured data includes taskId
+        assert!(rpc_err.data.is_some());
+        let data = rpc_err.data.unwrap();
+        assert_eq!(data["taskId"], "task-123");
     }
-    
+
     #[test]
     fn test_map_error_to_rpc_agent_not_found() {
         let agent_id = crate::AgentId::from("agent-123");
         let agent_err = crate::A2aError::AgentNotFound(agent_id);
         let rpc_err = map_error_to_rpc(agent_err);
-        
-        assert_eq!(rpc_err.code, AGENT_NOT_FOUND);
+
+        assert_eq!(rpc_err.code, SERVER_ERROR);
     }
-    
+
+    #[test]
+    fn test_map_error_to_rpc_task_not_cancelable() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::TaskNotCancelable {
+            task_id: "task-1".to_string(),
+            state: crate::TaskState::Completed,
+        });
+
+        assert_eq!(rpc_err.code, TASK_NOT_CANCELABLE);
+        assert!(rpc_err.message.contains("not cancelable"));
+
+        // Verify structured data includes taskId and state
+        assert!(rpc_err.data.is_some());
+        let data = rpc_err.data.unwrap();
+        assert_eq!(data["taskId"], "task-1");
+        assert!(data["state"].as_str().unwrap().contains("Completed"));
+    }
+
+    #[test]
+    fn test_map_error_to_rpc_push_notifications() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::PushNotificationNotSupported);
+        assert_eq!(rpc_err.code, PUSH_NOTIFICATION_NOT_SUPPORTED);
+    }
+
+    #[test]
+    fn test_map_error_to_rpc_invalid_agent_response() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::InvalidAgentResponse(
+            "Missing required field".to_string(),
+        ));
+        assert_eq!(rpc_err.code, INVALID_AGENT_RESPONSE);
+        assert!(rpc_err.message.contains("Missing required field"));
+    }
+
+    #[test]
+    fn test_map_error_to_rpc_unsupported_operation() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::UnsupportedOperation(
+            "streaming not available".to_string(),
+        ));
+        assert_eq!(rpc_err.code, UNSUPPORTED_OPERATION);
+        assert!(rpc_err.message.contains("streaming"));
+    }
+
+    #[test]
+    fn test_map_error_to_rpc_content_type_not_supported() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::ContentTypeNotSupported {
+            content_type: "application/xml".to_string(),
+        });
+        assert_eq!(rpc_err.code, CONTENT_TYPE_NOT_SUPPORTED);
+        assert!(rpc_err.message.contains("application/xml"));
+
+        // Verify structured data includes contentType
+        assert!(rpc_err.data.is_some());
+        let data = rpc_err.data.unwrap();
+        assert_eq!(data["contentType"], "application/xml");
+    }
+
+    #[test]
+    fn test_map_error_to_rpc_authenticated_extended_card_not_configured() {
+        let rpc_err = map_error_to_rpc(crate::A2aError::AuthenticatedExtendedCardNotConfigured);
+        assert_eq!(rpc_err.code, AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED);
+        assert!(rpc_err.message.contains("not configured"));
+    }
+
     #[test]
     fn test_error_code_constants() {
         // Verify error codes are in valid server error range (-32000 to -32099)
         assert!(SERVER_ERROR >= -32099 && SERVER_ERROR <= -32000);
         assert!(TASK_NOT_FOUND >= -32099 && TASK_NOT_FOUND <= -32000);
-        assert!(TASK_CANCELLED >= -32099 && TASK_CANCELLED <= -32000);
-        assert!(AGENT_NOT_FOUND >= -32099 && AGENT_NOT_FOUND <= -32000);
+        assert!(TASK_NOT_CANCELABLE >= -32099 && TASK_NOT_CANCELABLE <= -32000);
+        assert!(
+            PUSH_NOTIFICATION_NOT_SUPPORTED >= -32099 && PUSH_NOTIFICATION_NOT_SUPPORTED <= -32000
+        );
+        assert!(UNSUPPORTED_OPERATION >= -32099 && UNSUPPORTED_OPERATION <= -32000);
+        assert!(CONTENT_TYPE_NOT_SUPPORTED >= -32099 && CONTENT_TYPE_NOT_SUPPORTED <= -32000);
+        assert!(INVALID_AGENT_RESPONSE >= -32099 && INVALID_AGENT_RESPONSE <= -32000);
+        assert!(
+            AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED >= -32099
+                && AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED <= -32000
+        );
     }
 }

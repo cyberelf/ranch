@@ -1,11 +1,10 @@
 //! A2A protocol request handler trait
 
-use async_trait::async_trait;
 use crate::{
-    Message, SendResponse, AgentCard, Part, A2aResult,
-    MessageSendRequest, TaskGetRequest, TaskCancelRequest, 
-    TaskStatusRequest, AgentCardGetRequest, Task, TaskStatus,
+    A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part, SendResponse,
+    Task, TaskCancelRequest, TaskGetRequest, TaskStatus, TaskStatusRequest,
 };
+use async_trait::async_trait;
 
 /// Trait for handling A2A protocol requests
 #[async_trait]
@@ -226,8 +225,11 @@ mod tests {
     #[tokio::test]
     async fn test_basic_handler() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(agent_id, "Test Agent",
-            Url::parse("https://example.com").unwrap());
+        let agent_card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            Url::parse("https://example.com").unwrap(),
+        );
 
         let handler = BasicA2aHandler::new(agent_card);
 
@@ -243,8 +245,11 @@ mod tests {
     #[tokio::test]
     async fn test_health_check() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(agent_id, "Test Agent",
-            Url::parse("https://example.com").unwrap());
+        let agent_card = AgentCard::new(
+            agent_id,
+            "Test Agent",
+            Url::parse("https://example.com").unwrap(),
+        );
 
         let handler = BasicA2aHandler::new(agent_card);
         let health = handler.health_check().await.unwrap();

@@ -5,7 +5,7 @@ use a2a_protocol::prelude::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a2a_protocol::server::{A2aHandler, handler::BasicA2aHandler};
+    use a2a_protocol::server::{handler::BasicA2aHandler, A2aHandler};
 
     #[tokio::test]
     async fn test_rpc_message_send_handler() {
@@ -16,7 +16,7 @@ mod tests {
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        
+
         let handler = BasicA2aHandler::new(agent_card);
 
         // Test message/send RPC method
@@ -29,8 +29,11 @@ mod tests {
         let response = handler.rpc_message_send(request).await.unwrap();
 
         // Should return an immediate message response
-        assert!(response.is_message(), "Should return immediate message when immediate=true");
-        
+        assert!(
+            response.is_message(),
+            "Should return immediate message when immediate=true"
+        );
+
         let response_msg = response.as_message().unwrap();
         assert_eq!(response_msg.role, MessageRole::Agent);
         assert!(response_msg.text_content().unwrap().starts_with("Echo:"));
@@ -45,7 +48,7 @@ mod tests {
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        
+
         let handler = BasicA2aHandler::new(agent_card);
 
         // Test task/get RPC method (should not be implemented in basic handler)
@@ -54,8 +57,11 @@ mod tests {
         };
 
         let result = handler.rpc_task_get(request).await;
-        assert!(result.is_err(), "task/get should not be implemented in basic handler");
-        
+        assert!(
+            result.is_err(),
+            "task/get should not be implemented in basic handler"
+        );
+
         if let Err(e) = result {
             assert!(matches!(e, A2aError::Server(_)));
         }
@@ -69,7 +75,7 @@ mod tests {
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        
+
         let handler = BasicA2aHandler::new(agent_card);
 
         let request = TaskCancelRequest {
@@ -89,7 +95,7 @@ mod tests {
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        
+
         let handler = BasicA2aHandler::new(agent_card);
 
         let request = TaskStatusRequest {
@@ -108,7 +114,7 @@ mod tests {
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        
+
         let handler = BasicA2aHandler::new(agent_card);
 
         // Test agent/card RPC method
@@ -117,7 +123,7 @@ mod tests {
         };
 
         let result = handler.rpc_agent_card(request).await.unwrap();
-        
+
         assert_eq!(result.id, agent_id);
         assert_eq!(result.name, "Test Agent");
     }

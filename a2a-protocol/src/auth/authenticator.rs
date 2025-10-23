@@ -7,7 +7,10 @@ use std::collections::HashMap;
 #[async_trait]
 pub trait Authenticator: Send + Sync {
     /// Authenticate a request by adding necessary headers
-    async fn authenticate(&self, headers: &mut HashMap<String, String>) -> Result<(), crate::A2aError>;
+    async fn authenticate(
+        &self,
+        headers: &mut HashMap<String, String>,
+    ) -> Result<(), crate::A2aError>;
 
     /// Get the authentication type name
     fn auth_type(&self) -> &'static str;
@@ -23,7 +26,10 @@ pub struct NoAuth;
 
 #[async_trait]
 impl Authenticator for NoAuth {
-    async fn authenticate(&self, _headers: &mut HashMap<String, String>) -> Result<(), crate::A2aError> {
+    async fn authenticate(
+        &self,
+        _headers: &mut HashMap<String, String>,
+    ) -> Result<(), crate::A2aError> {
         Ok(())
     }
 

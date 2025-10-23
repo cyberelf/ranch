@@ -1,7 +1,7 @@
 //! Authentication strategy implementations
 
-use async_trait::async_trait;
 use crate::auth::Authenticator;
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 /// API Key authentication strategy
@@ -42,9 +42,14 @@ impl ApiKeyAuth {
 
 #[async_trait]
 impl Authenticator for ApiKeyAuth {
-    async fn authenticate(&self, headers: &mut HashMap<String, String>) -> Result<(), crate::A2aError> {
+    async fn authenticate(
+        &self,
+        headers: &mut HashMap<String, String>,
+    ) -> Result<(), crate::A2aError> {
         if self.key.is_empty() {
-            return Err(crate::A2aError::Authentication("API key is empty".to_string()));
+            return Err(crate::A2aError::Authentication(
+                "API key is empty".to_string(),
+            ));
         }
 
         match self.location {
@@ -94,12 +99,20 @@ impl BearerAuth {
 
 #[async_trait]
 impl Authenticator for BearerAuth {
-    async fn authenticate(&self, headers: &mut HashMap<String, String>) -> Result<(), crate::A2aError> {
+    async fn authenticate(
+        &self,
+        headers: &mut HashMap<String, String>,
+    ) -> Result<(), crate::A2aError> {
         if self.token.is_empty() {
-            return Err(crate::A2aError::Authentication("Bearer token is empty".to_string()));
+            return Err(crate::A2aError::Authentication(
+                "Bearer token is empty".to_string(),
+            ));
         }
 
-        headers.insert("Authorization".to_string(), format!("Bearer {}", self.token));
+        headers.insert(
+            "Authorization".to_string(),
+            format!("Bearer {}", self.token),
+        );
         Ok(())
     }
 
@@ -172,7 +185,10 @@ impl OAuth2ClientCredentials {
             .map_err(|e| crate::A2aError::Network(e))?;
 
         if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(crate::A2aError::Authentication(format!(
                 "OAuth2 token request failed: {}",
                 error_text
@@ -190,12 +206,16 @@ impl OAuth2ClientCredentials {
 
 #[async_trait]
 impl Authenticator for OAuth2ClientCredentials {
-    async fn authenticate(&self, headers: &mut HashMap<String, String>) -> Result<(), crate::A2aError> {
+    async fn authenticate(
+        &self,
+        headers: &mut HashMap<String, String>,
+    ) -> Result<(), crate::A2aError> {
         let token = if self.is_token_valid() {
             self.cached_token.as_ref().unwrap()
         } else {
             return Err(crate::A2aError::Authentication(
-                "OAuth2 token expired or not available. Token refreshing not yet implemented.".to_string(),
+                "OAuth2 token expired or not available. Token refreshing not yet implemented."
+                    .to_string(),
             ));
         };
 
@@ -242,7 +262,10 @@ mod tests {
 
         auth.authenticate(&mut headers).await.unwrap();
 
-        assert_eq!(headers.get("Authorization"), Some(&"Bearer test-token".to_string()));
+        assert_eq!(
+            headers.get("Authorization"),
+            Some(&"Bearer test-token".to_string())
+        );
     }
 
     #[tokio::test]

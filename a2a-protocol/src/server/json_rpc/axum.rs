@@ -1,16 +1,16 @@
 //! Axum adapter for JSON-RPC 2.0 A2A server
 
+use super::dispatcher::dispatch_bytes;
+use crate::server::A2aHandler;
+use axum::body::Bytes;
+use axum::http::StatusCode;
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
     routing::post,
     Router,
 };
-use axum::http::StatusCode;
-use axum::body::Bytes;
 use std::sync::Arc;
-use crate::server::A2aHandler;
-use super::dispatcher::dispatch_bytes;
 
 #[derive(Clone)]
 pub struct JsonRpcRouter {
@@ -29,13 +29,12 @@ impl JsonRpcRouter {
         Self { router }
     }
 
-    pub fn into_router(self) -> Router { self.router }
+    pub fn into_router(self) -> Router {
+        self.router
+    }
 }
 
-async fn handle_rpc(
-    State(handler): State<Arc<dyn A2aHandler>>,
-    body: Bytes,
-) -> Response {
+async fn handle_rpc(State(handler): State<Arc<dyn A2aHandler>>, body: Bytes) -> Response {
     match dispatch_bytes(handler.as_ref(), &body).await {
         Ok(resp) => {
             if resp.is_empty() {
@@ -56,7 +55,12 @@ async fn handle_rpc(
                 error: Some(error),
             };
             let bytes = serde_json::to_vec(&response).unwrap_or_default();
-            (StatusCode::OK, [("Content-Type", "application/json")], bytes).into_response()
+            (
+                StatusCode::OK,
+                [("Content-Type", "application/json")],
+                bytes,
+            )
+                .into_response()
         }
     }
 }

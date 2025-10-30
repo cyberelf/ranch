@@ -4,6 +4,10 @@ pub mod http; // Internal HTTP client
 pub mod json_rpc;
 pub mod traits;
 
+#[cfg(feature = "streaming")]
+pub mod sse; // SSE (Server-Sent Events) transport
+
+// Re-export JSON-RPC types
 pub use json_rpc::{
     is_batch_request,
     is_notification,
@@ -12,7 +16,6 @@ pub use json_rpc::{
     JsonRpcBatchResponse,
     JsonRpcError,
     JsonRpcNotification,
-    // Re-export JSON-RPC 2.0 protocol types
     JsonRpcRequest,
     JsonRpcResponse,
     JsonRpcTransport,
@@ -25,4 +28,13 @@ pub use json_rpc::{
     TASK_NOT_FOUND,
     UNSUPPORTED_OPERATION,
 };
-pub use traits::{RequestInfo, Transport, TransportConfig, TransportExt};
+
+// Re-export traits module types
+pub use traits::{RequestInfo, Transport, TransportConfig};
+
+#[cfg(feature = "streaming")]
+pub use traits::{StreamingResult, StreamingTransport};
+
+#[cfg(feature = "streaming")]
+pub use sse::{EventBuffer, SseEvent, SseEventId, SseResponse, SseWriter};
+

@@ -2,9 +2,14 @@
 
 use crate::{
     A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part, SendResponse,
-    Task, TaskCancelRequest, TaskGetRequest, TaskStatus, TaskStatusRequest,
+    Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
+
+#[cfg(feature = "streaming")]
+use crate::transport::StreamingResult;
+#[cfg(feature = "streaming")]
+use futures_util::stream::Stream;
 
 /// Trait for handling A2A protocol requests
 #[async_trait]
@@ -63,6 +68,22 @@ pub trait A2aHandler: Send + Sync {
         // Default implementation returns this handler's agent card
         self.get_agent_card().await
     }
+
+    /// RPC method: message/stream (SSE streaming)
+    /// Handle a streaming message request - returns a stream of results
+    #[cfg(feature = "streaming")]
+    async fn rpc_message_stream(
+        &self,
+        message: Message,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
+
+    /// RPC method: task/resubscribe (SSE streaming)
+    /// Resubscribe to a task's event stream
+    #[cfg(feature = "streaming")]
+    async fn rpc_task_resubscribe(
+        &self,
+        request: TaskResubscribeRequest,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
 }
 
 /// Health status response
@@ -213,6 +234,26 @@ impl A2aHandler for BasicA2aHandler {
                 "handler": "BasicA2aHandler",
                 "timestamp": chrono::Utc::now().to_rfc3339()
             })))
+    }
+
+    #[cfg(feature = "streaming")]
+    async fn rpc_message_stream(
+        &self,
+        _message: Message,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        Err(crate::A2aError::Server(
+            "BasicA2aHandler does not support streaming".to_string(),
+        ))
+    }
+
+    #[cfg(feature = "streaming")]
+    async fn rpc_task_resubscribe(
+        &self,
+        _request: TaskResubscribeRequest,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        Err(crate::A2aError::Server(
+            "BasicA2aHandler does not support streaming".to_string(),
+        ))
     }
 }
 

@@ -219,6 +219,26 @@ mod tests {
                     task_id: "missing".to_string(),
                 })
             }
+
+            #[cfg(feature = "streaming")]
+            async fn rpc_message_stream(
+                &self,
+                _message: crate::Message,
+            ) -> crate::A2aResult<
+                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::transport::StreamingResult>> + Send + Unpin>,
+            > {
+                Err(A2aError::Server("streaming not supported".to_string()))
+            }
+
+            #[cfg(feature = "streaming")]
+            async fn rpc_task_resubscribe(
+                &self,
+                _request: crate::TaskResubscribeRequest,
+            ) -> crate::A2aResult<
+                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::transport::StreamingResult>> + Send + Unpin>,
+            > {
+                Err(A2aError::Server("streaming not supported".to_string()))
+            }
         }
 
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();

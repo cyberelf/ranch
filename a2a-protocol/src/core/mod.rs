@@ -6,10 +6,11 @@ pub mod error;
 pub mod message;
 pub mod message_id;
 pub mod requests;
+pub mod streaming_events;
 pub mod task;
 
 // Re-export core types
-pub use agent_card::{AgentCapability, AgentCard, AgentSkill, TransportInterface};
+pub use agent_card::{AgentCapability, AgentCard, AgentSkill, StreamingCapabilities, TransportInterface};
 pub use agent_id::AgentId;
 pub use error::{A2aError, A2aResult};
 pub use message::{
@@ -17,8 +18,10 @@ pub use message::{
 };
 pub use message_id::MessageId;
 pub use requests::{
-    AgentCardGetRequest, MessageSendRequest, TaskCancelRequest, TaskGetRequest, TaskStatusRequest,
+    AgentCardGetRequest, MessageSendRequest, TaskCancelRequest, TaskGetRequest,
+    TaskResubscribeRequest, TaskStatusRequest,
 };
+pub use streaming_events::{TaskArtifactUpdateEvent, TaskProgress, TaskStatusUpdateEvent};
 pub use task::{Artifact, SendResponse, Task, TaskState, TaskStatus};
 
 // Backwards compatibility alias

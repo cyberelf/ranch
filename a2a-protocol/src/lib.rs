@@ -85,7 +85,6 @@ pub mod prelude {
         JsonRpcRequest,
         JsonRpcResponse,
         Transport,
-        TransportExt,
     };
 
     // Backwards compatibility

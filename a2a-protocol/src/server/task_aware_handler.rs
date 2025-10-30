@@ -5,9 +5,22 @@ use crate::{
         handler::{HealthStatus, HealthStatusType},
         A2aHandler, TaskStore,
     }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, SendResponse,
-    Task, TaskCancelRequest, TaskGetRequest, TaskState, TaskStatus, TaskStatusRequest,
+    Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskState, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
+
+#[cfg(feature = "streaming")]
+use crate::transport::{StreamingResult, sse::SseWriter};
+#[cfg(feature = "streaming")]
+use crate::core::streaming_events::TaskStatusUpdateEvent;
+#[cfg(feature = "streaming")]
+use futures_util::stream::Stream;
+#[cfg(feature = "streaming")]
+use std::collections::HashMap;
+#[cfg(feature = "streaming")]
+use std::sync::Arc;
+#[cfg(feature = "streaming")]
+use tokio::sync::RwLock;
 
 /// Handler that supports full task lifecycle management
 #[derive(Clone)]
@@ -16,6 +29,9 @@ pub struct TaskAwareHandler {
     task_store: TaskStore,
     /// Whether to return tasks for messages (true) or immediate responses (false)
     async_by_default: bool,
+    /// SSE writers for streaming tasks (task_id -> writer)
+    #[cfg(feature = "streaming")]
+    stream_writers: Arc<RwLock<HashMap<String, SseWriter>>>,
 }
 
 impl TaskAwareHandler {
@@ -25,6 +41,8 @@ impl TaskAwareHandler {
             agent_card,
             task_store: TaskStore::new(),
             async_by_default: true,
+            #[cfg(feature = "streaming")]
+            stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -34,6 +52,8 @@ impl TaskAwareHandler {
             agent_card,
             task_store: TaskStore::new(),
             async_by_default: false,
+            #[cfg(feature = "streaming")]
+            stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -139,6 +159,98 @@ impl A2aHandler for TaskAwareHandler {
 
     async fn rpc_agent_card(&self, _request: AgentCardGetRequest) -> A2aResult<AgentCard> {
         self.get_agent_card().await
+    }
+
+    #[cfg(feature = "streaming")]
+    async fn rpc_message_stream(
+        &self,
+        message: Message,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        // Create a task for this message
+        let task = self.process_message_as_task(message).await?;
+        let task_id = task.id.clone();
+
+        // Create an SSE writer for this task
+        let writer = SseWriter::new(100); // Buffer up to 100 events
+        
+        // Store the writer so we can send events to it
+        {
+            let mut writers = self.stream_writers.write().await;
+            writers.insert(task_id.clone(), writer.clone());
+        }
+
+        // Get the subscription first (creates a subscriber)
+        let stream = writer.subscribe();
+
+        // Now send initial task event (subscriber exists)
+        writer.send(StreamingResult::Task(task.clone()))?;
+
+        // Simulate some work and send status updates
+        let writer_clone = writer.clone();
+        let task_id_clone = task_id.clone();
+        let task_store = self.task_store.clone();
+        let stream_writers = self.stream_writers.clone();
+        
+        tokio::spawn(async move {
+            // Simulate work with status updates
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            
+            // Send a status update
+            if let Ok(status) = task_store.get_status(&task_id_clone).await {
+                let event = TaskStatusUpdateEvent::new(&task_id_clone, status);
+                let _ = writer_clone.send(StreamingResult::TaskStatusUpdate(event));
+            }
+
+            // Simulate more work
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+            // Update to completed
+            if let Ok(_) = task_store.update_state(&task_id_clone, TaskState::Completed).await {
+                if let Ok(status) = task_store.get_status(&task_id_clone).await {
+                    let event = TaskStatusUpdateEvent::new(&task_id_clone, status);
+                    let _ = writer_clone.send(StreamingResult::TaskStatusUpdate(event));
+                }
+            }
+
+            // Cleanup: remove writer after task completes
+            let mut writers = stream_writers.write().await;
+            writers.remove(&task_id_clone);
+        });
+
+        // Return the stream
+        Ok(Box::new(Box::pin(stream)))
+    }
+
+    #[cfg(feature = "streaming")]
+    async fn rpc_task_resubscribe(
+        &self,
+        request: TaskResubscribeRequest,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        let task_id = &request.task_id;
+
+        // Check if task exists
+        let task = self.task_store.get(task_id).await?;
+
+        // Check if we have an active stream for this task
+        let writers = self.stream_writers.read().await;
+        if let Some(writer) = writers.get(task_id) {
+            // Return a new subscription to the existing stream
+            Ok(Box::new(Box::pin(writer.subscribe())))
+        } else {
+            // Task exists but no active stream - send current state and close
+            drop(writers); // Release the read lock
+            
+            let writer = SseWriter::new(10);
+            let stream = writer.subscribe(); // Get subscription first
+            
+            writer.send(StreamingResult::Task(task.clone()))?;
+            
+            let status = self.task_store.get_status(task_id).await?;
+            let event = TaskStatusUpdateEvent::new(task_id, status);
+            writer.send(StreamingResult::TaskStatusUpdate(event))?;
+            
+            Ok(Box::new(Box::pin(stream)))
+        }
     }
 }
 
@@ -331,5 +443,72 @@ mod tests {
         handler.set_async_by_default(false);
         let response = handler.handle_message(msg).await.unwrap();
         assert!(response.is_message());
+    }
+
+    #[cfg(feature = "streaming")]
+    #[tokio::test]
+    async fn test_rpc_message_stream() {
+        use futures_util::StreamExt;
+
+        let handler = create_test_handler();
+        let message = Message::user_text("Test streaming");
+
+        let mut stream = handler.rpc_message_stream(message).await.unwrap();
+
+        // Collect events from the stream
+        let mut events = Vec::new();
+        while let Some(result) = stream.next().await {
+            match result {
+                Ok(event) => {
+                    events.push(event);
+                    // Stop after we get a few events to avoid waiting forever
+                    if events.len() >= 3 {
+                        break;
+                    }
+                }
+                Err(e) => panic!("Stream error: {}", e),
+            }
+        }
+
+        // Should have at least: initial task + status updates
+        assert!(!events.is_empty());
+        
+        // First event should be the task
+        match &events[0] {
+            StreamingResult::Task(task) => {
+                assert_eq!(task.status.state, TaskState::Working);
+            }
+            _ => panic!("Expected first event to be Task"),
+        }
+
+        // Should have status updates
+        let has_status_update = events.iter().any(|e| matches!(e, StreamingResult::TaskStatusUpdate(_)));
+        assert!(has_status_update, "Should have at least one status update");
+    }
+
+    #[cfg(feature = "streaming")]
+    #[tokio::test]
+    async fn test_rpc_task_resubscribe() {
+        use futures_util::StreamExt;
+
+        let handler = create_test_handler();
+        
+        // Create a task first
+        let message = Message::user_text("Test");
+        let response = handler.handle_message(message).await.unwrap();
+        let task = response.as_task().unwrap();
+        let task_id = task.id.clone();
+
+        // Now resubscribe to it
+        let request = TaskResubscribeRequest {
+            task_id: task_id.clone(),
+            metadata: None,
+        };
+        
+        let mut stream = handler.rpc_task_resubscribe(request).await.unwrap();
+
+        // Should get at least the current task state
+        let first_event = stream.next().await;
+        assert!(first_event.is_some());
     }
 }

@@ -196,21 +196,4 @@ mod tests {
         assert_eq!(client.agent_id(), &agent_id);
     }
 
-    #[tokio::test]
-    #[ignore] // Integration test - requires actual server
-    async fn test_conversation_creation() {
-        let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
-        let client = A2aClient::new(transport);
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let _agent_card = AgentCard::new(
-            agent_id.clone(),
-            "Test Agent",
-            url::Url::parse("https://example.com").unwrap(),
-        );
-
-        let conversation = client.start_conversation(&agent_id).await.unwrap();
-
-        assert_eq!(conversation.agent_id(), &agent_id);
-        assert_eq!(conversation.messages().len(), 0);
-    }
 }

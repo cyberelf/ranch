@@ -1,10 +1,14 @@
 //! Transport layer traits and common types
 
-use super::json_rpc::{
-    JsonRpcBatchRequest, JsonRpcBatchResponse, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse,
+use crate::{
+    A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus,
 };
-use crate::{A2aResult, AgentCard, Message, SendResponse};
 use async_trait::async_trait;
+
+#[cfg(feature = "streaming")]
+use crate::{TaskArtifactUpdateEvent, TaskStatusUpdateEvent};
+#[cfg(feature = "streaming")]
+use futures_util::stream::Stream;
 
 /// Configuration for transport layer
 #[derive(Debug, Clone)]
@@ -33,14 +37,28 @@ impl Default for TransportConfig {
     }
 }
 
-/// Transport layer trait for sending A2A messages
+/// Transport layer trait for A2A protocol communication
+/// 
+/// This trait defines the interface for sending A2A messages and managing tasks.
+/// All methods return core domain types, keeping the transport layer protocol-agnostic.
+/// 
+/// Implementations handle protocol-specific details (JSON-RPC, gRPC, etc.) internally.
 #[async_trait]
 pub trait Transport: Send + Sync + std::fmt::Debug {
     /// Send a message and return the response (Task for async or Message for immediate)
     async fn send_message(&self, message: Message) -> A2aResult<SendResponse>;
 
     /// Fetch an agent's card
-    async fn get_agent_card(&self, agent_id: &crate::AgentId) -> A2aResult<AgentCard>;
+    async fn get_agent_card(&self, agent_id: &AgentId) -> A2aResult<AgentCard>;
+
+    /// Get a task by ID
+    async fn get_task(&self, request: crate::TaskGetRequest) -> A2aResult<Task>;
+
+    /// Get the status of a task
+    async fn get_task_status(&self, request: crate::TaskStatusRequest) -> A2aResult<TaskStatus>;
+
+    /// Cancel a task
+    async fn cancel_task(&self, request: crate::TaskCancelRequest) -> A2aResult<TaskStatus>;
 
     /// Check if the transport is connected/available
     async fn is_available(&self) -> bool;
@@ -48,170 +66,88 @@ pub trait Transport: Send + Sync + std::fmt::Debug {
     /// Get the transport configuration
     fn config(&self) -> &TransportConfig;
 
-    /// Get the transport type name
+    /// Get the transport type name (e.g., "json-rpc", "grpc", "http")
     fn transport_type(&self) -> &'static str;
-
-    /// Send a raw JSON-RPC request and receive a raw JSON response
-    /// This is the low-level method for sending arbitrary JSON-RPC requests
-    async fn send_raw_rpc_request(
-        &self,
-        request: serde_json::Value,
-    ) -> A2aResult<serde_json::Value>;
-
-    /// Send a batch JSON-RPC request (array of requests) and receive batch responses
-    /// Per JSON-RPC 2.0: batch requests can contain notifications (no response expected)
-    async fn send_raw_batch_request(
-        &self,
-        requests: JsonRpcBatchRequest,
-    ) -> A2aResult<JsonRpcBatchResponse> {
-        // Serialize the batch to JSON
-        let batch_json = serde_json::to_value(&requests).map_err(|e| crate::A2aError::Json(e))?;
-
-        // Send the batch request
-        let response_json = self.send_raw_rpc_request(batch_json).await?;
-
-        // Deserialize the batch response
-        let responses: JsonRpcBatchResponse =
-            serde_json::from_value(response_json).map_err(|e| crate::A2aError::Json(e))?;
-
-        Ok(responses)
-    }
 }
 
-/// Extension methods for Transport to provide typed RPC method calls
+/// Streaming result type for message/stream responses
+///
+/// Per A2A protocol spec, each streaming event can be:
+/// - Message: Immediate message response
+/// - Task: Task object (initial or updated)
+/// - TaskStatusUpdateEvent: Task status change notification
+/// - TaskArtifactUpdateEvent: Task artifact notification
+#[cfg(feature = "streaming")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum StreamingResult {
+    /// Immediate message response
+    Message(Message),
+    
+    /// Task object
+    Task(Task),
+    
+    /// Task status update event
+    TaskStatusUpdate(TaskStatusUpdateEvent),
+    
+    /// Task artifact update event
+    TaskArtifactUpdate(TaskArtifactUpdateEvent),
+}
+
+/// Streaming transport trait for real-time message/task updates
+///
+/// This trait extends the base Transport with streaming capabilities.
+/// Implementations use protocol-specific streaming (SSE for JSON-RPC, gRPC streams, etc.)
+#[cfg(feature = "streaming")]
 #[async_trait]
-pub trait TransportExt: Transport {
-    /// Send a typed JSON-RPC request and get a typed response
-    async fn send_rpc_request<T, R>(
+pub trait StreamingTransport: Transport {
+    /// Send a message and get a stream of responses
+    ///
+    /// Per A2A protocol spec (message/stream), this returns a stream where each item is one of:
+    /// - Message (for immediate responses)
+    /// - Task (for initial task or task completion)
+    /// - TaskStatusUpdateEvent (for status updates)
+    /// - TaskArtifactUpdateEvent (for artifact notifications)
+    ///
+    /// Each item is wrapped in A2aResult - errors are returned as Err() using standard
+    /// JSON-RPC error format, not as a separate event type.
+    ///
+    /// The stream completes when the task finishes or encounters an error.
+    async fn send_streaming_message(
         &self,
-        request: JsonRpcRequest<T>,
-    ) -> A2aResult<JsonRpcResponse<R>>
-    where
-        T: serde::Serialize + Send + Sync,
-        R: serde::de::DeserializeOwned,
-    {
-        // Serialize the request to JSON
-        let request_json = serde_json::to_value(&request).map_err(|e| crate::A2aError::Json(e))?;
+        message: Message,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
 
-        // Send the raw request
-        let response_json = self.send_raw_rpc_request(request_json).await?;
-
-        // Deserialize the response
-        let response: JsonRpcResponse<R> =
-            serde_json::from_value(response_json).map_err(|e| crate::A2aError::Json(e))?;
-
-        Ok(response)
-    }
-
-    /// Convenience method: Send a message/send RPC request
-    async fn rpc_send_message(
+    /// Resume a task stream (task/resubscribe RPC method)
+    ///
+    /// Returns a stream of events for an existing task, optionally resuming from a specific point.
+    ///
+    /// # Resume Semantics
+    /// The `request.metadata` field can contain resume information:
+    /// - **SSE (JSON-RPC)**: `lastEventId` is extracted and sent as `Last-Event-ID` HTTP header
+    /// - **gRPC**: `lastEventId`, `sequenceNumber`, or `resumeToken` used directly in stream request
+    /// - **Other transports**: Implementation-specific
+    ///
+    /// The transport implementation is responsible for:
+    /// 1. Extracting resume information from `metadata`
+    /// 2. Mapping it to transport-specific mechanisms
+    /// 3. Buffering/replaying events as needed
+    ///
+    /// # Parameters
+    /// - `request`: The task resubscribe request with optional resume metadata
+    ///
+    /// # Returns
+    /// A stream of task updates (same types as send_streaming_message)
+    async fn resubscribe_task(
         &self,
-        request: crate::MessageSendRequest,
-    ) -> A2aResult<JsonRpcResponse<crate::SendResponse>> {
-        let rpc_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(uuid::Uuid::new_v4().to_string()),
-            method: "message/send".to_string(),
-            params: Some(request),
-        };
+        request: crate::TaskResubscribeRequest,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
 
-        self.send_rpc_request(rpc_request).await
-    }
-
-    /// Convenience method: Send a task/get RPC request
-    async fn rpc_get_task(
-        &self,
-        request: crate::TaskGetRequest,
-    ) -> A2aResult<JsonRpcResponse<crate::Task>> {
-        let rpc_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(uuid::Uuid::new_v4().to_string()),
-            method: "task/get".to_string(),
-            params: Some(request),
-        };
-
-        self.send_rpc_request(rpc_request).await
-    }
-
-    /// Convenience method: Send a task/cancel RPC request
-    async fn rpc_cancel_task(
-        &self,
-        request: crate::TaskCancelRequest,
-    ) -> A2aResult<JsonRpcResponse<crate::TaskStatus>> {
-        let rpc_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(uuid::Uuid::new_v4().to_string()),
-            method: "task/cancel".to_string(),
-            params: Some(request),
-        };
-
-        self.send_rpc_request(rpc_request).await
-    }
-
-    /// Convenience method: Send a task/status RPC request
-    async fn rpc_get_task_status(
-        &self,
-        request: crate::TaskStatusRequest,
-    ) -> A2aResult<JsonRpcResponse<crate::TaskStatus>> {
-        let rpc_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(uuid::Uuid::new_v4().to_string()),
-            method: "task/status".to_string(),
-            params: Some(request),
-        };
-
-        self.send_rpc_request(rpc_request).await
-    }
-
-    /// Convenience method: Send an agent/card RPC request
-    async fn rpc_get_agent_card_by_rpc(
-        &self,
-        request: crate::AgentCardGetRequest,
-    ) -> A2aResult<JsonRpcResponse<crate::AgentCard>> {
-        let rpc_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(uuid::Uuid::new_v4().to_string()),
-            method: "agent/card".to_string(),
-            params: Some(request),
-        };
-
-        self.send_rpc_request(rpc_request).await
-    }
-
-    /// Send a batch of typed JSON-RPC requests
-    /// Returns responses in the same order as requests (excluding notifications)
-    /// Per JSON-RPC 2.0: notifications don't receive responses
-    async fn send_batch_requests(
-        &self,
-        requests: Vec<serde_json::Value>,
-    ) -> A2aResult<JsonRpcBatchResponse> {
-        self.send_raw_batch_request(requests).await
-    }
-
-    /// Send a JSON-RPC notification (request without expecting a response)
-    async fn send_notification<T>(&self, method: &str, params: T) -> A2aResult<()>
-    where
-        T: serde::Serialize + Send + Sync,
-    {
-        let notification = JsonRpcNotification {
-            jsonrpc: "2.0".to_string(),
-            method: method.to_string(),
-            params: Some(params),
-        };
-
-        let notification_json =
-            serde_json::to_value(&notification).map_err(|e| crate::A2aError::Json(e))?;
-
-        // Send as a raw request but don't expect a response
-        // The server should not send a response for notifications
-        let _ = self.send_raw_rpc_request(notification_json).await;
-
-        Ok(())
+    /// Check if streaming is supported by this transport
+    fn supports_streaming(&self) -> bool {
+        true // Default: assume streaming support
     }
 }
-
-// Blanket implementation: all Transport implementors automatically get TransportExt
-impl<T: Transport + ?Sized> TransportExt for T {}
 
 /// Request information for transport implementations
 #[derive(Debug, Clone)]

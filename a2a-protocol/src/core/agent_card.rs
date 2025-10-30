@@ -552,6 +552,88 @@ impl AgentCard {
     }
 }
 
+/// Streaming capabilities for AgentCard metadata
+///
+/// This describes the streaming support offered by an agent, which can be
+/// included in the AgentCard's metadata field under the "streaming" key.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct StreamingCapabilities {
+    /// Whether streaming is supported
+    pub enabled: bool,
+
+    /// Supported streaming methods (e.g., "message/stream", "task/resubscribe")
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub methods: Vec<String>,
+
+    /// Event buffer size (number of events kept for replay)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffer_size: Option<usize>,
+
+    /// Connection timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<u64>,
+
+    /// Keep-alive interval in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keepalive_seconds: Option<u64>,
+}
+
+impl StreamingCapabilities {
+    /// Create new streaming capabilities with default settings
+    pub fn new() -> Self {
+        Self {
+            enabled: true,
+            methods: vec![
+                "message/stream".to_string(),
+                "task/resubscribe".to_string(),
+            ],
+            buffer_size: Some(100),
+            timeout_seconds: Some(300), // 5 minutes
+            keepalive_seconds: Some(30),
+        }
+    }
+
+    /// Create disabled streaming capabilities
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            methods: Vec::new(),
+            buffer_size: None,
+            timeout_seconds: None,
+            keepalive_seconds: None,
+        }
+    }
+
+    /// Check if a specific method is supported
+    pub fn supports_method(&self, method: &str) -> bool {
+        self.enabled && self.methods.contains(&method.to_string())
+    }
+
+    /// Add a supported streaming method
+    pub fn with_method(mut self, method: impl Into<String>) -> Self {
+        self.methods.push(method.into());
+        self
+    }
+
+    /// Set the buffer size
+    pub fn with_buffer_size(mut self, size: usize) -> Self {
+        self.buffer_size = Some(size);
+        self
+    }
+
+    /// Set the timeout
+    pub fn with_timeout(mut self, seconds: u64) -> Self {
+        self.timeout_seconds = Some(seconds);
+        self
+    }
+
+    /// Set the keep-alive interval
+    pub fn with_keepalive(mut self, seconds: u64) -> Self {
+        self.keepalive_seconds = Some(seconds);
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,5 +710,39 @@ mod tests {
         assert_eq!(card.provider.unwrap().url.unwrap(), provider_url);
         assert_eq!(card.signatures.len(), 1);
         assert_eq!(card.signatures[0], signature);
+    }
+
+    #[test]
+    fn test_streaming_capabilities_new() {
+        let caps = StreamingCapabilities::new();
+        assert!(caps.enabled);
+        assert!(caps.supports_method("message/stream"));
+        assert!(caps.supports_method("task/resubscribe"));
+        assert!(!caps.supports_method("unknown"));
+        assert_eq!(caps.buffer_size, Some(100));
+        assert_eq!(caps.timeout_seconds, Some(300));
+        assert_eq!(caps.keepalive_seconds, Some(30));
+    }
+
+    #[test]
+    fn test_streaming_capabilities_disabled() {
+        let caps = StreamingCapabilities::disabled();
+        assert!(!caps.enabled);
+        assert!(!caps.supports_method("message/stream"));
+        assert_eq!(caps.methods.len(), 0);
+    }
+
+    #[test]
+    fn test_streaming_capabilities_builder() {
+        let caps = StreamingCapabilities::new()
+            .with_method("custom/stream")
+            .with_buffer_size(200)
+            .with_timeout(600)
+            .with_keepalive(60);
+        
+        assert!(caps.supports_method("custom/stream"));
+        assert_eq!(caps.buffer_size, Some(200));
+        assert_eq!(caps.timeout_seconds, Some(600));
+        assert_eq!(caps.keepalive_seconds, Some(60));
     }
 }

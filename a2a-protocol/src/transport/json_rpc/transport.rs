@@ -3,7 +3,7 @@
 use crate::transport::http::HttpClient;
 use crate::{
     transport::{RequestInfo, Transport, TransportConfig},
-    A2aError, A2aResult, AgentCard, Message, SendResponse,
+    A2aError, A2aResult, AgentCard, Message, SendResponse, Task, TaskStatus,
 };
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -109,6 +109,33 @@ impl Transport for JsonRpcTransport {
         serde_json::from_value(result).map_err(|e| A2aError::Json(e))
     }
 
+    async fn get_task(&self, request: crate::TaskGetRequest) -> A2aResult<Task> {
+        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+
+        // A2A spec-compliant method name: "task/get"
+        let result = self.send_json_rpc_request("task/get", params).await?;
+
+        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+    }
+
+    async fn get_task_status(&self, request: crate::TaskStatusRequest) -> A2aResult<TaskStatus> {
+        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+
+        // A2A spec-compliant method name: "task/status"
+        let result = self.send_json_rpc_request("task/status", params).await?;
+
+        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+    }
+
+    async fn cancel_task(&self, request: crate::TaskCancelRequest) -> A2aResult<TaskStatus> {
+        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+
+        // A2A spec-compliant method name: "task/cancel"
+        let result = self.send_json_rpc_request("task/cancel", params).await?;
+
+        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+    }
+
     async fn is_available(&self) -> bool {
         // Try to get agent card as a health check (A2A spec doesn't define a ping method)
         match self.send_json_rpc_request("agent/card", json!({})).await {
@@ -124,26 +151,222 @@ impl Transport for JsonRpcTransport {
     fn transport_type(&self) -> &'static str {
         "json-rpc"
     }
+}
 
-    async fn send_raw_rpc_request(
+#[cfg(feature = "streaming")]
+use crate::transport::{StreamingResult, StreamingTransport};
+#[cfg(feature = "streaming")]
+use crate::transport::sse::SseEvent;
+#[cfg(feature = "streaming")]
+use futures_util::stream::{Stream, StreamExt};
+#[cfg(feature = "streaming")]
+use async_stream::stream;
+
+#[cfg(feature = "streaming")]
+#[async_trait]
+impl StreamingTransport for JsonRpcTransport {
+    async fn send_streaming_message(
         &self,
-        request: serde_json::Value,
-    ) -> A2aResult<serde_json::Value> {
-        // Send the raw JSON-RPC request
-        let response = self
-            .http_client
-            .send_request_with_retry(
-                RequestInfo::new("")
-                    .with_method("POST")
-                    .with_header("Content-Type", "application/json"),
-                Some(request),
-            )
-            .await?;
+        message: Message,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        // Build the SSE URL from the base endpoint
+        let base_url = self.http_client.base_url();
+        let stream_url = if base_url.ends_with("/rpc") {
+            base_url.replace("/rpc", "/stream")
+        } else {
+            format!("{}/stream", base_url)
+        };
 
-        let rpc_response: serde_json::Value =
-            response.json().await.map_err(|e| A2aError::Network(e))?;
+        // Create the request body using JSON-RPC format
+        let request_body = Self::create_request("message/stream", json!({ "message": message }));
 
-        Ok(rpc_response)
+        // Use reqwest to establish SSE connection
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&stream_url)
+            .header("Accept", "text/event-stream")
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| A2aError::Network(e))?;
+
+        if !response.status().is_success() {
+            return Err(A2aError::Server(format!(
+                "Streaming request failed with status: {}",
+                response.status()
+            )));
+        }
+
+        // Parse SSE stream
+        let event_stream = stream! {
+            let mut bytes_stream = response.bytes_stream();
+            let mut buffer = String::new();
+
+            while let Some(chunk_result) = bytes_stream.next().await {
+                match chunk_result {
+                    Ok(bytes) => {
+                        let chunk_str = String::from_utf8_lossy(&bytes);
+                        buffer.push_str(&chunk_str);
+
+                        // Process complete events (delimited by double newline)
+                        while let Some(pos) = buffer.find("\n\n") {
+                            let event_text = buffer[..pos].to_string();
+                            buffer = buffer[pos + 2..].to_string();
+
+                            // Parse SSE event using SseEvent
+                            match SseEvent::from_sse_format(&event_text) {
+                                Ok(sse_event) => {
+                                    if let Some(result) = Self::parse_sse_to_streaming_result(&sse_event) {
+                                        yield result;
+                                    }
+                                }
+                                Err(e) => {
+                                    yield Err(A2aError::ProtocolViolation(format!("Invalid SSE event: {}", e)));
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        yield Err(A2aError::Network(e));
+                        break;
+                    }
+                }
+            }
+        };
+
+        Ok(Box::new(Box::pin(event_stream)))
+    }
+
+    async fn resubscribe_task(
+        &self,
+        request: crate::TaskResubscribeRequest,
+    ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
+        // Build the SSE URL from the base endpoint
+        let base_url = self.http_client.base_url();
+        let stream_url = if base_url.ends_with("/rpc") {
+            base_url.replace("/rpc", "/stream")
+        } else {
+            format!("{}/stream", base_url)
+        };
+
+        // Create the request body using JSON-RPC format
+        let request_body = Self::create_request("task/resubscribe", serde_json::to_value(&request)?);
+
+        // Use reqwest to establish SSE connection
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(300)) // Longer timeout for streaming
+            .build()
+            .map_err(|e| A2aError::Transport(e.to_string()))?;
+
+        let mut req_builder = client
+            .post(&stream_url)
+            .header("Accept", "text/event-stream")
+            .header("Content-Type", "application/json")
+            .json(&request_body);
+
+        // Extract Last-Event-ID from metadata if present
+        if let Some(metadata) = &request.metadata {
+            if let Some(last_event_id) = metadata.get("lastEventId").and_then(|v| v.as_str()) {
+                req_builder = req_builder.header("Last-Event-ID", last_event_id);
+            }
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| A2aError::Network(e))?;
+
+        if !response.status().is_success() {
+            return Err(A2aError::Server(format!(
+                "Task resubscribe failed with status: {}",
+                response.status()
+            )));
+        }
+
+        // Parse SSE stream
+        let event_stream = stream! {
+            let mut bytes_stream = response.bytes_stream();
+            let mut buffer = String::new();
+
+            while let Some(chunk_result) = bytes_stream.next().await {
+                match chunk_result {
+                    Ok(bytes) => {
+                        let chunk_str = String::from_utf8_lossy(&bytes);
+                        buffer.push_str(&chunk_str);
+
+                        // Process complete events (delimited by double newline)
+                        while let Some(pos) = buffer.find("\n\n") {
+                            let event_text = buffer[..pos].to_string();
+                            buffer = buffer[pos + 2..].to_string();
+
+                            // Parse SSE event using SseEvent
+                            match SseEvent::from_sse_format(&event_text) {
+                                Ok(sse_event) => {
+                                    if let Some(result) = Self::parse_sse_to_streaming_result(&sse_event) {
+                                        yield result;
+                                    }
+                                }
+                                Err(e) => {
+                                    yield Err(A2aError::ProtocolViolation(format!("Invalid SSE event: {}", e)));
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        yield Err(A2aError::Network(e));
+                        break;
+                    }
+                }
+            }
+        };
+
+        Ok(Box::new(Box::pin(event_stream)))
+    }
+
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+}
+
+#[cfg(feature = "streaming")]
+impl JsonRpcTransport {
+    /// Convert an SseEvent into a StreamingResult
+    fn parse_sse_to_streaming_result(sse_event: &SseEvent) -> Option<A2aResult<StreamingResult>> {
+        let event_type = sse_event.event_type.as_deref().unwrap_or("message");
+        let data = &sse_event.data;
+
+        // Parse based on event type
+        let result = match event_type {
+            "message" => {
+                serde_json::from_value::<Message>(data.clone())
+                    .map(StreamingResult::Message)
+                    .map_err(|e| A2aError::Json(e))
+            }
+            "task" => {
+                serde_json::from_value::<Task>(data.clone())
+                    .map(StreamingResult::Task)
+                    .map_err(|e| A2aError::Json(e))
+            }
+            "task-status-update" => {
+                serde_json::from_value::<crate::core::streaming_events::TaskStatusUpdateEvent>(data.clone())
+                    .map(StreamingResult::TaskStatusUpdate)
+                    .map_err(|e| A2aError::Json(e))
+            }
+            "task-artifact-update" => {
+                serde_json::from_value::<crate::core::streaming_events::TaskArtifactUpdateEvent>(data.clone())
+                    .map(StreamingResult::TaskArtifactUpdate)
+                    .map_err(|e| A2aError::Json(e))
+            }
+            _ => {
+                return Some(Err(A2aError::ProtocolViolation(format!(
+                    "Unknown SSE event type: {}",
+                    event_type
+                ))));
+            }
+        };
+
+        Some(result)
     }
 }
 

@@ -1,59 +1,63 @@
 # A2A Protocol Implementation Roadmap
 
-**Current Version:** v0.4.0 (Spec-Compliant Baseline)  
+**Current Version:** v0.6.0 (in progress)  
 **Target Spec:** A2A Protocol v0.3.0  
-**Last Updated:** October 20, 2025
+**Last Updated:** October 30, 2025
 
 ---
 
 ## Executive Summary
 
-This roadmap tracks the implementation of the A2A (Agent-to-Agent) protocol v0.3.0 specification in Rust. After the v0.4.0 cleanup (October 2025), we have a **strict spec-compliant baseline** with JSON-RPC 2.0 transport. This document outlines the path to full specification compliance.
+This roadmap tracks the implementation of A2A (Agent-to-Agent) Protocol v0.3.0 in Rust. We now have **spec-compliant JSON-RPC 2.0 transport with server-side SSE streaming**.
 
-### Current Compliance: ~85%
+### Current Compliance: ~75%
 
 **✅ Implemented:**
 - JSON-RPC 2.0 transport (fully compliant)
 - Core RPC methods: `message/send`, `task/get`, `task/cancel`, `task/status`, `agent/card`
-- Complete Task lifecycle management
+- Complete task lifecycle management
 - Message & Part schema (spec-aligned)
-- **AgentCard (100% spec compliant + optional extensions)**
-- **A2A error codes (all 7 codes with structured data)**
-- Authentication strategies (Bearer, API Key, OAuth2 foundation)
+- AgentCard with full v0.3.0 metadata
+- A2A error codes (-32001 through -32007)
+- Authentication strategies (Bearer, API Key, OAuth2)
+- **SSE streaming server** (message/stream, task/resubscribe)
+
+**🚧 In Progress:**
+- SSE streaming client API
 
 **❌ Not Implemented:**
-- SSE streaming (message/stream, task/resubscribe)
-- Push notifications (task/pushNotificationConfig/*)
-- Authenticated extended card endpoint
+- Push notifications (webhooks)
+- Authenticated extended card
+- Advanced file handling
 - gRPC transport
 - HTTP+JSON/REST transport
 
 ---
 
-## Current State (v0.4.0 Baseline)
+## Current State (v0.6.0)
 
 ### What Works
 
-#### 1. Server (JSON-RPC 2.0)
+#### 1. Server (JSON-RPC 2.0 + SSE)
 ```rust
-// Fully functional spec-compliant server
 use a2a_protocol::server::{JsonRpcRouter, TaskAwareHandler};
 
 let handler = TaskAwareHandler::new(agent_card);
 let router = JsonRpcRouter::new(handler);
-// Exposes: POST /rpc with all RPC methods
+// Exposes: POST /rpc (JSON-RPC) and POST /stream (SSE)
 ```
 
 **Supported Methods:**
 - ✅ `message/send` - Send message, returns Task or Message
+- ✅ `message/stream` - SSE streaming for real-time updates
 - ✅ `task/get` - Get task details and results
-- ✅ `task/status` - Get current task status  
+- ✅ `task/status` - Get current task status
 - ✅ `task/cancel` - Cancel running task
+- ✅ `task/resubscribe` - Resume SSE stream for task
 - ✅ `agent/card` - Get agent capabilities
 
 #### 2. Client (JSON-RPC 2.0)
 ```rust
-// Fully functional spec-compliant client
 use a2a_protocol::{client::ClientBuilder, prelude::*};
 
 let client = ClientBuilder::new()
@@ -66,46 +70,41 @@ let response = client.send_message(message).await?;
 
 #### 3. Core Types
 - ✅ `Message` - Spec-compliant structure
-- ✅ `Task` - With lifecycle states
-- ✅ `TaskStatus` - With state tracking
-- ✅ `TaskState` - Enum with 8 states
-- ✅ `AgentCard` - Required core fields, pending metadata additions
-- ✅ `SendResponse` - Union of Task | Message
+- ✅ `Task` - Full lifecycle support
+- ✅ `AgentCard` - Complete v0.3.0 metadata
+- ✅ `A2aError` - All 7 spec error codes
+- ✅ `SseEvent` - W3C SSE format support
 
 #### 4. Testing
-- ✅ 101 tests passing (76 unit + 16 compliance + 8 RPC + 1 doc)
-- ✅ Full JSON-RPC 2.0 compliance
+**124 tests passing** (98 lib + 17 compliance + 8 RPC + 1 doc)
+- ✅ JSON-RPC 2.0 compliance
 - ✅ Task lifecycle tests
+- ✅ SSE streaming tests
 - ✅ Integration tests
 
-### What's Missing/Broken
+### What's Missing
 
-#### 1. Streaming APIs (Priority for v0.6.0)
-- ❌ `message/stream` - SSE streaming for real-time updates
-- ❌ `task/resubscribe` - Resume existing task streams
-- ❌ W3C Server-Sent Events implementation
-- ❌ Stream event types (TaskStatusUpdate, TaskArtifactUpdate)
+#### 1. Client SSE Streaming (v0.6.0) 🚧
+- ❌ Client `stream_message()` API
+- ❌ SSE event parsing in client
+- ❌ Reconnection with Last-Event-ID
+- ❌ Client streaming examples
 
-#### 2. Push Notifications (Priority for v0.7.0)
-- ❌ `task/pushNotificationConfig/set`
-- ❌ `task/pushNotificationConfig/get`
-- ❌ `task/pushNotificationConfig/list`
-- ❌ `task/pushNotificationConfig/delete`
+**Workaround:** Use `task/status` polling until client ready.
+
+#### 2. Push Notifications (v0.7.0)
+- ❌ Webhook configuration RPC methods
 - ❌ Webhook delivery system
 - ❌ SSRF protection
 
-#### 3. Optional Features (Priority for v0.8.0)
-- ❌ `agent/getAuthenticatedExtendedCard` endpoint
-- ❌ File handling (FileWithBytes, FileWithUri)
-- ❌ Enhanced context management
-
-#### 4. Additional Transports (Priority for v1.0.0)
-- ❌ gRPC transport implementation
-- ❌ HTTP+JSON/REST transport (if spec clarifies)
+#### 3. Advanced Features (v0.8.0+)
+- ❌ Authenticated extended card endpoint
+- ❌ Advanced file handling (size limits, validation)
+- ❌ Additional transports (gRPC, HTTP+JSON)
 
 ---
 
-## Release Roadmap
+## Release History & Roadmap
 
 ### v0.4.0 ✅ COMPLETED (October 2025)
 **Theme:** Spec Compliance Baseline
@@ -180,98 +179,65 @@ let response = client.send_message(message).await?;
 
 ---
 
-### v0.6.0 🎯 NEXT (Target: Q1 2026)
+### v0.6.0 🚧 IN PROGRESS (Target: Q1 2026)
 **Theme:** SSE Streaming Support
 
-**Priority:** Enable real-time communication for long-running tasks
+**Status:** Server-side complete, client API in progress
 
-**Status:** Ready to begin - all prerequisites from v0.5.0 completed
+#### Progress Summary
+- ✅ **Server infrastructure complete** (4 weeks)
+- 🚧 **Client API** (1-2 weeks remaining)
+- ❌ **Documentation** (1 week remaining)
 
-#### Goals
-1. ✅ Implement W3C Server-Sent Events (SSE)
-2. ✅ Add `message/stream` RPC method
-3. ✅ Add `task/resubscribe` RPC method
-4. ✅ Implement event types (TaskStatusUpdate, TaskArtifactUpdate)
-5. ✅ Add streaming capabilities to AgentCard
+#### Completed ✅
 
-#### Detailed Tasks
+**Server-Side Streaming:**
+- ✅ W3C SSE infrastructure (`transport/sse.rs`)
+  - `SseEvent` - Event formatting and parsing
+  - `SseWriter` - Broadcast-based event publisher
+  - `EventBuffer` - Replay buffer with Last-Event-ID support
+- ✅ Streaming methods in `A2aHandler` trait
+  - `rpc_message_stream()` - Stream message processing
+  - `rpc_task_resubscribe()` - Resume existing streams
+- ✅ `TaskAwareHandler` streaming implementation
+  - Stream registry with SseWriter per task
+  - Real-time task status and artifact updates
+  - Proper cleanup on completion/disconnect
+- ✅ Axum integration
+  - `/stream` endpoint for SSE responses
+  - Proper content-type and keepalive
+- ✅ Integration tests (2 new streaming tests added)
+- ✅ Feature gating with `streaming` feature flag
 
-**1. SSE Infrastructure (Week 1-2)**
-- [ ] Implement W3C SSE writer (text/event-stream)
-- [ ] Create SSE event wrapper for JSON-RPC responses
-- [ ] Implement connection management and lifecycle
-- [ ] Add reconnection handling with Last-Event-ID
-- [ ] Implement proper event IDs and sequencing
-- [ ] Create SSE client for testing
-- [ ] Add connection timeout and keepalive
+#### Remaining Tasks
 
-**2. Streaming Response Types (Week 2)**
-- [ ] Create `SendStreamingMessageResponse` type
-- [ ] Create `TaskStatusUpdateEvent` struct
-- [ ] Create `TaskArtifactUpdateEvent` struct
-- [ ] Implement event serialization per A2A spec
-- [ ] Add metadata fields (timestamp, sequence)
-- [ ] Add error event type
-
-**3. message/stream Implementation (Week 3)**
-- [ ] Add `message/stream` method to JSON-RPC dispatcher
-- [ ] Implement SSE response streaming
-- [ ] Stream Task status updates in real-time
-- [ ] Stream Artifact updates as they arrive
-- [ ] Handle stream termination on completion/error/cancel
-- [ ] Add backpressure handling
-- [ ] Implement stream cleanup on client disconnect
-
-**4. task/resubscribe Implementation (Week 3)**
-- [ ] Add `task/resubscribe` RPC method
-- [ ] Implement resuming existing task stream
-- [ ] Handle Last-Event-ID for event replay
-- [ ] Implement event buffering strategy (last N events)
-- [ ] Add stream state management
-- [ ] Handle edge cases (completed tasks, expired tasks)
-
-**5. Client Streaming Support (Week 4)**
-- [ ] Add streaming client API (`stream_message()`)
-- [ ] Implement SSE parser and event decoder
-- [ ] Add async stream interface (tokio::Stream)
-- [ ] Handle automatic reconnection with backoff
+**Client API (Week 5):**
+- [ ] Add `stream_message()` client method
+- [ ] Implement SSE parser for client
+- [ ] Add async stream interface
+- [ ] Handle reconnection with Last-Event-ID
 - [ ] Add timeout and error handling
-- [ ] Implement stream cancellation
+- [ ] Client-side tests
 
-**6. AgentCard Updates (Week 4)**
-- [ ] Add `capabilities.streaming: bool` field
-- [ ] Add `capabilities.streamingMethods` (message/stream, task/resubscribe)
-- [ ] Document streaming support and limitations
-- [ ] Add streaming configuration options (buffer size, timeout)
+**Documentation (Week 5-6):**
+- [ ] Streaming API documentation
+- [ ] Client usage examples
+- [ ] Server streaming guide
+- [ ] Update README with streaming features
+- [ ] Migration guide section
 
-**7. Testing & Documentation (Week 5)**
-- [ ] Add SSE format validation tests
-- [ ] Add streaming workflow integration tests
-- [ ] Add reconnection and resume tests
-- [ ] Test with multiple concurrent streams
-- [ ] Add load testing for streaming (100+ concurrent)
-- [ ] Add streaming examples to docs
-- [ ] Create streaming tutorial
-- [ ] Update MIGRATION guide
+#### Test Status
+**124 tests passing** (98 lib + 17 compliance + 8 RPC + 1 doc)
+- ✅ SSE event formatting/parsing tests
+- ✅ Streaming workflow integration tests
+- ✅ Concurrent stream tests
+- ❌ Client streaming tests (pending client API)
 
-#### Success Criteria
-- ✅ W3C SSE specification compliant
-- ✅ Proper event format per A2A spec
-- ✅ Reconnection works correctly with Last-Event-ID
-- ✅ No memory leaks in long-running streams
-- ✅ Works with standard SSE clients (curl, EventSource)
-- ✅ Can handle 100+ concurrent streams
-- ✅ Proper cleanup on disconnect
-
-#### Technical Decisions
-- **SSE Library:** Use `axum::response::sse` for spec compliance
-- **Event Format:** JSON-RPC 2.0 responses wrapped in SSE events
-- **Buffering:** Keep last 100 events per task for replay
-- **Timeout:** 30s keepalive, 5min idle timeout
-- **Reconnect:** Exponential backoff (1s, 2s, 4s, 8s, max 30s)
-
-#### Estimated Timeline
-**5 weeks** - Streaming is complex, allocate time for edge cases
+#### Architecture
+- **Transport:** `axum::response::sse` for W3C compliance
+- **Event Format:** JSON-RPC 2.0 in SSE data field
+- **Buffering:** Last 100 events per task
+- **Cleanup:** Automatic on task completion or timeout
 
 ---
 
@@ -512,28 +478,36 @@ let response = client.send_message(message).await?;
 
 ## Tracking & Metrics
 
-### Current Status (v0.5.0)
+### Current Status (v0.6.0 - In Progress)
 ```
-Spec Compliance:  ████████████████░░░░  ~85%
+Spec Compliance:  ███████████████░░░░░  ~75%
 Transport:        ████████████████████ 100% (JSON-RPC 2.0)
 Core Methods:     ████████████████████ 100% (5/5 required)
-Data Structures:  ████████████████████ 100% (AgentCard, Message, Task)
+Streaming Server: ████████████████████ 100% (message/stream, task/resubscribe)
+Streaming Client: ████████░░░░░░░░░░░░  ~40% (SSE parsing done, client API pending)
+Data Structures:  ████████████████████ 100% (AgentCard, Message, Task, SseEvent)
 Error Codes:      ████████████████████ 100% (7/7 A2A codes)
-Optional Methods: ░░░░░░░░░░░░░░░░░░░░   0% (streaming, push)
-Documentation:    ███████████████████░  ~95%
+Optional Methods: ████████░░░░░░░░░░░░  ~40% (streaming server only)
+Push Webhooks:    ░░░░░░░░░░░░░░░░░░░░   0% (not started)
+Documentation:    ██████████████░░░░░░  ~70% (streaming docs pending)
+Tests:            ████████████████████ 124 passing
 ```
 
-### Target for v0.6.0
+### Progress vs v0.5.0
 ```
-Spec Compliance:  ███████████████████░  ~92%
-Streaming:        ████████████████████ 100% (SSE, message/stream, task/resubscribe)
-Optional Methods: ██████░░░░░░░░░░░░░░  ~30% (streaming only)
+v0.5.0 → v0.6.0 Additions:
++ SSE Infrastructure    ████████████████████ (SseEvent, SseWriter, EventBuffer)
++ Server Streaming      ████████████████████ (message/stream, task/resubscribe)
++ Streaming Tests       ████████████████████ (+23 tests, 101→124)
+- Client Streaming API  ████████░░░░░░░░░░░░ (in progress)
+- Streaming Docs        ██████░░░░░░░░░░░░░░ (in progress)
 ```
 
 ### Target for v1.0.0
 ```
 Spec Compliance:  ████████████████████ 100%
 All Features:     ████████████████████ 100%
+All Transports:   ████████████████████ 100% (JSON-RPC + gRPC + HTTP+JSON)
 ```
 
 ---
@@ -612,6 +586,27 @@ All Features:     ████████████████████ 1
 
 ## Changelog
 
+### v0.6.0 (October 30, 2025) 🚧 IN PROGRESS
+- ✅ **SSE Streaming Server:**
+  - Implemented W3C SSE infrastructure (`transport/sse.rs`)
+  - Added `SseEvent` for event formatting and parsing
+  - Added `SseWriter` for broadcast-based event publishing
+  - Added `EventBuffer` for replay with Last-Event-ID support
+  - Implemented `message/stream` and `task/resubscribe` endpoints
+  - Axum integration with `/stream` endpoint
+- ✅ **Streaming Architecture:**
+  - Added streaming methods to `A2aHandler` trait
+  - Implemented full streaming in `TaskAwareHandler`
+  - Stream registry with cleanup on completion/disconnect
+  - Feature gating with `streaming` feature flag
+- ✅ **Testing:**
+  - 124 tests passing (98 lib + 17 compliance + 8 RPC + 1 doc)
+  - Added 2 new streaming integration tests
+  - SSE format validation and workflow tests
+- 🚧 **Client API:** SSE client streaming API (in progress)
+- 🚧 **Documentation:** Streaming examples and guides (in progress)
+- **Spec Compliance:** ~75% (realistic assessment)
+
 ### v0.5.0 (October 23, 2025)
 - ✅ **AgentCard Complete Compliance:**
   - Added `defaultInputModes` and `defaultOutputModes` (MIME types)
@@ -643,6 +638,6 @@ All Features:     ████████████████████ 1
 
 ---
 
-**Last Updated:** October 23, 2025  
+**Last Updated:** October 30, 2025  
 **Maintained By:** a2a-protocol team  
 **License:** MIT OR Apache-2.0

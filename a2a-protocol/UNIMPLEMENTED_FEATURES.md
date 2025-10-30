@@ -1,137 +1,94 @@
-## Unimplemented A2A v0.3.0 Features
+# Unimplemented A2A v0.3.0 Features
 
-**Last Updated:** October 20, 2025  
-**Crate Version:** v0.4.0  
+**Last Updated:** October 30, 2025  
+**Crate Version:** v0.6.0 (in progress)  
 **Target Spec:** A2A Protocol v0.3.0
-
-This document highlights the remaining gaps between the `a2a-protocol` crate and the A2A v0.3.0 specification. Use it alongside the detailed schedule in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
 
 ---
 
 ## Quick Status
 
-| Area | Status | Notes |
-|------|--------|-------|
-| JSON-RPC Transport | ✅ Complete | Spec-compliant request/response handling |
-| Core Message/Part Types | ✅ Complete | `messageId`, `taskId`, `contextId`, and part discriminators implemented |
-| AgentCard Metadata | 🚧 Partial | Missing `defaultInputModes`, `defaultOutputModes`, `supportsAuthenticatedExtendedCard`, and strong transport enum |
-| Spec Error Codes | 🚧 Partial | Custom JSON-RPC codes `-32001` → `-32007` not mapped yet |
-| Streaming (SSE) | ❌ Missing | `message/stream`, `task/resubscribe`, event types |
-| Push Notifications | ❌ Missing | `tasks/pushNotificationConfig/*` RPC methods and webhook delivery |
-| Authenticated Extended Card | ❌ Missing | `agent/getAuthenticatedExtendedCard` handler and card metadata |
-| Additional Transports | ❌ Missing | HTTP+JSON/REST and gRPC transports |
-| Observability & Ops | ⚠️ Minimal | Logging, metrics, tracing, health endpoints |
+| Feature | Status | Priority |
+|---------|--------|----------|
+| JSON-RPC Transport | ✅ Complete | - |
+| Core Types (Message, Task, Part) | ✅ Complete | - |
+| AgentCard Metadata | ✅ Complete | - |
+| A2A Error Codes | ✅ Complete | - |
+| **SSE Streaming (server)** | ✅ Complete | **v0.6.0** |
+| **SSE Streaming (client)** | 🚧 In Progress | **v0.6.0** |
+| Push Notifications | ❌ Not Started | v0.7.0 |
+| Authenticated Extended Card | ❌ Not Started | v0.8.0 |
+| File Handling | ⚠️ Basic Only | v0.8.0 |
+| gRPC Transport | ❌ Not Started | v1.0.0 |
+| HTTP+JSON/REST Transport | ❌ Not Started | v1.0.0 |
 
-**Overall JSON-RPC compliance:** ~70% of spec features  
-**Tests passing:** 101
-
----
-
-## 1. AgentCard Metadata Gaps (MUST)
-
-- `defaultInputModes: Vec<String>` (MIME types supported for inbound content)
-- `defaultOutputModes: Vec<String>` (MIME types for outputs)
-- `supportsAuthenticatedExtendedCard: bool`
-- Strongly typed `preferredTransport` enum (`JSONRPC`, `GRPC`, `HTTP+JSON`) and validation for `additionalInterfaces`
-- Documentation + tests covering new fields
-
-**Impact:** Without these fields the card fails strict validation against the spec schema.
+**Overall Spec Compliance:** ~75%  
+**Tests Passing:** 124 (98 lib + 17 compliance + 8 RPC + 1 doc)
 
 ---
 
-## 2. A2A-Specific Error Codes (MUST)
+## What's Missing
 
-JSON-RPC mapping currently returns generic server errors. Implement explicit codes and data payloads for:
+### 1. SSE Streaming Client (v0.6.0) 🚧
+**Server implemented, client in progress**
 
-- `-32001` `TaskNotFoundError`
-- `-32002` `TaskNotCancelableError`
-- `-32003` `PushNotificationNotSupportedError`
-- `-32004` `UnsupportedOperationError`
-- `-32005` `ContentTypeNotSupportedError`
-- `-32006` `InvalidAgentResponseError`
-- `-32007` `AuthenticatedExtendedCardNotConfiguredError`
+- ✅ Server: `message/stream` and `task/resubscribe` endpoints
+- ✅ Server: SSE infrastructure (SseEvent, SseWriter, EventBuffer)
+- ✅ Server: Axum integration with `/stream` endpoint
+- ❌ Client: SSE parsing and async stream interface
+- ❌ Client: Reconnection with Last-Event-ID
+- ❌ Documentation and examples
 
-**Impact:** Clients cannot reliably distinguish recoverable vs fatal conditions.
-
----
-
-## 3. Streaming (SSE) Support (MAY)
-
-Required to implement the optional streaming paths in the spec:
-
-- `message/stream` RPC method producing W3C SSE responses
-- `task/resubscribe` RPC method with Last-Event-ID semantics
-- Event payloads: `TaskStatusUpdateEvent`, `TaskArtifactUpdateEvent`
-- Client helpers for consuming SSE streams
-- AgentCard capability flags for streaming
-
-**Workaround:** Poll `task/status` + `task/get` until SSE landing.
+**Workaround:** Poll `task/status` and `task/get` until client ready.
 
 ---
 
-## 4. Push Notification Webhooks (MAY)
+### 2. Push Notifications (v0.7.0) ❌
 
-- `tasks/pushNotificationConfig/set|get|list|delete`
-- Persisted configuration with SSRF protection and validation
-- Webhook dispatcher with retries, authentication, and observability
-- AgentCard capability disclosure
+- `tasks/pushNotificationConfig/set|get|list|delete` RPC methods
+- Webhook delivery with retries and authentication
+- SSRF protection
 
-**Impact:** Agents cannot proactively notify clients of task updates.
+**Impact:** Agents cannot proactively push updates to clients.
 
 ---
 
-## 5. Authenticated Extended Card (MAY)
+### 3. Authenticated Extended Card (v0.8.0) ❌
 
 - `agent/getAuthenticatedExtendedCard` endpoint
-- Storage for extended metadata
-- Access control hooks and `supportsAuthenticatedExtendedCard` flag
+- Access control and extended metadata
 
-**Workaround:** Rely on unauthenticated `agent/card`.
-
----
-
-## 6. Additional Transports (MAY)
-
-- **gRPC:** Proto definitions, tonic-based server/client, streaming compatibility
-- **HTTP+JSON/REST:** Endpoint layout per spec, request/response wrappers, tests
-
-**Current stance:** JSON-RPC transport satisfies the “one transport” requirement; other transports prioritized after v0.5.0.
+**Workaround:** Use public `agent/card`.
 
 ---
 
-## 7. Advanced File Handling (SHOULD)
+### 4. Advanced File Handling (v0.8.0) ⚠️
 
-- Size limits and validation for `FileWithBytes`
-- MIME type validation utilities
-- Streaming/downloading helpers for `FileWithUri`
-- Conformance tests for large payloads
-
----
-
-## 8. Observability & Operations (SHOULD)
-
-- Structured logging across server and client
-- Metrics + tracing (OpenTelemetry)
-- Health/readiness endpoints for server integrations
-- Error telemetry dashboards / hooks
+- ✅ Basic `FilePart` with URI/bytes
+- ❌ Size limits and validation
+- ❌ Streaming for large files
+- ❌ MIME type validation
 
 ---
 
-## 9. Performance & Scaling Enhancements (NICE TO HAVE)
+### 5. Additional Transports (v1.0.0) ❌
 
-- Connection pooling, request pipelining, compression
-- Task store persistence and sharding
-- Batch request handling on the server side
+- **gRPC:** Requires .proto from spec
+- **HTTP+JSON/REST:** Awaiting spec clarification
 
----
-
-## Quick Win Suggestions
-
-1. Finish AgentCard fields + validation suite
-2. Implement JSON-RPC error code mapping with targeted tests
-3. Add compliance fixtures to lock down message/part serialization (regression guard)
+**Current:** JSON-RPC satisfies spec requirement.
 
 ---
 
-**Maintained by:** a2a-protocol team  
-**Next planned update:** After v0.5.0 feature work lands
+## Next Steps
+
+1. **v0.6.0:** Complete client-side SSE streaming API
+2. **v0.7.0:** Implement push notification webhooks
+3. **v0.8.0:** Add authenticated extended card and file handling
+4. **v1.0.0:** Additional transports and production hardening
+
+See [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for detailed schedule.
+
+---
+
+**Maintained by:** a2a-protocol team

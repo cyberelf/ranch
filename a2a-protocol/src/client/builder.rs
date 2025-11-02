@@ -89,7 +89,7 @@ impl ClientBuilder {
         self
     }
 
-    /// Build the A2A client
+    /// Build the non-streaming A2A client
     pub fn build(self) -> Result<A2aClient, crate::A2aError> {
         let transport: Arc<dyn Transport> = match self.transport_type {
             TransportType::JsonRpc { endpoint } => Arc::new(JsonRpcTransport::with_config(
@@ -102,6 +102,43 @@ impl ClientBuilder {
         let agent_id = self.agent_id.unwrap_or_else(|| AgentId::generate());
 
         Ok(A2aClient::with_agent_id(transport, agent_id))
+    }
+
+    /// Build a type-safe streaming client (requires streaming feature)
+    ///
+    /// This creates an `A2aStreamingClient` that provides compile-time guarantees
+    /// that the transport supports streaming. Only works with JSON-RPC transport currently.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use a2a_protocol::client::ClientBuilder;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let client = ClientBuilder::new()
+    ///     .with_json_rpc("https://agent.example.com/rpc")
+    ///     .build_streaming()?;
+    ///
+    /// // Now you have compile-time streaming guarantees
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "streaming")]
+    pub fn build_streaming(
+        self,
+    ) -> Result<crate::client::A2aStreamingClient<JsonRpcTransport>, crate::A2aError> {
+        match self.transport_type {
+            TransportType::JsonRpc { endpoint } => {
+                let transport = Arc::new(JsonRpcTransport::with_config(
+                    endpoint,
+                    self.transport_config,
+                )?);
+                Ok(crate::client::A2aStreamingClient::new(transport))
+            }
+            TransportType::Custom(_) => Err(crate::A2aError::UnsupportedOperation(
+                "build_streaming() only supports JSON-RPC transport. Use build() for custom transports.".to_string()
+            )),
+        }
     }
 }
 
@@ -167,5 +204,18 @@ mod tests {
         assert_eq!(client.agent_id().as_str(), "test-agent");
         assert_eq!(client.transport_type(), "json-rpc");
         assert_eq!(client.config().timeout_seconds, 30);
+    }
+
+    #[cfg(feature = "streaming")]
+    #[tokio::test]
+    async fn test_client_builder_build_streaming() {
+        let client = ClientBuilder::new()
+            .with_json_rpc("https://example.com/rpc")
+            .with_timeout(30)
+            .build_streaming()
+            .unwrap();
+
+        assert_eq!(client.base().transport_type(), "json-rpc");
+        assert_eq!(client.base().config().timeout_seconds, 30);
     }
 }

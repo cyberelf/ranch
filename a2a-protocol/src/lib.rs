@@ -56,6 +56,10 @@ pub mod transport;
 pub mod prelude {
     pub use crate::auth::Authenticator;
     pub use crate::client::A2aClient;
+    
+    #[cfg(feature = "streaming")]
+    pub use crate::client::A2aStreamingClient;
+    
     pub use crate::core::{
         agent_id::AgentId,
         message_id::MessageId,

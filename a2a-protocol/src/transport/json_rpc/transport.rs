@@ -169,13 +169,27 @@ impl StreamingTransport for JsonRpcTransport {
         &self,
         message: Message,
     ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
-        // Build the SSE URL from the base endpoint
+        // Build the SSE URL by parsing the base URL and replacing the path
         let base_url = self.http_client.base_url();
-        let stream_url = if base_url.ends_with("/rpc") {
-            base_url.replace("/rpc", "/stream")
-        } else {
-            format!("{}/stream", base_url)
-        };
+        
+        // Parse the base URL to extract scheme://host:port
+        let parsed_url = url::Url::parse(base_url)
+            .map_err(|e| A2aError::Transport(format!("Invalid base URL: {}", e)))?;
+        
+        let mut stream_url = format!(
+            "{}://{}/stream",
+            parsed_url.scheme(),
+            parsed_url.host_str().unwrap_or("localhost")
+        );
+        
+        if let Some(port) = parsed_url.port() {
+            stream_url = format!(
+                "{}://{}:{}/stream",
+                parsed_url.scheme(),
+                parsed_url.host_str().unwrap_or("localhost"),
+                port
+            );
+        }
 
         // Create the request body using JSON-RPC format
         let request_body = Self::create_request("message/stream", json!({ "message": message }));
@@ -242,13 +256,27 @@ impl StreamingTransport for JsonRpcTransport {
         &self,
         request: crate::TaskResubscribeRequest,
     ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>> {
-        // Build the SSE URL from the base endpoint
+        // Build the SSE URL by parsing the base URL and replacing the path
         let base_url = self.http_client.base_url();
-        let stream_url = if base_url.ends_with("/rpc") {
-            base_url.replace("/rpc", "/stream")
-        } else {
-            format!("{}/stream", base_url)
-        };
+        
+        // Parse the base URL to extract scheme://host:port
+        let parsed_url = url::Url::parse(base_url)
+            .map_err(|e| A2aError::Transport(format!("Invalid base URL: {}", e)))?;
+        
+        let mut stream_url = format!(
+            "{}://{}/stream",
+            parsed_url.scheme(),
+            parsed_url.host_str().unwrap_or("localhost")
+        );
+        
+        if let Some(port) = parsed_url.port() {
+            stream_url = format!(
+                "{}://{}:{}/stream",
+                parsed_url.scheme(),
+                parsed_url.host_str().unwrap_or("localhost"),
+                port
+            );
+        }
 
         // Create the request body using JSON-RPC format
         let request_body = Self::create_request("task/resubscribe", serde_json::to_value(&request)?);

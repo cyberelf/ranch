@@ -180,14 +180,21 @@ let response = client.send_message(message).await?;
 ---
 
 ### v0.6.0 🚧 IN PROGRESS (Target: Q1 2026)
-**Theme:** SSE Streaming Support
+**Theme:** SSE Streaming + Developer Experience Improvements
 
-**Status:** Server-side complete, client API in progress
+**Status:** Server-side complete, client API + DX improvements in progress
+
+**Inspired by:** `a2a-go` design philosophy - prioritize ease of use and rapid onboarding
 
 #### Progress Summary
 - ✅ **Server infrastructure complete** (4 weeks)
-- 🚧 **Client API** (1-2 weeks remaining)
-- ❌ **Documentation** (1 week remaining)
+- 🚧 **Client streaming API** (1 week remaining) - CRITICAL for release
+- 🚧 **Developer Experience** (2 weeks remaining) - NEW priority
+  - Simplified server setup (`ServerBuilder`)
+  - Simpler agent logic trait (`AgentLogic`)
+  - High-quality runnable examples
+  - Comprehensive getting-started docs
+- ❌ **Documentation overhaul** (1 week remaining)
 
 #### Completed ✅
 
@@ -211,33 +218,128 @@ let response = client.send_message(message).await?;
 
 #### Remaining Tasks
 
-**Client API (Week 5):**
+**Priority 1: Client Streaming API (Week 5) - CRITICAL**
 - [ ] Add `stream_message()` client method
 - [ ] Implement SSE parser for client
-- [ ] Add async stream interface
+- [ ] Add async stream interface (using tokio streams)
 - [ ] Handle reconnection with Last-Event-ID
 - [ ] Add timeout and error handling
-- [ ] Client-side tests
+- [ ] Client-side streaming tests
+- [ ] Streaming integration tests (end-to-end)
 
-**Documentation (Week 5-6):**
-- [ ] Streaming API documentation
-- [ ] Client usage examples
-- [ ] Server streaming guide
-- [ ] Update README with streaming features
-- [ ] Migration guide section
+**Priority 2: Developer Experience (Week 6-7) - NEW**
+
+**Simplified Server Setup:**
+- [ ] Create `ServerBuilder<H: A2aHandler>` in `src/server/builder.rs`
+- [ ] Implement `.with_address()` method
+- [ ] Implement `.with_cors()` method (optional)
+- [ ] Implement `.run()` async method
+- [ ] Hide axum/tokio details from basic users
+- [ ] Add builder tests
+
+**Simplified Agent Logic:**
+- [ ] Create `AgentLogic` trait in `src/server/agent_logic.rs`
+  - Single method: `async fn process_message(&self, msg: Message) -> Result<Message, A2aError>`
+- [ ] Update `TaskAwareHandler` to accept `impl AgentLogic`
+- [ ] Keep `A2aHandler` for advanced use cases (full control)
+- [ ] Add trait selection guide in docs
+- [ ] Add tests for both traits
+
+**High-Quality Examples:**
+- [ ] Create `examples/` directory structure
+- [ ] `examples/basic_echo_server.rs` - Minimal server (<20 lines)
+- [ ] `examples/echo_client.rs` - Minimal client
+- [ ] `examples/streaming_server.rs` - SSE streaming demo
+- [ ] `examples/streaming_client.rs` - SSE client demo
+- [ ] `examples/task_server.rs` - Long-running task handling
+- [ ] `examples/multi_agent.rs` - Agent-to-agent communication
+- [ ] Add `clap` to dev-dependencies for CLI args in examples
+- [ ] Create `examples/README.md` with quickstart guide
+- [ ] Ensure all examples are tested in CI
+
+**Documentation (Week 7-8):**
+- [ ] **README.md overhaul:**
+  - [ ] Add "Quick Start" section (5-minute server + client)
+  - [ ] Add architecture diagram showing module relationships
+  - [ ] Add "When to use AgentLogic vs A2aHandler" decision tree
+  - [ ] Link to examples prominently
+- [ ] **Create GETTING_STARTED.md:**
+  - [ ] Step-by-step tutorial (from zero to working agent)
+  - [ ] Common patterns and recipes section
+  - [ ] Troubleshooting guide (common errors and fixes)
+  - [ ] Performance tips
+- [ ] **Improve inline documentation:**
+  - [ ] Add code examples to all public structs/traits
+  - [ ] Document all trait methods with usage patterns
+  - [ ] Add "See also" cross-references
+  - [ ] Ensure cargo doc builds without warnings
+- [ ] Streaming API guide
+- [ ] Migration guide for v0.6.0
 
 #### Test Status
 **124 tests passing** (98 lib + 17 compliance + 8 RPC + 1 doc)
+**Target: 140+ tests** with new client streaming and DX features
+
+Current:
 - ✅ SSE event formatting/parsing tests
 - ✅ Streaming workflow integration tests
 - ✅ Concurrent stream tests
 - ❌ Client streaming tests (pending client API)
+- ❌ ServerBuilder tests (pending implementation)
+- ❌ AgentLogic trait tests (pending implementation)
+- ❌ Example smoke tests (pending examples)
+
+#### Success Criteria for v0.6.0 Release
+- ✅ Client streaming API works end-to-end
+- ✅ Can build a working server in <10 lines of code (using ServerBuilder)
+- ✅ New developers can get started in <5 minutes (using examples)
+- ✅ All examples run successfully and are tested in CI
+- ✅ Documentation covers 90% of common use cases
+- ✅ Backward compatible with v0.5.0 (A2aHandler still works)
+- ✅ All 140+ tests passing
+
+#### Design Philosophy (from a2a-go analysis)
+**Simplicity over Perfection:**
+- Provide both simple (`AgentLogic`) and advanced (`A2aHandler`) APIs
+- Hide framework complexity (axum, tokio) behind builders
+- Examples should be runnable immediately, not pseudocode
+- Documentation should prioritize "getting started" over "complete reference"
+
+**Key Lessons Applied:**
+1. **One-line server setup** - `ServerBuilder::new(handler).run().await?`
+2. **Simpler core trait** - `AgentLogic` focuses on business logic only
+3. **Runnable examples** - Every example in `examples/` can be run with `cargo run`
+4. **Configuration obviousness** - CLI args in examples show best practices
 
 #### Architecture
 - **Transport:** `axum::response::sse` for W3C compliance
 - **Event Format:** JSON-RPC 2.0 in SSE data field
 - **Buffering:** Last 100 events per task
 - **Cleanup:** Automatic on task completion or timeout
+
+#### Estimated Timeline for v0.6.0 Completion
+**Week 5 (Critical Path):**
+- Client streaming API implementation (5 days)
+- Client streaming tests (2 days)
+
+**Week 6 (Developer Experience - Part 1):**
+- ServerBuilder implementation and tests (2 days)
+- AgentLogic trait implementation and tests (2 days)
+- Examples: basic_echo_server, echo_client (1 day)
+
+**Week 7 (Developer Experience - Part 2):**
+- Examples: streaming_server, streaming_client, task_server, multi_agent (3 days)
+- Examples README and CI integration (2 days)
+
+**Week 8 (Documentation):**
+- README.md overhaul (2 days)
+- GETTING_STARTED.md creation (2 days)
+- Inline documentation improvements (1 day)
+- Final review and release prep (2 days)
+
+**Total:** ~8 weeks from current state
+**Critical Path:** 1 week (client streaming must be done first)
+**DX Enhancement:** 3 weeks (can be parallelized with docs)
 
 ---
 
@@ -500,8 +602,17 @@ v0.5.0 → v0.6.0 Additions:
 + Server Streaming      ████████████████████ (message/stream, task/resubscribe)
 + Streaming Tests       ████████████████████ (+23 tests, 101→124)
 - Client Streaming API  ████████░░░░░░░░░░░░ (in progress)
-- Streaming Docs        ██████░░░░░░░░░░░░░░ (in progress)
+- ServerBuilder         ░░░░░░░░░░░░░░░░░░░░ (planned - DX improvement)
+- AgentLogic Trait      ░░░░░░░░░░░░░░░░░░░░ (planned - DX improvement)
+- Examples Directory    ░░░░░░░░░░░░░░░░░░░░ (planned - DX improvement)
+- Documentation         ██████░░░░░░░░░░░░░░ (in progress - comprehensive overhaul)
 ```
+
+**DX Improvements Inspired by a2a-go:**
+- Simple one-line server setup (ServerBuilder)
+- Beginner-friendly agent trait (AgentLogic)
+- 6+ runnable examples with CLI configuration
+- Getting Started guide for 5-minute onboarding
 
 ### Target for v1.0.0
 ```

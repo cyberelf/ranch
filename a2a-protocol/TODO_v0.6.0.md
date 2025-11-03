@@ -22,24 +22,33 @@
 **Goal:** Make the library as easy to use as the Go implementation
 
 #### 2.1 Simplified Server API
-- [ ] **Create `ServerBuilder`** - One-line server setup
-  - [ ] Implement `ServerBuilder<H: A2aHandler>`
-  - [ ] `.with_address()` configuration
-  - [ ] `.with_cors()` configuration (optional)
-  - [ ] `.run()` async method that starts server
-  - [ ] Hide axum/tokio complexity from users
+- [x] **Create `ServerBuilder`** - One-line server setup
+  - [x] Implement `ServerBuilder<H: A2aHandler>`
+  - [x] `.with_address()` configuration
+  - [x] `.with_host_port()` configuration  
+  - [x] `.with_port()` configuration (most common)
+  - [x] `.run()` async method that starts server
+  - [x] `.build()` method for advanced use cases
+  - [x] Hide axum/tokio complexity from users
+  - [x] 5 unit tests + 7 doc tests
+  - [x] `examples/simple_server.rs` demonstrating usage
   
 #### 2.2 Simplified Agent Logic Trait
-- [ ] **Create `AgentLogic` trait** - Simpler than `A2aHandler`
-  - [ ] `async fn process_message(&self, msg: Message) -> Result<Message, A2aError>`
-  - [ ] Update `TaskAwareHandler` to accept `impl AgentLogic`
-  - [ ] Keep `A2aHandler` for advanced users who need full control
-  - [ ] Migration guide showing when to use which trait
+- [x] **Create `AgentLogic` trait** - Simpler than `A2aHandler`
+  - [x] `async fn process_message(&self, msg: Message) -> Result<Message, A2aError>`
+  - [x] Optional `initialize()` and `shutdown()` hooks
+  - [x] Update `TaskAwareHandler::with_logic()` to accept `impl AgentLogic`
+  - [x] Keep `A2aHandler` for advanced users who need full control
+  - [x] Comprehensive documentation showing when to use which trait
+  - [x] 3 unit tests + 4 doc tests
+  - [x] `examples/basic_echo_server.rs` demonstrating usage
 
 #### 2.3 High-Quality Examples
-- [ ] **Create `examples/` directory** with runnable examples
-  - [ ] `basic_echo_server.rs` - Minimal working server
-  - [ ] `echo_client.rs` - Minimal working client
+- [x] **Create `examples/` directory** with runnable examples
+  - [x] `basic_echo_server.rs` - Minimal working server (demonstrates AgentLogic trait)
+  - [x] `echo_client.rs` - Minimal working client (demonstrates ClientBuilder + SendResponse handling)
+  - [x] `simple_server.rs` - ServerBuilder example (one-line server setup)
+  - [x] `streaming_type_safety.rs` - Type-safe streaming patterns
   - [ ] `streaming_server.rs` - SSE streaming example
   - [ ] `streaming_client.rs` - SSE client example
   - [ ] `task_server.rs` - Long-running task example
@@ -65,7 +74,7 @@
 ### Success Criteria
 - ✅ Client streaming API works end-to-end
 - ✅ Can build a working server in <10 lines of code
-- ✅ All examples run successfully
-- ✅ New user can get started in <5 minutes
-- ✅ Documentation covers 90% of common use cases
-- ✅ All tests passing (target: 140+ tests)
+- 🚧 All examples run successfully (4 of 8+ created)
+- 🚧 New user can get started in <5 minutes (pending examples README)
+- 🚧 Documentation covers 90% of common use cases (pending GETTING_STARTED.md)
+- ✅ All tests passing (161 tests: 110 lib + 8 streaming + 17 compliance + 8 RPC + 18 doc)

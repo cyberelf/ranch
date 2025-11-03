@@ -2,12 +2,14 @@
 
 use crate::{
     server::{
+        agent_logic::AgentLogic,
         handler::{HealthStatus, HealthStatusType},
         A2aHandler, TaskStore,
     }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, SendResponse,
     Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskState, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
+use std::sync::Arc;
 
 #[cfg(feature = "streaming")]
 use crate::transport::{StreamingResult, sse::SseWriter};
@@ -18,9 +20,24 @@ use futures_util::stream::Stream;
 #[cfg(feature = "streaming")]
 use std::collections::HashMap;
 #[cfg(feature = "streaming")]
-use std::sync::Arc;
-#[cfg(feature = "streaming")]
 use tokio::sync::RwLock;
+
+/// Processing logic for the handler
+enum ProcessingLogic {
+    /// Built-in echo logic (default)
+    Echo,
+    /// User-provided agent logic
+    Custom(Arc<dyn AgentLogic>),
+}
+
+impl Clone for ProcessingLogic {
+    fn clone(&self) -> Self {
+        match self {
+            ProcessingLogic::Echo => ProcessingLogic::Echo,
+            ProcessingLogic::Custom(logic) => ProcessingLogic::Custom(logic.clone()),
+        }
+    }
+}
 
 /// Handler that supports full task lifecycle management
 #[derive(Clone)]
@@ -29,18 +46,62 @@ pub struct TaskAwareHandler {
     task_store: TaskStore,
     /// Whether to return tasks for messages (true) or immediate responses (false)
     async_by_default: bool,
+    /// Optional custom logic for processing messages
+    logic: ProcessingLogic,
     /// SSE writers for streaming tasks (task_id -> writer)
     #[cfg(feature = "streaming")]
     stream_writers: Arc<RwLock<HashMap<String, SseWriter>>>,
 }
 
 impl TaskAwareHandler {
-    /// Create a new task-aware handler
+    /// Create a new task-aware handler with built-in echo logic
     pub fn new(agent_card: AgentCard) -> Self {
         Self {
             agent_card,
             task_store: TaskStore::new(),
             async_by_default: true,
+            logic: ProcessingLogic::Echo,
+            #[cfg(feature = "streaming")]
+            stream_writers: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Create a handler with custom agent logic
+    ///
+    /// This allows you to use a simple `AgentLogic` implementation while still
+    /// getting full A2A protocol support (tasks, streaming, etc.) from TaskAwareHandler.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use a2a_protocol::prelude::*;
+    /// # use a2a_protocol::server::{AgentLogic, TaskAwareHandler};
+    /// # use async_trait::async_trait;
+    /// # use url::Url;
+    /// struct MyAgent;
+    ///
+    /// #[async_trait]
+    /// impl AgentLogic for MyAgent {
+    ///     async fn process_message(&self, msg: Message) -> A2aResult<Message> {
+    ///         Ok(Message::agent_text("Hello!"))
+    ///     }
+    /// }
+    ///
+    /// let agent_id = AgentId::new("my-agent".to_string()).unwrap();
+    /// let agent_card = AgentCard::new(
+    ///     agent_id,
+    ///     "My Agent",
+    ///     Url::parse("https://example.com").unwrap()
+    /// );
+    ///
+    /// let handler = TaskAwareHandler::with_logic(agent_card, MyAgent);
+    /// ```
+    pub fn with_logic<L: AgentLogic + 'static>(agent_card: AgentCard, logic: L) -> Self {
+        Self {
+            agent_card,
+            task_store: TaskStore::new(),
+            async_by_default: false, // Custom logic typically wants immediate responses
+            logic: ProcessingLogic::Custom(Arc::new(logic)),
             #[cfg(feature = "streaming")]
             stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -52,6 +113,7 @@ impl TaskAwareHandler {
             agent_card,
             task_store: TaskStore::new(),
             async_by_default: false,
+            logic: ProcessingLogic::Echo,
             #[cfg(feature = "streaming")]
             stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -88,9 +150,18 @@ impl TaskAwareHandler {
 
     /// Process a message and return immediate response
     async fn process_message_immediately(&self, message: Message) -> A2aResult<Message> {
-        let content = message.text_content().unwrap_or("No content");
-        let response_content = format!("Echo: {}", content);
-        Ok(Message::agent_text(response_content))
+        match &self.logic {
+            ProcessingLogic::Echo => {
+                // Built-in echo logic
+                let content = message.text_content().unwrap_or("No content");
+                let response_content = format!("Echo: {}", content);
+                Ok(Message::agent_text(response_content))
+            }
+            ProcessingLogic::Custom(logic) => {
+                // Use custom agent logic
+                logic.process_message(message).await
+            }
+        }
     }
 }
 

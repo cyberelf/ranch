@@ -38,14 +38,17 @@ impl HttpClient {
         base_url: S,
         config: TransportConfig,
     ) -> A2aResult<Self> {
-        let base_url = base_url.into();
+        let mut base_url = base_url.into();
 
-        // Ensure base_url ends with a slash
-        let base_url = if base_url.ends_with('/') {
-            base_url
-        } else {
-            format!("{}/", base_url)
-        };
+        // For JSON-RPC endpoints, don't add trailing slash
+        // Only add trailing slash if the URL is a base domain (e.g., "http://example.com")
+        // but not if it's an endpoint path (e.g., "http://example.com/rpc")
+        let url_has_path = base_url.trim_end_matches('/').contains("://") 
+            && base_url.trim_end_matches('/').split("://").nth(1).map_or(false, |s| s.contains('/'));
+        
+        if !url_has_path && !base_url.ends_with('/') {
+            base_url.push('/');
+        }
 
         let client = Client::builder()
             .timeout(Duration::from_secs(config.timeout_seconds))

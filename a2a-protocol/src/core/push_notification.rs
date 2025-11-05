@@ -1,7 +1,9 @@
-//! Push notification types for A2A Protocol v0.3.0
+//! Push notification types for A2A Protocol
 //!
-//! This module implements push notification/webhook support as defined in the A2A specification.
+//! This module implements push notification/webhook support as defined in the A2A Protocol v0.3.0 specification.
 //! It allows agents to receive asynchronous task updates via webhooks instead of polling.
+//!
+//! This is part of the v0.7.0 release implementing the push notification feature.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

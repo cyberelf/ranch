@@ -36,14 +36,23 @@ impl AgentLogic for CalculatorAgent {
         
         let result = if parts.len() >= 3 {
             let operation = parts[0].to_lowercase();
-            let a: f64 = parts[1].parse().unwrap_or(0.0);
-            let b: f64 = parts[2].parse().unwrap_or(0.0);
+            
+            // Parse numbers with error handling
+            let a: f64 = match parts[1].parse() {
+                Ok(n) => n,
+                Err(_) => return Ok(Message::agent_text(format!("Error: '{}' is not a valid number", parts[1]))),
+            };
+            let b: f64 = match parts[2].parse() {
+                Ok(n) => n,
+                Err(_) => return Ok(Message::agent_text(format!("Error: '{}' is not a valid number", parts[2]))),
+            };
             
             match operation.as_str() {
                 "add" => format!("Result: {} + {} = {}", a, b, a + b),
                 "subtract" => format!("Result: {} - {} = {}", a, b, a - b),
                 "multiply" => format!("Result: {} × {} = {}", a, b, a * b),
                 "divide" if b != 0.0 => format!("Result: {} ÷ {} = {}", a, b, a / b),
+                "divide" => "Error: Division by zero".to_string(),
                 _ => "Unknown operation. Supported: add, subtract, multiply, divide".to_string(),
             }
         } else {

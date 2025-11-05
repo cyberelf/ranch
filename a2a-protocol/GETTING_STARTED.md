@@ -494,8 +494,13 @@ impl ConfigurableAgent {
 #[async_trait]
 impl AgentLogic for ConfigurableAgent {
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
-        // Use self.api_key and self.timeout
-        todo!()
+        // Example: Use configuration in your logic
+        let text = message.text_content().unwrap_or("");
+        let response = format!(
+            "Processed '{}' with timeout {}s",
+            text, self.timeout
+        );
+        Ok(Message::agent_text(response))
     }
 }
 ```

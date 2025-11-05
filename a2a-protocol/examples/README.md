@@ -83,11 +83,13 @@ cargo run --example streaming_client --features streaming
 ```
 
 #### 6. `streaming_type_safety.rs` - Type-Safe Streaming
-Demonstrates compile-time type safety with `A2aStreamingClient<T>`.
+Demonstrates compile-time type safety with `A2aStreamingClient<T>` and the Deref pattern for accessing base client methods.
 
 ```bash
 cargo run --example streaming_type_safety --features streaming
 ```
+
+Shows how the type system ensures streaming support at compile time rather than runtime.
 
 #### 7. `task_server.rs` - Long-Running Tasks
 Shows how to handle long-running async tasks with status polling.

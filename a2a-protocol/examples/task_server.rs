@@ -32,8 +32,10 @@ impl AgentLogic for TaskAgent {
         // For non-quick messages, simulate heavy computation
         println!("🔄 Processing long-running task: {}", text);
         
-        // Simulate work with a delay
-        sleep(Duration::from_secs(2)).await;
+        // Simulate work with a delay (configurable in production)
+        // In a real agent, this would be actual computation
+        const PROCESSING_DELAY_SECS: u64 = 2;
+        sleep(Duration::from_secs(PROCESSING_DELAY_SECS)).await;
         
         // Generate result
         let word_count = text.split_whitespace().count();

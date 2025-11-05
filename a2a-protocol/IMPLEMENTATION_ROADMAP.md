@@ -287,7 +287,7 @@ let response = client.send_message(message).await?;
 
 ---
 
-### v0.7.0 📅 (Target: Q2 2026)
+### v0.7.0 📅 (Target: Q1 2026)
 **Theme:** Push Notifications
 **Status:** 🎯 PLANNED - See [TODO_v0.7.0.md](TODO_v0.7.0.md)
 
@@ -375,7 +375,7 @@ let response = client.send_message(message).await?;
 - [ ] Comprehensive documentation
 
 #### Estimated Timeline
-**8 weeks** (January - February 2026)
+**8 weeks** (November 2025 - January 2026)
 
 **See [TODO_v0.7.0.md](TODO_v0.7.0.md) for detailed task breakdown**
 
@@ -565,7 +565,7 @@ Focus Area: Push Notifications (Webhooks)
 + SSRF Protection      ░░░░░░░░░░░░░░░░░░░░ (URL validation, rate limiting)
 + Examples & Docs      ░░░░░░░░░░░░░░░░░░░░ (webhook_server, webhook_client)
 Target: +150 tests (161→310+)
-Timeline: 8 weeks (Jan-Feb 2026)
+Timeline: 8 weeks (Nov 2025 - Jan 2026)
 ```
 
 ### Target for v1.0.0

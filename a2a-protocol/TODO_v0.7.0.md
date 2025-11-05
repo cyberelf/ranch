@@ -2,7 +2,7 @@
 
 ## v0.7.0 - Push Notifications & Webhooks
 **Theme:** Async updates via webhooks with security  
-**Target:** Q2 2026  
+**Target:** Q1 2026  
 **Status:** 🎯 PLANNED
 
 ## Overview
@@ -345,25 +345,25 @@ Implement the complete push notification system as defined in the A2A Protocol v
 ## Timeline & Milestones
 
 ### Week 1-2: Foundation (Nov 11-24, 2025)
-- ✅ Data structures complete
-- ✅ RPC methods implemented
-- ✅ Basic storage working
+- [ ] Data structures complete
+- [ ] RPC methods implemented
+- [ ] Basic storage working
 
 ### Week 3-4: Delivery & Security (Nov 25 - Dec 8, 2025)
-- ✅ Webhook delivery system operational
-- ✅ SSRF protection validated
-- ✅ Retry logic tested
+- [ ] Webhook delivery system operational
+- [ ] SSRF protection validated
+- [ ] Retry logic tested
 
 ### Week 5-6: Integration & Polish (Dec 9-22, 2025)
-- ✅ Task integration complete
-- ✅ AgentCard updated
-- ✅ Security audit passed
+- [ ] Task integration complete
+- [ ] AgentCard updated
+- [ ] Security audit passed
 
 ### Week 7-8: Documentation & Release (Dec 23, 2025 - Jan 5, 2026)
-- ✅ Examples working
-- ✅ Documentation complete
-- ✅ All tests passing (310+)
-- ✅ Ready for release
+- [ ] Examples working
+- [ ] Documentation complete
+- [ ] All tests passing (310+)
+- [ ] Ready for release
 
 **Estimated Completion:** Early January 2026
 

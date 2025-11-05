@@ -176,7 +176,7 @@ Streaming enabled by default but can be disabled if not needed.
 - Week 5-6: Task integration and testing
 - Week 7-8: Examples, documentation, security audit
 
-**See [TODO_v0.7.0.md](a2a-protocol/TODO_v0.7.0.md) for detailed breakdown**
+**See [TODO_v0.7.0.md](a2a-protocol/progress/TODO_v0.7.0.md) for detailed breakdown**
 
 ---
 
@@ -208,18 +208,18 @@ Streaming enabled by default but can be disabled if not needed.
 ### Modified Files
 - `Cargo.toml` - Version bump to 0.6.0
 - `Cargo.lock` - Dependencies locked
-- `a2a-protocol/IMPLEMENTATION_ROADMAP.md` - Updated status and metrics
+- `a2a-protocol/progress/IMPLEMENTATION_ROADMAP.md` - Updated status and metrics
 
 ### New Files
-- `a2a-protocol/CHANGELOG.md` - Version history
-- `a2a-protocol/RELEASE_NOTES_v0.6.0.md` - Release highlights
-- `a2a-protocol/MIGRATION_v0.6.0.md` - Migration guide
-- `a2a-protocol/TODO_v0.7.0.md` - Next version plan
-- `a2a-protocol/COMPLETED_v0.6.0.md` - Archived tasks (renamed from TODO_v0.6.0.md)
+- `a2a-protocol/progress/CHANGELOG.md` - Version history
+- `a2a-protocol/progress/RELEASE_NOTES_v0.6.0.md` - Release highlights
+- `a2a-protocol/progress/MIGRATION_v0.6.0.md` - Migration guide
+- `a2a-protocol/progress/TODO_v0.7.0.md` - Next version plan
+- `a2a-protocol/progress/COMPLETED_v0.6.0.md` - Archived tasks (renamed from TODO_v0.6.0.md)
 - `a2a-protocol/DOCS_INDEX.md` - Updated documentation index
 
 ### Deleted Files
-- `a2a-protocol/TODO_v0.6.0.md` - Renamed to COMPLETED_v0.6.0.md
+- `a2a-protocol/TODO_v0.6.0.md` - Renamed to progress/COMPLETED_v0.6.0.md
 
 ---
 

@@ -14,9 +14,9 @@
 4. Read the [A2A v0.3.0 Specification](https://github.com/a2aproject/A2A)
 
 **Want to contribute?**
-- [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) - Detailed roadmap and status
-- [TODO_v0.7.0.md](TODO_v0.7.0.md) - Current development plan
-- [UNIMPLEMENTED_FEATURES.md](UNIMPLEMENTED_FEATURES.md) - What's missing
+- [IMPLEMENTATION_ROADMAP.md](progress/IMPLEMENTATION_ROADMAP.md) - Detailed roadmap and status
+- [TODO_v0.7.0.md](progress/TODO_v0.7.0.md) - Current development plan
+- [UNIMPLEMENTED_FEATURES.md](progress/UNIMPLEMENTED_FEATURES.md) - What's missing
 
 ---
 
@@ -31,19 +31,19 @@ Complete step-by-step tutorial from zero to working agent.
 ### 💡 [examples/README.md](examples/README.md)
 Guide to all 8 runnable examples with usage instructions.
 
-### 🗺️ [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md)
+### 🗺️ [IMPLEMENTATION_ROADMAP.md](progress/IMPLEMENTATION_ROADMAP.md)
 Complete implementation plan with timeline and progress (v0.6.0 → v0.7.0).
 
 ### 📋 [CHANGELOG.md](CHANGELOG.md)
 Detailed version history and release notes.
 
-### 🎉 [RELEASE_NOTES_v0.6.0.md](RELEASE_NOTES_v0.6.0.md)
+### 🎉 [RELEASE_NOTES_v0.6.0.md](progress/RELEASE_NOTES_v0.6.0.md)
 What's new in v0.6.0 (SSE streaming + developer experience).
 
-### ⚠️ [UNIMPLEMENTED_FEATURES.md](UNIMPLEMENTED_FEATURES.md)
+### ⚠️ [UNIMPLEMENTED_FEATURES.md](progress/UNIMPLEMENTED_FEATURES.md)
 Missing features and workarounds. Check here before using.
 
-### ✅ [COMPLETED_v0.6.0.md](COMPLETED_v0.6.0.md)
+### ✅ [COMPLETED_v0.6.0.md](progress/COMPLETED_v0.6.0.md)
 Archive of completed v0.6.0 tasks.
 
 ### 🔧 API Documentation
@@ -88,11 +88,11 @@ See [examples/README.md](examples/README.md) for detailed guide.
 | Get started in 5 minutes | [README.md](README.md) |
 | Learn step-by-step | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | Run working code | [examples/README.md](examples/README.md) |
-| Check what's new in v0.6.0 | [RELEASE_NOTES_v0.6.0.md](RELEASE_NOTES_v0.6.0.md) |
+| Check what's new in v0.6.0 | [RELEASE_NOTES_v0.6.0.md](progress/RELEASE_NOTES_v0.6.0.md) |
 | See version history | [CHANGELOG.md](CHANGELOG.md) |
-| Know what's missing | [UNIMPLEMENTED_FEATURES.md](UNIMPLEMENTED_FEATURES.md) |
-| Understand the roadmap | [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) |
-| Contribute to v0.7.0 | [TODO_v0.7.0.md](TODO_v0.7.0.md) |
+| Know what's missing | [UNIMPLEMENTED_FEATURES.md](progress/UNIMPLEMENTED_FEATURES.md) |
+| Understand the roadmap | [IMPLEMENTATION_ROADMAP.md](progress/IMPLEMENTATION_ROADMAP.md) |
+| Contribute to v0.7.0 | [TODO_v0.7.0.md](progress/TODO_v0.7.0.md) |
 | Check API details | Run `cargo doc --open` |
 | Read the A2A spec | https://github.com/a2aproject/A2A |
 

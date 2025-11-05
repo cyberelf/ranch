@@ -3,54 +3,71 @@
 ## v0.7.0 - Push Notifications & Webhooks
 **Theme:** Async updates via webhooks with security  
 **Target:** Q1 2026  
-**Status:** 🎯 PLANNED
+**Status:** 🚧 IN PROGRESS (Core types complete)
 
 ## Overview
 
 Implement the complete push notification system as defined in the A2A Protocol v0.3.0 specification, enabling agents to receive asynchronous updates via webhooks instead of polling.
 
 ### Key Goals
-1. ✅ Implement all 4 `tasks/pushNotificationConfig/*` RPC methods
-2. ✅ Build robust webhook delivery system with retry logic
-3. ✅ Implement comprehensive SSRF protection
-4. ✅ Support multiple webhook authentication methods
-5. ✅ Add webhook configuration persistence
+1. 🚧 Implement all 4 `tasks/pushNotificationConfig/*` RPC methods (data types ready)
+2. ⏳ Build robust webhook delivery system with retry logic
+3. ⏳ Implement comprehensive SSRF protection (basic validation in place)
+4. ✅ Support multiple webhook authentication methods (Bearer + CustomHeaders)
+5. ⏳ Add webhook configuration persistence
 
 ### Success Criteria
+- [x] Core push notification types defined and tested
 - [ ] All push notification config methods working
 - [ ] Webhooks delivered reliably with retry logic
 - [ ] SSRF attacks prevented (security audit passed)
-- [ ] Support Bearer token and custom header authentication
+- [x] Support Bearer token and custom header authentication
 - [ ] 90%+ test coverage for webhook system
 - [ ] Production-ready performance and reliability
+
+### Progress
+**Completed:**
+- ✅ Core data structures: `PushNotificationConfig`, `PushNotificationAuth`, `TaskEvent`
+- ✅ Basic validation (HTTPS requirement, non-empty events)
+- ✅ Serialization/deserialization support
+- ✅ 9 unit tests for core types
+- ✅ Documentation with examples
+
+**Next Steps:**
+- Storage trait and implementation
+- SSRF protection (IP range validation)
+- JSON-RPC method handlers
+- Webhook delivery system
 
 ---
 
 ## Priority 1: Core Data Structures (Week 1)
 
 ### 1.1 Push Notification Configuration
-- [ ] Create `PushNotificationConfig` struct
-  - [ ] `url: Url` - Webhook endpoint
-  - [ ] `events: Vec<TaskEvent>` - Events to trigger notifications
-  - [ ] `authentication: Option<PushNotificationAuth>` - Auth config
-  - [ ] Validation for webhook URLs
-  - [ ] Serialization/deserialization with serde
+- [x] Create `PushNotificationConfig` struct
+  - [x] `url: Url` - Webhook endpoint
+  - [x] `events: Vec<TaskEvent>` - Events to trigger notifications
+  - [x] `authentication: Option<PushNotificationAuth>` - Auth config
+  - [x] Validation for webhook URLs (basic - HTTPS check)
+  - [x] Serialization/deserialization with serde
+  - [ ] SSRF protection (validate against private IP ranges)
 
 ### 1.2 Authentication Support
-- [ ] Create `PushNotificationAuth` enum
-  - [ ] `Bearer { token: String }` variant
-  - [ ] `CustomHeaders { headers: HashMap<String, String> }` variant
+- [x] Create `PushNotificationAuth` enum
+  - [x] `Bearer { token: String }` variant
+  - [x] `CustomHeaders { headers: HashMap<String, String> }` variant
   - [ ] `OAuth2 { ... }` variant (optional for v0.7.0)
-  - [ ] Secure storage considerations (no plaintext in logs)
+  - [x] Secure storage considerations (no plaintext in logs)
 
 ### 1.3 Task Event Types
-- [ ] Create `TaskEvent` enum
-  - [ ] `StatusChanged { from: TaskState, to: TaskState }`
-  - [ ] `ArtifactAdded { artifact_id: String }`
-  - [ ] `Completed { result: ... }`
-  - [ ] `Failed { error: ... }`
-  - [ ] `Cancelled`
-  - [ ] Serialization for webhook payloads
+- [x] Create `TaskEvent` enum
+  - [x] `StatusChanged` - All state transitions
+  - [x] `ArtifactAdded` - New artifacts
+  - [x] `Completed` - Task completion
+  - [x] `Failed` - Task failure
+  - [x] `Cancelled` - Task cancellation
+  - [x] `matches_transition()` helper method
+  - [x] Serialization for webhook payloads
 
 ### 1.4 Storage
 - [ ] Define `PushNotificationStore` trait
@@ -61,7 +78,13 @@ Implement the complete push notification system as defined in the A2A Protocol v
 - [ ] Implement in-memory store for v0.7.0
 - [ ] Design for future persistent stores (SQLite, Postgres)
 
-**Tests:** 15+ unit tests for data structures and validation
+**Tests:** 9/15+ unit tests completed for data structures and validation
+- [x] Config creation and validation
+- [x] Authentication variants
+- [x] Event matching logic
+- [x] Serialization/deserialization
+- [ ] SSRF protection tests
+- [ ] Storage trait tests
 
 ---
 

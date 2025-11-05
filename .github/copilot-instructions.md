@@ -221,9 +221,9 @@ When working with A2A protocol:
 
 Refer to these planning documents for roadmap and features:
 - `A2A_STANDALONE_PLAN.md`: Comprehensive A2A protocol development plan
-- `a2a-protocol/IMPLEMENTATION_ROADMAP.md`: A2A implementation status
-- `a2a-protocol/UNIMPLEMENTED_FEATURES.md`: Planned features
-- `a2a-protocol/TODO_v0.6.0.md`: Version-specific tasks
+- `a2a-protocol/progress/IMPLEMENTATION_ROADMAP.md`: A2A implementation status
+- `a2a-protocol/progress/UNIMPLEMENTED_FEATURES.md`: Planned features
+- `a2a-protocol/progress/TODO_v0.7.0.md`: Version-specific tasks
 
 ### Common Commands
 

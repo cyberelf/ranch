@@ -2,14 +2,109 @@
 
 A comprehensive, production-ready Rust implementation of the A2A (Agent-to-Agent) protocol v0.3.0 specification.
 
+## ⚡ Quick Start (5 Minutes!)
+
+### Create a Simple Server
+
+```rust
+use a2a_protocol::{prelude::*, server::{AgentLogic, ServerBuilder, TaskAwareHandler}};
+use async_trait::async_trait;
+
+// 1. Define your agent logic
+struct EchoAgent;
+
+#[async_trait]
+impl AgentLogic for EchoAgent {
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        let text = message.text_content().unwrap_or("");
+        Ok(Message::agent_text(format!("Echo: {}", text)))
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 2. Create agent card
+    let agent_card = AgentCard::new(
+        AgentId::new("echo-agent")?,
+        "Echo Agent",
+        url::Url::parse("https://example.com")?
+    );
+
+    // 3. Wrap in handler and start server
+    let handler = TaskAwareHandler::with_logic(agent_card, EchoAgent);
+    ServerBuilder::new(handler).with_port(3000).run().await?;
+    Ok(())
+}
+```
+
+**That's it!** You now have a working A2A server. Test it:
+
+```bash
+curl -X POST http://localhost:3000/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"kind":"text","text":"hello"}]
+      },
+      "immediate": true
+    }
+  }'
+```
+
+### Create a Simple Client
+
+```rust
+use a2a_protocol::{prelude::*, client::ClientBuilder};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create client
+    let client = ClientBuilder::new()
+        .with_json_rpc("http://localhost:3000/rpc")
+        .build()?;
+
+    // Send message
+    let message = Message::user_text("hello");
+    let response = client.send_message(message).await?;
+
+    // Handle response
+    match response {
+        SendResponse::Message(msg) => println!("Got: {}", msg.text_content().unwrap()),
+        SendResponse::Task(task) => println!("Task created: {}", task.id),
+    }
+    Ok(())
+}
+```
+
+## 📚 Learn More
+
+- **[Examples](examples/)** - 8 runnable examples covering basic to advanced usage
+- **[Getting Started Guide](GETTING_STARTED.md)** - Step-by-step tutorial
+- **[API Documentation](https://docs.rs/a2a-protocol)** - Full API reference
+
+### When to Use What
+
+- **`AgentLogic` trait** - For simple agents (most common use case)
+- **`A2aHandler` trait** - For advanced agents needing full control
+- **`A2aClient`** - For non-streaming client operations
+- **`A2aStreamingClient`** - For real-time streaming updates
+
 ## Features
 
 - **Spec Compliance**: Strict adherence to the A2A v0.3.0 specification
 - **JSON-RPC 2.0**: Full JSON-RPC 2.0 transport implementation
+- **SSE Streaming**: Server-Sent Events for real-time updates ✅ NEW in v0.6.0
 - **Async Native**: Built on tokio for high-performance async communication
 - **Type Safe**: Strong typing with serde for serialization
 - **Task Management**: Complete task lifecycle support
-- **Production Ready**: Comprehensive error handling and testing
+- **Production Ready**: Comprehensive error handling and testing (161 tests)
+- **Easy to Use**: Simple `AgentLogic` trait for quick development ✅ NEW in v0.6.0
+- **One-Line Server**: `ServerBuilder` for minimal setup ✅ NEW in v0.6.0
 
 ## Specification Compliance
 
@@ -18,15 +113,35 @@ This crate implements **A2A Protocol v0.3.0** with strict spec compliance:
 ✅ **Supported:**
 - JSON-RPC 2.0 transport over HTTP
 - All required RPC methods (`message/send`, `task/get`, `task/cancel`, `task/status`, `agent/card`)
+- SSE streaming (`message/stream`, `task/resubscribe`) ✅ NEW in v0.6.0
 - Complete Task lifecycle management
 - A2A Message format with Parts (TextPart, FilePart, DataPart)
 - AgentCard discovery
 
 🚧 **Planned:**
-- Server-Sent Events (SSE) streaming (`message/stream`, `task/resubscribe`)
 - Push notifications (`task/pushNotificationConfig/*`)
 - gRPC transport (optional)
 - HTTP+JSON/REST transport (if spec clarifies patterns)
+
+## 🎯 Examples
+
+We provide 8 comprehensive examples in the [examples/](examples/) directory:
+
+1. **[basic_echo_server](examples/basic_echo_server.rs)** - Minimal server using `AgentLogic` (⭐ Start here!)
+2. **[echo_client](examples/echo_client.rs)** - Simple client for sending messages
+3. **[simple_server](examples/simple_server.rs)** - One-line server with `ServerBuilder`
+4. **[streaming_server](examples/streaming_server.rs)** - SSE streaming for real-time updates
+5. **[streaming_client](examples/streaming_client.rs)** - Client consuming SSE streams
+6. **[streaming_type_safety](examples/streaming_type_safety.rs)** - Type-safe streaming patterns
+7. **[task_server](examples/task_server.rs)** - Long-running async task handling
+8. **[multi_agent](examples/multi_agent.rs)** - Agent-to-agent communication
+
+**Run any example:**
+```bash
+cargo run --example basic_echo_server --features streaming
+```
+
+See [examples/README.md](examples/README.md) for detailed usage instructions.
 
 ## Quick Start
 
@@ -34,8 +149,130 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-a2a-protocol = "0.4.0"
+a2a-protocol = "0.6.0"
+
+# For streaming support
+a2a-protocol = { version = "0.6.0", features = ["streaming"] }
 ```
+
+### Simple Server (Using AgentLogic)
+
+The easiest way to create an agent - just implement `process_message`:
+
+```rust
+use a2a_protocol::{prelude::*, server::{AgentLogic, ServerBuilder, TaskAwareHandler}};
+use async_trait::async_trait;
+
+struct MyAgent;
+
+#[async_trait]
+impl AgentLogic for MyAgent {
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        let text = message.text_content().unwrap_or("");
+        Ok(Message::agent_text(format!("Processed: {}", text)))
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let agent_card = AgentCard::new(
+        AgentId::new("my-agent")?,
+        "My Agent",
+        url::Url::parse("https://example.com")?
+    );
+
+    let handler = TaskAwareHandler::with_logic(agent_card, MyAgent);
+    ServerBuilder::new(handler).with_port(3000).run().await?;
+    Ok(())
+}
+```
+
+### Simple Client
+
+```rust
+use a2a_protocol::{prelude::*, client::ClientBuilder};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = ClientBuilder::new()
+        .with_json_rpc("http://localhost:3000/rpc")
+        .build()?;
+
+    let message = Message::user_text("Hello!");
+    let response = client.send_message(message).await?;
+
+    match response {
+        SendResponse::Message(msg) => println!("{}", msg.text_content().unwrap()),
+        SendResponse::Task(task) => {
+            println!("Task created: {}", task.id);
+            // Poll for completion
+            let task = client.get_task(&task.id).await?;
+            println!("Status: {:?}", task.status.state);
+        }
+    }
+    Ok(())
+}
+```
+
+### Streaming Client (NEW in v0.6.0)
+
+Use `A2aStreamingClient` for real-time SSE streaming:
+
+```rust
+use a2a_protocol::{
+    prelude::*,
+    client::A2aStreamingClient,
+    transport::{JsonRpcTransport, StreamingResult},
+};
+use futures_util::StreamExt;
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create streaming-capable client
+    let transport = Arc::new(JsonRpcTransport::new("http://localhost:3000/rpc")?);
+    let client = A2aStreamingClient::new(transport);
+
+    // Stream messages in real-time
+    let message = Message::user_text("Stream this");
+    let mut stream = client.stream_message(message).await?;
+
+    while let Some(result) = stream.next().await {
+        match result? {
+            StreamingResult::Message(msg) => println!("Message: {:?}", msg.text_content()),
+            StreamingResult::Task(task) => println!("Task: {}", task.id),
+            StreamingResult::TaskStatusUpdate(update) => println!("Status: {:?}", update.status.state),
+            StreamingResult::TaskArtifactUpdate(artifact) => println!("Artifact: {}", artifact.artifact_id),
+        }
+    }
+    Ok(())
+}
+```
+
+## What's New in v0.6.0
+
+### ✨ SSE Streaming Support (Complete!)
+- Full Server-Sent Events implementation
+- `message/stream` and `task/resubscribe` RPC methods
+- Type-safe `A2aStreamingClient<T>` with compile-time guarantees
+- Reconnection support with Last-Event-ID
+- 161 tests passing (110 lib + 8 streaming + 17 compliance + 8 RPC + 18 doc)
+
+### 🚀 Developer Experience Improvements
+- **`ServerBuilder`** - One-line server setup (inspired by a2a-go)
+- **`AgentLogic` trait** - Simplified agent implementation (just implement `process_message`)
+- **8 Complete Examples** - From basic to advanced, all runnable
+- **Examples README** - Quick start guide with curl commands
+
+### 📖 Better Documentation
+- Quick start guide in main README
+- Comprehensive examples with detailed comments
+- Clear guidance on when to use AgentLogic vs A2aHandler
+- API documentation with examples
+
+## Old Quick Start Examples
+
+These examples show the lower-level API (still fully supported):
 
 ### Client Usage
 

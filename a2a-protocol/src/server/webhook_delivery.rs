@@ -117,12 +117,14 @@ impl WebhookQueue {
         let (sender, receiver) = mpsc::channel(queue_size);
         let retry_config = Arc::new(retry_config);
         
-        // Spawn the worker task
-        let worker_retry_config = retry_config.clone();
-        let worker_sender = sender.clone();
-        tokio::spawn(async move {
-            Self::worker(receiver, worker_sender, worker_retry_config).await;
-        });
+        // Spawn the worker task only if we're in a tokio runtime
+        if tokio::runtime::Handle::try_current().is_ok() {
+            let worker_retry_config = retry_config.clone();
+            let worker_sender = sender.clone();
+            tokio::spawn(async move {
+                Self::worker(receiver, worker_sender, worker_retry_config).await;
+            });
+        }
         
         Self {
             sender,

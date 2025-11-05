@@ -7,6 +7,7 @@ pub mod message;
 pub mod message_id;
 pub mod push_notification;
 pub mod requests;
+pub mod ssrf_protection;
 pub mod streaming_events;
 pub mod task;
 

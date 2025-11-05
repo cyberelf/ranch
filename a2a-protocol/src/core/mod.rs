@@ -5,6 +5,7 @@ pub mod agent_id;
 pub mod error;
 pub mod message;
 pub mod message_id;
+pub mod push_notification;
 pub mod requests;
 pub mod streaming_events;
 pub mod task;
@@ -17,6 +18,7 @@ pub use message::{
     DataPart, File, FilePart, FileWithBytes, FileWithUri, Message, MessageRole, Part, TextPart,
 };
 pub use message_id::MessageId;
+pub use push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent};
 pub use requests::{
     AgentCardGetRequest, MessageSendRequest, TaskCancelRequest, TaskGetRequest,
     TaskResubscribeRequest, TaskStatusRequest,

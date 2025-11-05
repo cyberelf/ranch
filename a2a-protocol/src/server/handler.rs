@@ -2,6 +2,8 @@
 
 use crate::{
     A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part, SendResponse,
+    PushNotificationConfig, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationListResponse, PushNotificationSetRequest,
     Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
@@ -84,6 +86,42 @@ pub trait A2aHandler: Send + Sync {
         &self,
         request: TaskResubscribeRequest,
     ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
+
+    /// RPC method: tasks/pushNotificationConfig/set
+    /// Set push notification configuration for a task
+    async fn rpc_push_notification_set(
+        &self,
+        _request: PushNotificationSetRequest,
+    ) -> A2aResult<()> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/get
+    /// Get push notification configuration for a task
+    async fn rpc_push_notification_get(
+        &self,
+        _request: PushNotificationGetRequest,
+    ) -> A2aResult<Option<PushNotificationConfig>> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/list
+    /// List all push notification configurations
+    async fn rpc_push_notification_list(
+        &self,
+        _request: PushNotificationListRequest,
+    ) -> A2aResult<PushNotificationListResponse> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/delete
+    /// Delete push notification configuration for a task
+    async fn rpc_push_notification_delete(
+        &self,
+        _request: PushNotificationDeleteRequest,
+    ) -> A2aResult<bool> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
 }
 
 /// Health status response

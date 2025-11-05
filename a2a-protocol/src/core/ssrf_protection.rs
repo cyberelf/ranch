@@ -3,7 +3,7 @@
 //! This module provides validation to prevent SSRF attacks by blocking
 //! webhook URLs that target private IP ranges, localhost, and cloud metadata endpoints.
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{Ipv4Addr, Ipv6Addr};
 use url::Url;
 
 /// Validate a webhook URL against SSRF vulnerabilities

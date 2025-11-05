@@ -4,8 +4,11 @@ use crate::{
     server::{
         agent_logic::AgentLogic,
         handler::{HealthStatus, HealthStatusType},
-        A2aHandler, TaskStore,
-    }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, SendResponse,
+        A2aHandler, PushNotificationStore, TaskStore,
+    }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, 
+    PushNotificationConfig, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationListResponse, PushNotificationConfigEntry,
+    PushNotificationSetRequest, SendResponse,
     Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskState, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
@@ -44,6 +47,7 @@ impl Clone for ProcessingLogic {
 pub struct TaskAwareHandler {
     agent_card: AgentCard,
     task_store: TaskStore,
+    push_notification_store: PushNotificationStore,
     /// Whether to return tasks for messages (true) or immediate responses (false)
     async_by_default: bool,
     /// Optional custom logic for processing messages
@@ -59,6 +63,7 @@ impl TaskAwareHandler {
         Self {
             agent_card,
             task_store: TaskStore::new(),
+            push_notification_store: PushNotificationStore::new(),
             async_by_default: true,
             logic: ProcessingLogic::Echo,
             #[cfg(feature = "streaming")]
@@ -100,6 +105,7 @@ impl TaskAwareHandler {
         Self {
             agent_card,
             task_store: TaskStore::new(),
+            push_notification_store: PushNotificationStore::new(),
             async_by_default: false, // Custom logic typically wants immediate responses
             logic: ProcessingLogic::Custom(Arc::new(logic)),
             #[cfg(feature = "streaming")]
@@ -112,6 +118,7 @@ impl TaskAwareHandler {
         Self {
             agent_card,
             task_store: TaskStore::new(),
+            push_notification_store: PushNotificationStore::new(),
             async_by_default: false,
             logic: ProcessingLogic::Echo,
             #[cfg(feature = "streaming")]
@@ -322,6 +329,43 @@ impl A2aHandler for TaskAwareHandler {
             
             Ok(Box::new(Box::pin(stream)))
         }
+    }
+
+    async fn rpc_push_notification_set(
+        &self,
+        request: PushNotificationSetRequest,
+    ) -> A2aResult<()> {
+        self.push_notification_store
+            .set(request.task_id, request.config)
+            .await
+    }
+
+    async fn rpc_push_notification_get(
+        &self,
+        request: PushNotificationGetRequest,
+    ) -> A2aResult<Option<PushNotificationConfig>> {
+        self.push_notification_store.get(&request.task_id).await
+    }
+
+    async fn rpc_push_notification_list(
+        &self,
+        _request: PushNotificationListRequest,
+    ) -> A2aResult<PushNotificationListResponse> {
+        let configs = self.push_notification_store.list().await?;
+        let configurations = configs
+            .into_iter()
+            .map(|(task_id, config)| PushNotificationConfigEntry::new(task_id, config))
+            .collect();
+        Ok(PushNotificationListResponse { configurations })
+    }
+
+    async fn rpc_push_notification_delete(
+        &self,
+        request: PushNotificationDeleteRequest,
+    ) -> A2aResult<bool> {
+        self.push_notification_store
+            .delete(&request.task_id)
+            .await
     }
 }
 

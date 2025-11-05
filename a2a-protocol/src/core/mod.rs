@@ -21,7 +21,11 @@ pub use message::{
 pub use message_id::MessageId;
 pub use push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent};
 pub use requests::{
-    AgentCardGetRequest, MessageSendRequest, TaskCancelRequest, TaskGetRequest,
+    AgentCardGetRequest, MessageSendRequest, 
+    PushNotificationDeleteRequest, PushNotificationGetRequest, 
+    PushNotificationListRequest, PushNotificationListResponse,
+    PushNotificationSetRequest, PushNotificationConfigEntry,
+    TaskCancelRequest, TaskGetRequest,
     TaskResubscribeRequest, TaskStatusRequest,
 };
 pub use streaming_events::{TaskArtifactUpdateEvent, TaskProgress, TaskStatusUpdateEvent};

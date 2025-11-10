@@ -121,12 +121,12 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_single_message_send() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(
+        let profile = crate::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        let handler = BasicA2aHandler::new(card);
+        let handler = BasicA2aHandler::new(profile);
 
         let req = serde_json::json!({
             "jsonrpc": "2.0",
@@ -146,12 +146,12 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_batch() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(
+        let profile = crate::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        let handler = BasicA2aHandler::new(card);
+        let handler = BasicA2aHandler::new(profile);
 
         let req = serde_json::json!([
             {"jsonrpc": "2.0", "id": 1, "method": "message/send", "params": {"message": {"role":"user", "parts":[{"kind":"text","text":"hi"}]}, "immediate": true}},
@@ -167,12 +167,12 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_notification() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let card = AgentCard::new(
+        let profile = crate::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
-        let handler = BasicA2aHandler::new(card);
+        let handler = BasicA2aHandler::new(profile);
 
         let req = serde_json::json!({
             "jsonrpc": "2.0",

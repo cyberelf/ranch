@@ -7,17 +7,19 @@ mod tests {
     use super::*;
     use a2a_protocol::server::{handler::BasicA2aHandler, A2aHandler};
 
-    #[tokio::test]
-    async fn test_rpc_message_send_handler() {
-        // Create a basic handler
+    fn create_test_profile() -> AgentProfile {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
+        AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
-        );
+        )
+    }
 
-        let handler = BasicA2aHandler::new(agent_card);
+    #[tokio::test]
+    async fn test_rpc_message_send_handler() {
+        // Create a basic handler
+        let handler = BasicA2aHandler::new(create_test_profile());
 
         // Test message/send RPC method
         let message = Message::user_text("Test message");
@@ -42,14 +44,7 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_task_get_not_implemented() {
         // Create a basic handler
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            url::Url::parse("https://example.com").unwrap(),
-        );
-
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(create_test_profile());
 
         // Test task/get RPC method (should not be implemented in basic handler)
         let request = TaskGetRequest {
@@ -69,14 +64,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rpc_task_cancel_not_implemented() {
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            url::Url::parse("https://example.com").unwrap(),
-        );
-
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(create_test_profile());
 
         let request = TaskCancelRequest {
             task_id: "task-123".to_string(),
@@ -89,14 +77,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rpc_task_status_not_implemented() {
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            url::Url::parse("https://example.com").unwrap(),
-        );
-
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(create_test_profile());
 
         let request = TaskStatusRequest {
             task_id: "task-123".to_string(),
@@ -109,13 +90,13 @@ mod tests {
     #[tokio::test]
     async fn test_rpc_agent_card() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
+        let profile = AgentProfile::new(
             agent_id.clone(),
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
         );
 
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(profile);
 
         // Test agent/card RPC method
         let request = AgentCardGetRequest {

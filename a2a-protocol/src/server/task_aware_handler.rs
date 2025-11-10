@@ -1,23 +1,28 @@
 //! Task-aware A2A handler implementation
 
 use crate::{
+    core::{
+        agent_card::{StreamingCapabilities, TransportType},
+        AgentCard, AgentProfile, Message, SendResponse, Task, TaskState, TaskStatus,
+    },
     server::{
-        agent_logic::AgentLogic,
+        agent_logic::Agent,
         handler::{HealthStatus, HealthStatusType},
-        A2aHandler, PushNotificationStore, TaskStore, WebhookQueue, WebhookPayload,
-    }, A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, 
-    PushNotificationConfig, PushNotificationDeleteRequest, PushNotificationGetRequest,
-    PushNotificationListRequest, PushNotificationListResponse, PushNotificationConfigEntry,
-    PushNotificationSetRequest, SendResponse,
-    Task, TaskCancelRequest, TaskEvent, TaskGetRequest, TaskResubscribeRequest, TaskState, TaskStatus, TaskStatusRequest,
+        transport_capabilities::{PushNotificationSupport, TransportCapabilities},
+        A2aHandler, PushNotificationStore, TaskStore, WebhookPayload, WebhookQueue,
+    },
+    AgentCardGetRequest, A2aResult, MessageSendRequest, PushNotificationConfig,
+    PushNotificationConfigEntry, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationListResponse, PushNotificationSetRequest,
+    TaskCancelRequest, TaskEvent, TaskGetRequest, TaskResubscribeRequest, TaskStatusRequest,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
 
 #[cfg(feature = "streaming")]
-use crate::transport::{StreamingResult, sse::SseWriter};
-#[cfg(feature = "streaming")]
 use crate::core::streaming_events::TaskStatusUpdateEvent;
+#[cfg(feature = "streaming")]
+use crate::transport::{sse::SseWriter, StreamingResult};
 #[cfg(feature = "streaming")]
 use futures_util::stream::Stream;
 #[cfg(feature = "streaming")]
@@ -25,106 +30,42 @@ use std::collections::HashMap;
 #[cfg(feature = "streaming")]
 use tokio::sync::RwLock;
 
-/// Processing logic for the handler
-enum ProcessingLogic {
-    /// Built-in echo logic (default)
-    Echo,
-    /// User-provided agent logic
-    Custom(Arc<dyn AgentLogic>),
-}
-
-impl Clone for ProcessingLogic {
-    fn clone(&self) -> Self {
-        match self {
-            ProcessingLogic::Echo => ProcessingLogic::Echo,
-            ProcessingLogic::Custom(logic) => ProcessingLogic::Custom(logic.clone()),
-        }
-    }
-}
-
 /// Handler that supports full task lifecycle management
 #[derive(Clone)]
 pub struct TaskAwareHandler {
-    agent_card: AgentCard,
+    agent: Arc<dyn Agent>,
     task_store: TaskStore,
     push_notification_store: PushNotificationStore,
     webhook_queue: Arc<WebhookQueue>,
     /// Whether to return tasks for messages (true) or immediate responses (false)
     async_by_default: bool,
-    /// Optional custom logic for processing messages
-    logic: ProcessingLogic,
     /// SSE writers for streaming tasks (task_id -> writer)
     #[cfg(feature = "streaming")]
     stream_writers: Arc<RwLock<HashMap<String, SseWriter>>>,
 }
 
 impl TaskAwareHandler {
-    /// Create a new task-aware handler with built-in echo logic
-    pub fn new(agent_card: AgentCard) -> Self {
+    /// Create a new task-aware handler with the given agent logic
+    pub fn new(agent: Arc<dyn Agent>) -> Self {
         Self {
-            agent_card,
+            agent,
             task_store: TaskStore::new(),
             push_notification_store: PushNotificationStore::new(),
             webhook_queue: Arc::new(WebhookQueue::with_defaults()),
             async_by_default: true,
-            logic: ProcessingLogic::Echo,
-            #[cfg(feature = "streaming")]
-            stream_writers: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    /// Create a handler with custom agent logic
-    ///
-    /// This allows you to use a simple `AgentLogic` implementation while still
-    /// getting full A2A protocol support (tasks, streaming, etc.) from TaskAwareHandler.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{AgentLogic, TaskAwareHandler};
-    /// # use async_trait::async_trait;
-    /// # use url::Url;
-    /// struct MyAgent;
-    ///
-    /// #[async_trait]
-    /// impl AgentLogic for MyAgent {
-    ///     async fn process_message(&self, msg: Message) -> A2aResult<Message> {
-    ///         Ok(Message::agent_text("Hello!"))
-    ///     }
-    /// }
-    ///
-    /// let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// let agent_card = AgentCard::new(
-    ///     agent_id,
-    ///     "My Agent",
-    ///     Url::parse("https://example.com").unwrap()
-    /// );
-    ///
-    /// let handler = TaskAwareHandler::with_logic(agent_card, MyAgent);
-    /// ```
-    pub fn with_logic<L: AgentLogic + 'static>(agent_card: AgentCard, logic: L) -> Self {
-        Self {
-            agent_card,
-            task_store: TaskStore::new(),
-            push_notification_store: PushNotificationStore::new(),
-            webhook_queue: Arc::new(WebhookQueue::with_defaults()),
-            async_by_default: false, // Custom logic typically wants immediate responses
-            logic: ProcessingLogic::Custom(Arc::new(logic)),
             #[cfg(feature = "streaming")]
             stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
     /// Create a handler that returns immediate responses by default
-    pub fn with_immediate_responses(agent_card: AgentCard) -> Self {
+    pub fn with_immediate_responses(agent: Arc<dyn Agent>) -> Self {
         Self {
-            agent_card,
+            agent,
             task_store: TaskStore::new(),
             push_notification_store: PushNotificationStore::new(),
             webhook_queue: Arc::new(WebhookQueue::with_defaults()),
             async_by_default: false,
-            logic: ProcessingLogic::Echo,
             #[cfg(feature = "streaming")]
             stream_writers: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -141,7 +82,13 @@ impl TaskAwareHandler {
     }
 
     /// Trigger webhooks for a task event
-    async fn trigger_webhooks(&self, task_id: &str, event: TaskEvent, from_state: &TaskState, to_state: &TaskState) {
+    async fn trigger_webhooks(
+        &self,
+        task_id: &str,
+        event: TaskEvent,
+        from_state: &TaskState,
+        to_state: &TaskState,
+    ) {
         // Check if event matches the transition
         if !event.matches_transition(from_state, to_state) {
             return;
@@ -153,15 +100,15 @@ impl TaskAwareHandler {
             if config.events.contains(&event) {
                 // Get the task
                 if let Ok(task) = self.task_store.get(task_id).await {
-                    // Create webhook payload
-                    let payload = WebhookPayload::new(
-                        event,
-                        task,
-                        self.agent_card.id.to_string(),
-                    );
+                    // Get agent profile to get agent_id
+                    if let Ok(profile) = self.agent.profile().await {
+                        // Create webhook payload
+                        let payload =
+                            WebhookPayload::new(event, task, profile.id.to_string());
 
-                    // Enqueue webhook delivery (fire and forget)
-                    let _ = self.webhook_queue.enqueue(config, payload).await;
+                        // Enqueue webhook delivery (fire and forget)
+                        let _ = self.webhook_queue.enqueue(config, payload).await;
+                    }
                 }
             }
         }
@@ -178,7 +125,13 @@ impl TaskAwareHandler {
         self.task_store.store(task).await?;
 
         // Trigger webhooks for task creation (Pending state)
-        self.trigger_webhooks(&task_id, TaskEvent::StatusChanged, &TaskState::Pending, &TaskState::Pending).await;
+        self.trigger_webhooks(
+            &task_id,
+            TaskEvent::StatusChanged,
+            &TaskState::Pending,
+            &TaskState::Pending,
+        )
+        .await;
 
         // Simulate starting work
         self.task_store
@@ -186,7 +139,13 @@ impl TaskAwareHandler {
             .await?;
 
         // Trigger webhooks for state change to Working
-        self.trigger_webhooks(&task_id, TaskEvent::StatusChanged, &TaskState::Pending, &TaskState::Working).await;
+        self.trigger_webhooks(
+            &task_id,
+            TaskEvent::StatusChanged,
+            &TaskState::Pending,
+            &TaskState::Working,
+        )
+        .await;
 
         // Return the updated task
         self.task_store.get(&task_id).await
@@ -194,18 +153,7 @@ impl TaskAwareHandler {
 
     /// Process a message and return immediate response
     async fn process_message_immediately(&self, message: Message) -> A2aResult<Message> {
-        match &self.logic {
-            ProcessingLogic::Echo => {
-                // Built-in echo logic
-                let content = message.text_content().unwrap_or("No content");
-                let response_content = format!("Echo: {}", content);
-                Ok(Message::agent_text(response_content))
-            }
-            ProcessingLogic::Custom(logic) => {
-                // Use custom agent logic
-                logic.process_message(message).await
-            }
-        }
+        self.agent.process_message(message).await
     }
 }
 
@@ -224,7 +172,27 @@ impl A2aHandler for TaskAwareHandler {
     }
 
     async fn get_agent_card(&self) -> A2aResult<AgentCard> {
-        Ok(self.agent_card.clone())
+        // Get the agent's descriptive profile
+        let profile = self.agent.profile().await?;
+
+        // Build transport capabilities based on what this handler supports
+        let mut transport_caps = TransportCapabilities::new()
+            .with_protocol_version("0.3.0")
+            .with_preferred_transport(TransportType::JsonRpc);
+
+        // Add streaming capabilities if the feature is enabled
+        #[cfg(feature = "streaming")]
+        {
+            let streaming_caps = StreamingCapabilities::new();
+            transport_caps = transport_caps.with_streaming(streaming_caps);
+        }
+
+        // Add push notification support
+        let push_notif_support = PushNotificationSupport::default();
+        transport_caps = transport_caps.with_push_notifications(push_notif_support);
+
+        // Assemble the complete AgentCard
+        Ok(transport_caps.assemble_card(profile))
     }
 
     async fn health_check(&self) -> A2aResult<HealthStatus> {
@@ -265,16 +233,29 @@ impl A2aHandler for TaskAwareHandler {
     async fn rpc_task_cancel(&self, request: TaskCancelRequest) -> A2aResult<TaskStatus> {
         // Get the current state before cancelling
         let old_state = self.task_store.get_status(&request.task_id).await?.state;
-        
+
         // Cancel the task
-        let status = self.task_store
+        let status = self
+            .task_store
             .cancel(&request.task_id, request.reason)
             .await?;
-        
+
         // Trigger webhooks for cancellation
-        self.trigger_webhooks(&request.task_id, TaskEvent::Cancelled, &old_state, &TaskState::Cancelled).await;
-        self.trigger_webhooks(&request.task_id, TaskEvent::StatusChanged, &old_state, &TaskState::Cancelled).await;
-        
+        self.trigger_webhooks(
+            &request.task_id,
+            TaskEvent::Cancelled,
+            &old_state,
+            &TaskState::Cancelled,
+        )
+        .await;
+        self.trigger_webhooks(
+            &request.task_id,
+            TaskEvent::StatusChanged,
+            &old_state,
+            &TaskState::Cancelled,
+        )
+        .await;
+
         Ok(status)
     }
 
@@ -297,7 +278,7 @@ impl A2aHandler for TaskAwareHandler {
 
         // Create an SSE writer for this task
         let writer = SseWriter::new(100); // Buffer up to 100 events
-        
+
         // Store the writer so we can send events to it
         {
             let mut writers = self.stream_writers.write().await;
@@ -316,11 +297,11 @@ impl A2aHandler for TaskAwareHandler {
         let task_store = self.task_store.clone();
         let stream_writers = self.stream_writers.clone();
         let handler_clone = self.clone();
-        
+
         tokio::spawn(async move {
             // Simulate work with status updates
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            
+
             // Send a status update
             if let Ok(status) = task_store.get_status(&task_id_clone).await {
                 let event = TaskStatusUpdateEvent::new(&task_id_clone, status);
@@ -331,10 +312,27 @@ impl A2aHandler for TaskAwareHandler {
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
             // Update to completed
-            if let Ok(_) = task_store.update_state(&task_id_clone, TaskState::Completed).await {
+            if let Ok(_) = task_store
+                .update_state(&task_id_clone, TaskState::Completed)
+                .await
+            {
                 // Trigger webhooks for completion
-                handler_clone.trigger_webhooks(&task_id_clone, TaskEvent::Completed, &TaskState::Working, &TaskState::Completed).await;
-                handler_clone.trigger_webhooks(&task_id_clone, TaskEvent::StatusChanged, &TaskState::Working, &TaskState::Completed).await;
+                handler_clone
+                    .trigger_webhooks(
+                        &task_id_clone,
+                        TaskEvent::Completed,
+                        &TaskState::Working,
+                        &TaskState::Completed,
+                    )
+                    .await;
+                handler_clone
+                    .trigger_webhooks(
+                        &task_id_clone,
+                        TaskEvent::StatusChanged,
+                        &TaskState::Working,
+                        &TaskState::Completed,
+                    )
+                    .await;
 
                 if let Ok(status) = task_store.get_status(&task_id_clone).await {
                     let event = TaskStatusUpdateEvent::new(&task_id_clone, status);
@@ -369,16 +367,16 @@ impl A2aHandler for TaskAwareHandler {
         } else {
             // Task exists but no active stream - send current state and close
             drop(writers); // Release the read lock
-            
+
             let writer = SseWriter::new(10);
             let stream = writer.subscribe(); // Get subscription first
-            
+
             writer.send(StreamingResult::Task(task.clone()))?;
-            
+
             let status = self.task_store.get_status(task_id).await?;
             let event = TaskStatusUpdateEvent::new(task_id, status);
             writer.send(StreamingResult::TaskStatusUpdate(event))?;
-            
+
             Ok(Box::new(Box::pin(stream)))
         }
     }
@@ -424,17 +422,47 @@ impl A2aHandler for TaskAwareHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{A2aError, AgentId, MessageRole};
+    use crate::{
+        server::agent_logic::Agent, A2aError, AgentId, AgentProfile, Message, MessageRole,
+    };
+    use async_trait::async_trait;
+    use std::sync::Arc;
     use url::Url;
 
+    struct EchoAgent {
+        profile: AgentProfile,
+    }
+
+    impl EchoAgent {
+        fn new() -> Self {
+            let agent_id = AgentId::new("test-agent".to_string()).unwrap();
+            let agent_profile = AgentProfile::new(
+                agent_id,
+                "Test Agent",
+                Url::parse("https://example.com").unwrap(),
+            );
+            Self {
+                profile: agent_profile,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Agent for EchoAgent {
+        async fn profile(&self) -> A2aResult<AgentProfile> {
+            Ok(self.profile.clone())
+        }
+
+        async fn process_message(&self, msg: Message) -> A2aResult<Message> {
+            let content = msg.text_content().unwrap_or("No content");
+            let response_content = format!("Echo: {}", content);
+            Ok(Message::agent_text(response_content))
+        }
+    }
+
     fn create_test_handler() -> TaskAwareHandler {
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            Url::parse("https://example.com").unwrap(),
-        );
-        TaskAwareHandler::new(agent_card)
+        let agent = Arc::new(EchoAgent::new());
+        TaskAwareHandler::new(agent)
     }
 
     #[tokio::test]
@@ -451,13 +479,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_message_immediate_mode() {
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            Url::parse("https://example.com").unwrap(),
-        );
-        let handler = TaskAwareHandler::with_immediate_responses(agent_card);
+        let agent = Arc::new(EchoAgent::new());
+        let handler = TaskAwareHandler::with_immediate_responses(agent);
 
         let message = Message::user_text("Test message");
         let response = handler.handle_message(message).await.unwrap();
@@ -592,14 +615,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_async_by_default_flag() {
-        let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Test Agent",
-            Url::parse("https://example.com").unwrap(),
-        );
-
-        let mut handler = TaskAwareHandler::new(agent_card);
+        let agent = Arc::new(EchoAgent::new());
+        let mut handler = TaskAwareHandler::new(agent);
 
         // Default: async (returns tasks)
         let msg = Message::user_text("Test");
@@ -639,7 +656,7 @@ mod tests {
 
         // Should have at least: initial task + status updates
         assert!(!events.is_empty());
-        
+
         // First event should be the task
         match &events[0] {
             StreamingResult::Task(task) => {
@@ -649,7 +666,9 @@ mod tests {
         }
 
         // Should have status updates
-        let has_status_update = events.iter().any(|e| matches!(e, StreamingResult::TaskStatusUpdate(_)));
+        let has_status_update = events
+            .iter()
+            .any(|e| matches!(e, StreamingResult::TaskStatusUpdate(_)));
         assert!(has_status_update, "Should have at least one status update");
     }
 
@@ -659,7 +678,7 @@ mod tests {
         use futures_util::StreamExt;
 
         let handler = create_test_handler();
-        
+
         // Create a task first
         let message = Message::user_text("Test");
         let response = handler.handle_message(message).await.unwrap();
@@ -671,7 +690,7 @@ mod tests {
             task_id: task_id.clone(),
             metadata: None,
         };
-        
+
         let mut stream = handler.rpc_task_resubscribe(request).await.unwrap();
 
         // Should get at least the current task state

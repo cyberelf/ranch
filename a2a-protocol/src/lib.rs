@@ -61,8 +61,14 @@ pub mod prelude {
     pub use crate::client::A2aStreamingClient;
     
     pub use crate::core::{
+        agent_card::{
+            AgentCapability, AgentProfile, AgentProvider, AgentSkill,
+            AuthenticationRequirement, RateLimit, RateLimitStrategy, StreamingCapabilities,
+            TransportInterface, TransportType,
+        },
         agent_id::AgentId,
         message_id::MessageId,
+        push_notification::{PushNotificationConfig, TaskEvent},
         A2aError,
         A2aResult,
         AgentCard,
@@ -82,6 +88,10 @@ pub mod prelude {
         TaskStatus,
         TaskStatusRequest,
         TextPart,
+    };
+    
+    pub use crate::server::{
+        Agent, AgentLogic, PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
     };
     pub use crate::transport::{
         JsonRpcError,

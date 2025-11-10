@@ -9,9 +9,10 @@
 use a2a_protocol::{
     prelude::*,
     client::ClientBuilder,
-    server::{AgentLogic, ServerBuilder, TaskAwareHandler},
+    server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
+use std::sync::Arc;
 use url::Url;
 use tokio::time::{sleep, Duration};
 
@@ -20,10 +21,30 @@ use tokio::time::{sleep, Duration};
 // ============================================================================
 
 /// A calculator agent that performs basic math operations
-struct CalculatorAgent;
+struct CalculatorAgent {
+    profile: AgentProfile,
+}
+
+impl CalculatorAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("calculator".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Calculator Agent",
+            Url::parse("https://example.com").unwrap(),
+        )
+        .with_description("A simple calculator for basic math operations");
+
+        Self { profile }
+    }
+}
 
 #[async_trait]
-impl AgentLogic for CalculatorAgent {
+impl Agent for CalculatorAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
         let text = message
             .text_content()
@@ -61,11 +82,6 @@ impl AgentLogic for CalculatorAgent {
 
         Ok(Message::agent_text(result))
     }
-
-    async fn initialize(&self) -> A2aResult<()> {
-        println!("🔢 Calculator Agent initialized");
-        Ok(())
-    }
 }
 
 // ============================================================================
@@ -74,11 +90,20 @@ impl AgentLogic for CalculatorAgent {
 
 /// A reporter agent that uses the Calculator agent to generate reports
 struct ReporterAgent {
+    profile: AgentProfile,
     calculator_client: A2aClient,
 }
 
 impl ReporterAgent {
     fn new(calculator_url: &str) -> A2aResult<Self> {
+        let agent_id = AgentId::new("reporter".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Reporter Agent",
+            Url::parse("https://example.com").unwrap(),
+        )
+        .with_description("Generates reports using the Calculator agent");
+
         let transport = std::sync::Arc::new(
             a2a_protocol::transport::JsonRpcTransport::new(calculator_url)?
         );
@@ -86,12 +111,19 @@ impl ReporterAgent {
             .with_custom_transport(transport)
             .build()?;
         
-        Ok(Self { calculator_client })
+        Ok(Self {
+            profile,
+            calculator_client,
+        })
     }
 }
 
 #[async_trait]
-impl AgentLogic for ReporterAgent {
+impl Agent for ReporterAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
         let text = message
             .text_content()
@@ -141,12 +173,6 @@ impl AgentLogic for ReporterAgent {
 
         Ok(Message::agent_text(report))
     }
-
-    async fn initialize(&self) -> A2aResult<()> {
-        println!("📊 Reporter Agent initialized");
-        println!("   Connected to Calculator at http://localhost:3003");
-        Ok(())
-    }
 }
 
 // ============================================================================
@@ -160,15 +186,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start Calculator agent in background task
     let calculator_task = tokio::spawn(async {
-        let agent_id = AgentId::new("calculator".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Calculator Agent",
-            Url::parse("https://example.com").unwrap(),
-        );
-        
-        let agent = CalculatorAgent;
-        let handler = TaskAwareHandler::with_logic(agent_card, agent);
+        let agent = Arc::new(CalculatorAgent::new());
+        let handler = TaskAwareHandler::new(agent);
         
         println!("🔢 Starting Calculator Agent on port 3003");
         
@@ -184,17 +203,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start Reporter agent
     let reporter_task = tokio::spawn(async {
-        let agent_id = AgentId::new("reporter".to_string()).unwrap();
-        let agent_card = AgentCard::new(
-            agent_id,
-            "Reporter Agent",
-            Url::parse("https://example.com").unwrap(),
-        );
+        let agent = Arc::new(ReporterAgent::new("http://localhost:3003/rpc").unwrap());
+        let handler = TaskAwareHandler::new(agent);
         
-        let agent = ReporterAgent::new("http://localhost:3003/rpc").unwrap();
-        let handler = TaskAwareHandler::with_logic(agent_card, agent);
-        
-        println!("📊 Starting Reporter Agent on port 3004\n");
+        println!("📊 Starting Reporter Agent on port 3004");
+        println!("   Connected to Calculator at http://localhost:3003\n");
         
         ServerBuilder::new(handler)
             .with_port(3004)

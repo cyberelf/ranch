@@ -91,7 +91,7 @@ cargo run --example streaming_type_safety --features streaming
 
 Shows how the type system ensures streaming support at compile time rather than runtime.
 
-#### 7. `task_server.rs` - Long-Running Tasks
+#### 8. `task_server.rs` - Long-Running Tasks
 Shows how to handle long-running async tasks with status polling.
 
 **Start the server:**
@@ -105,7 +105,61 @@ The server runs on port 3002. Try:
 - Task status polling (`task/status` method)
 - Task result retrieval (`task/get` method)
 
-#### 8. `multi_agent.rs` - Agent-to-Agent Communication
+#### 9. `webhook_server.rs` - Webhook & Push Notifications
+Demonstrates how to set up webhooks to receive notifications when tasks change state.
+
+**Start the server:**
+```bash
+cargo run --example webhook_server --features streaming
+```
+
+The server runs on port 3003. Features:
+- Task event webhooks (completed, failed, cancelled)
+- Push notification configuration
+- Custom webhook headers for authentication
+- Automatic webhook delivery with retries
+
+**Set up a simple webhook receiver:**
+```bash
+python3 -m http.server 8080 --bind 127.0.0.1
+```
+
+#### 10. `push_notification_client.rs` - Webhook Client Example
+Complete client demonstrating webhook setup and monitoring.
+
+**Prerequisites:** Start `webhook_server` first
+
+**Run:**
+```bash
+cargo run --example push_notification_client --features streaming
+```
+
+Shows:
+- Creating tasks
+- Configuring webhooks
+- Receiving webhook notifications
+- Managing webhook lifecycle (list, get, delete)
+
+#### 11. `complete_agent.rs` - Production-Ready Agent
+Comprehensive example showing best practices for implementing a production agent.
+
+**Run:**
+```bash
+cargo run --example complete_agent --features streaming
+```
+
+**Features:**
+- Dynamic AgentCard generation
+- Custom capabilities and skills
+- Authentication requirements
+- Rate limiting metadata
+- Streaming support indicators
+- Webhook support metadata
+- Provider information
+
+This example demonstrates the new `Agent` trait pattern where the agent card is dynamically generated based on runtime capabilities.
+
+#### 12. `multi_agent.rs` - Agent-to-Agent Communication
 Demonstrates two agents communicating with each other:
 - **Calculator Agent** (port 3003) - Performs math operations
 - **Reporter Agent** (port 3004) - Uses Calculator to generate reports
@@ -206,6 +260,53 @@ Cancel a running task.
 Get agent card information.
 
 **Parameters:** None
+
+### `pushNotification/set`
+Configure a webhook for task events.
+
+**Parameters:**
+- `taskId`: String task ID
+- `config`: Webhook configuration object
+  - `url`: Webhook endpoint URL
+  - `events`: Array of event types ("completed", "failed", "cancelled", "statusChanged")
+  - `headers` (optional): Custom HTTP headers
+  - `metadata` (optional): Additional metadata
+
+**Example:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "pushNotification/set",
+  "params": {
+    "taskId": "task-123",
+    "config": {
+      "url": "https://example.com/webhook",
+      "events": ["completed", "failed"],
+      "headers": {
+        "X-Webhook-Secret": "my-secret"
+      }
+    }
+  }
+}
+```
+
+### `pushNotification/get`
+Get webhook configuration for a task.
+
+**Parameters:**
+- `taskId`: String task ID
+
+### `pushNotification/list`
+List all webhook configurations.
+
+**Parameters:** None
+
+### `pushNotification/delete`
+Delete webhook configuration for a task.
+
+**Parameters:**
+- `taskId`: String task ID
 
 ## Development Tips
 

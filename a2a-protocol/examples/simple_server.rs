@@ -7,22 +7,48 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{ServerBuilder, TaskAwareHandler},
+    server::{Agent, ServerBuilder, TaskAwareHandler},
 };
+use async_trait::async_trait;
+use std::sync::Arc;
 use url::Url;
+
+/// A simple echo agent
+struct SimpleAgent {
+    profile: AgentProfile,
+}
+
+impl SimpleAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("simple-agent".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Simple A2A Agent",
+            Url::parse("https://example.com").unwrap(),
+        );
+        Self { profile }
+    }
+}
+
+#[async_trait]
+impl Agent for SimpleAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        let text = message.text_content().unwrap_or("No text");
+        Ok(Message::agent_text(format!("Echo: {}", text)))
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create agent card
-    let agent_id = AgentId::new("simple-agent".to_string())?;
-    let agent_card = AgentCard::new(
-        agent_id,
-        "Simple A2A Agent",
-        Url::parse("https://example.com")?,
-    );
+    // 1. Create agent
+    let agent = Arc::new(SimpleAgent::new());
 
-    // 2. Create handler (you can also implement your own A2aHandler)
-    let handler = TaskAwareHandler::new(agent_card);
+    // 2. Create handler
+    let handler = TaskAwareHandler::new(agent);
 
     // 3. Build and run server - that's it!
     ServerBuilder::new(handler)

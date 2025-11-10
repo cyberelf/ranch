@@ -323,11 +323,11 @@ mod compliance_tests {
 
             let agent_id = AgentId::new("test-agent".to_owned()).unwrap();
             let url = Url::parse("https://example.com").unwrap();
-            let agent_card = AgentCard::new(agent_id, "Test Agent", url);
+            let agent_profile = AgentProfile::new(agent_id, "Test Agent", url);
 
             // Create server components
             use a2a_protocol::server::handler::BasicA2aHandler;
-            let _handler = BasicA2aHandler::new(agent_card.clone());
+            let _handler = BasicA2aHandler::new(agent_profile);
 
             // Create client components
             use a2a_protocol::client::ClientBuilder;

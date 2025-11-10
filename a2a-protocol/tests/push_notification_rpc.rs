@@ -2,20 +2,38 @@
 
 use a2a_protocol::{
     core::push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent},
-    server::{A2aHandler, TaskAwareHandler},
-    AgentCard, AgentId, PushNotificationDeleteRequest, PushNotificationGetRequest,
-    PushNotificationListRequest, PushNotificationSetRequest,
+    server::{Agent, A2aHandler, TaskAwareHandler},
+    AgentId, AgentProfile, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationSetRequest, Message,
 };
 use url::Url;
+use std::sync::Arc;
+use async_trait::async_trait;
+
+struct TestAgent {
+    profile: AgentProfile,
+}
+
+#[async_trait]
+impl Agent for TestAgent {
+    async fn profile(&self) -> Result<AgentProfile, a2a_protocol::A2aError> {
+        Ok(self.profile.clone())
+    }
+
+    async fn process_message(&self, _message: Message) -> Result<Message, a2a_protocol::A2aError> {
+        Ok(Message::agent_text("Test response"))
+    }
+}
 
 fn create_test_handler() -> TaskAwareHandler {
     let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-    let agent_card = AgentCard::new(
+    let profile = AgentProfile::new(
         agent_id,
         "Test Agent",
         Url::parse("https://example.com").unwrap(),
     );
-    TaskAwareHandler::new(agent_card)
+    let agent = Arc::new(TestAgent { profile });
+    TaskAwareHandler::new(agent)
 }
 
 fn create_test_config() -> PushNotificationConfig {

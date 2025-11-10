@@ -12,7 +12,10 @@ pub mod streaming_events;
 pub mod task;
 
 // Re-export core types
-pub use agent_card::{AgentCapability, AgentCard, AgentSkill, StreamingCapabilities, TransportInterface};
+pub use agent_card::{
+    AgentCapability, AgentCard, AgentCardSignature, AgentProfile, AgentSkill,
+    StreamingCapabilities, TransportInterface,
+};
 pub use agent_id::AgentId;
 pub use error::{A2aError, A2aResult};
 pub use message::{

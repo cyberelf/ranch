@@ -21,17 +21,26 @@ use std::net::{SocketAddr, IpAddr, Ipv4Addr};
 ///
 /// ```no_run
 /// # use a2a_protocol::prelude::*;
-/// # use a2a_protocol::server::{ServerBuilder, TaskAwareHandler};
+/// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
 /// # use url::Url;
+/// # use std::sync::Arc;
+/// # use async_trait::async_trait;
+/// # struct MyAgent { profile: AgentProfile }
+/// # #[async_trait]
+/// # impl Agent for MyAgent {
+/// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+/// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+/// # }
 /// # async fn example() {
-/// // Create your handler
+/// // Create your agent
 /// let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-/// let agent_card = AgentCard::new(
+/// let profile = AgentProfile::new(
 ///     agent_id,
 ///     "My Agent",
 ///     Url::parse("https://example.com").unwrap()
 /// );
-/// let handler = TaskAwareHandler::new(agent_card);
+/// let agent = Arc::new(MyAgent { profile });
+/// let handler = TaskAwareHandler::new(agent);
 ///
 /// // Build and run server in one expression
 /// ServerBuilder::new(handler)
@@ -54,15 +63,24 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
+    /// # use std::sync::Arc;
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// let agent_card = AgentCard::new(
+    /// let profile = AgentProfile::new(
     ///     agent_id,
     ///     "My Agent",
     ///     Url::parse("https://example.com").unwrap()
     /// );
-    /// let handler = TaskAwareHandler::new(agent_card);
+    /// let agent = Arc::new(MyAgent { profile });
+    /// let handler = TaskAwareHandler::new(agent);
     /// let builder = ServerBuilder::new(handler);
     /// ```
     pub fn new(handler: H) -> Self {
@@ -77,14 +95,21 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::ServerBuilder;
-    /// # use a2a_protocol::server::TaskAwareHandler;
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
-    /// # use std::net::SocketAddr;
+    /// # use std::{net::SocketAddr, sync::Arc};
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// # let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// # let agent_card = AgentCard::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
-    /// # let handler = TaskAwareHandler::new(agent_card);
+    /// # let profile = AgentProfile::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
+    /// # let agent = Arc::new(MyAgent { profile });
+    /// # let handler = TaskAwareHandler::new(agent);
     /// let builder = ServerBuilder::new(handler)
     ///     .with_address("0.0.0.0:8080".parse().unwrap());
     /// ```
@@ -98,13 +123,21 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::ServerBuilder;
-    /// # use a2a_protocol::server::TaskAwareHandler;
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
+    /// # use std::sync::Arc;
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// # let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// # let agent_card = AgentCard::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
-    /// # let handler = TaskAwareHandler::new(agent_card);
+    /// # let profile = AgentProfile::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
+    /// # let agent = Arc::new(MyAgent { profile });
+    /// # let handler = TaskAwareHandler::new(agent);
     /// let builder = ServerBuilder::new(handler)
     ///     .with_host_port("0.0.0.0", 8080);
     /// ```
@@ -121,13 +154,21 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::ServerBuilder;
-    /// # use a2a_protocol::server::TaskAwareHandler;
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
+    /// # use std::sync::Arc;
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// # let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// # let agent_card = AgentCard::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
-    /// # let handler = TaskAwareHandler::new(agent_card);
+    /// # let profile = AgentProfile::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
+    /// # let agent = Arc::new(MyAgent { profile });
+    /// # let handler = TaskAwareHandler::new(agent);
     /// let builder = ServerBuilder::new(handler)
     ///     .with_port(8080);
     /// ```
@@ -153,16 +194,25 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```no_run
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
+    /// # use std::sync::Arc;
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// # async fn example() {
     /// let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// let agent_card = AgentCard::new(
+    /// let profile = AgentProfile::new(
     ///     agent_id,
     ///     "My Agent",
     ///     Url::parse("https://example.com").unwrap()
     /// );
-    /// let handler = TaskAwareHandler::new(agent_card);
+    /// let agent = Arc::new(MyAgent { profile });
+    /// let handler = TaskAwareHandler::new(agent);
     ///
     /// // This will run forever (until interrupted)
     /// ServerBuilder::new(handler)
@@ -205,11 +255,20 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
+    /// # use std::sync::Arc;
+    /// # use async_trait::async_trait;
+    /// # struct MyAgent { profile: AgentProfile }
+    /// # #[async_trait]
+    /// # impl Agent for MyAgent {
+    /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
+    /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
+    /// # }
     /// # let agent_id = AgentId::new("my-agent".to_string()).unwrap();
-    /// # let agent_card = AgentCard::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
-    /// # let handler = TaskAwareHandler::new(agent_card);
+    /// # let profile = AgentProfile::new(agent_id, "My Agent", Url::parse("https://example.com").unwrap());
+    /// # let agent = Arc::new(MyAgent { profile });
+    /// # let handler = TaskAwareHandler::new(agent);
     /// let router = ServerBuilder::new(handler)
     ///     .with_port(3000)
     ///     .build();
@@ -232,17 +291,37 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentCard, AgentId, server::TaskAwareHandler};
+    use crate::{AgentId, AgentProfile, Message, server::{Agent, TaskAwareHandler}};
+    use async_trait::async_trait;
+    use std::sync::Arc;
     use url::Url;
+
+    struct TestAgent {
+        profile: AgentProfile,
+    }
+
+    #[async_trait]
+    impl Agent for TestAgent {
+        async fn profile(&self) -> crate::A2aResult<AgentProfile> {
+            Ok(self.profile.clone())
+        }
+
+        async fn process_message(&self, msg: Message) -> crate::A2aResult<Message> {
+            Ok(Message::agent_text(format!("Echo: {}", msg.text_content().unwrap_or(""))))
+        }
+    }
 
     fn create_test_handler() -> TaskAwareHandler {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
+        let agent_profile = AgentProfile::new(
             agent_id,
             "Test Agent",
             Url::parse("https://example.com").unwrap(),
         );
-        TaskAwareHandler::new(agent_card)
+        let agent = Arc::new(TestAgent {
+            profile: agent_profile,
+        });
+        TaskAwareHandler::new(agent)
     }
 
     #[test]

@@ -7,17 +7,39 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{AgentLogic, ServerBuilder, TaskAwareHandler},
+    server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use url::Url;
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
 /// A long-running task agent that simulates heavy computation
-struct TaskAgent;
+struct TaskAgent {
+    profile: AgentProfile,
+}
+
+impl TaskAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("task-agent".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Long-Running Task Agent",
+            Url::parse("https://example.com").unwrap(),
+        )
+        .with_description("An agent that handles long-running computational tasks")
+        .with_version("1.0.0");
+
+        Self { profile }
+    }
+}
 
 #[async_trait]
-impl AgentLogic for TaskAgent {
+impl Agent for TaskAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
         // Extract text from the message
         let text = message
@@ -54,29 +76,18 @@ impl AgentLogic for TaskAgent {
 
         Ok(Message::agent_text(result))
     }
-
-    async fn initialize(&self) -> A2aResult<()> {
-        println!("⏳ Task Agent initialized!");
-        println!("   Supports async task processing with status polling");
-        Ok(())
-    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create agent card
-    let agent_id = AgentId::new("task-agent".to_string())?;
-    let agent_card = AgentCard::new(
-        agent_id,
-        "Long-Running Task Agent",
-        Url::parse("https://example.com")?,
-    );
+    println!("⏳ Task Agent initializing...");
+    println!("   Supports async task processing with status polling");
+    
+    // 1. Create our task agent
+    let agent = Arc::new(TaskAgent::new());
 
-    // 2. Create our task agent logic
-    let agent = TaskAgent;
-
-    // 3. Wrap it in TaskAwareHandler for automatic task management
-    let handler = TaskAwareHandler::with_logic(agent_card, agent);
+    // 2. Wrap it in TaskAwareHandler for automatic task management
+    let handler = TaskAwareHandler::new(agent);
 
     println!("\n🚀 Starting Task Server");
     println!("   Port: 3002");

@@ -5,6 +5,66 @@ All notable changes to the a2a-protocol crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-11-05 (In Progress)
+
+### Added
+
+#### Push Notifications & Webhooks (Core Implementation Complete)
+- Push notification configuration types
+  - `PushNotificationConfig` for webhook endpoint configuration
+  - `PushNotificationAuth` enum (Bearer tokens, Custom headers)
+  - `TaskEvent` enum (StatusChanged, Completed, Failed, Cancelled, ArtifactAdded)
+- SSRF (Server-Side Request Forgery) protection
+  - Comprehensive URL validation for webhook endpoints
+  - Blocks private IPv4 ranges (10.x, 172.16-31.x, 192.168.x)
+  - Blocks private IPv6 ranges (::1, fc00::/7, fe80::/10)
+  - Blocks localhost, link-local, multicast, and broadcast addresses
+  - Blocks cloud metadata endpoints (169.254.169.254)
+  - Hostname validation (blocks .local, .internal domains)
+- Push notification storage
+  - `PushNotificationStore` for in-memory webhook configuration storage
+  - Methods: set, get, list, delete
+- JSON-RPC methods for push notifications
+  - `tasks/pushNotificationConfig/set` - Configure webhook for a task
+  - `tasks/pushNotificationConfig/get` - Retrieve webhook configuration
+  - `tasks/pushNotificationConfig/list` - List all webhook configurations
+  - `tasks/pushNotificationConfig/delete` - Remove webhook configuration
+- Webhook delivery system
+  - `WebhookQueue` for async, non-blocking webhook delivery
+  - `WebhookPayload` with event, task, timestamp, and agent ID
+  - HTTP delivery with authentication support (Bearer, Custom headers)
+  - Exponential backoff retry logic (configurable max retries)
+  - `RetryConfig` for customizable retry behavior
+  - `DeliveryStatus` tracking (Pending, Delivering, Delivered, Failed, Retrying)
+- Task integration
+  - Automatic webhook triggering on task state changes
+  - Fire-and-forget delivery (doesn't block task processing)
+  - Event filtering (only configured events trigger webhooks)
+  - Support for all task lifecycle events
+
+#### Request/Response Types
+- `PushNotificationSetRequest` - Parameters for webhook configuration
+- `PushNotificationGetRequest` - Parameters for retrieving webhook config
+- `PushNotificationListRequest` - Parameters for listing webhook configs
+- `PushNotificationDeleteRequest` - Parameters for deleting webhook config
+- `PushNotificationListResponse` - Response with list of configurations
+- `PushNotificationConfigEntry` - Entry in list response
+
+### Security
+- HTTPS requirement for all webhook URLs
+- Comprehensive SSRF attack prevention
+- 27 security-focused tests for URL validation
+- Safe handling of authentication credentials
+
+### Testing
+- 223 total tests (up from 161 in v0.6.0)
+  - 162 library tests (up from 110)
+  - 8 streaming integration tests
+  - 17 compliance tests
+  - 9 push notification RPC tests
+  - 8 RPC integration tests
+  - 19 documentation tests
+
 ## [0.6.0] - 2025-11-05
 
 ### Added

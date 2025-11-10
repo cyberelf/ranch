@@ -66,18 +66,13 @@ impl PushNotificationConfig {
     /// - Events list is not empty
     /// - URL is not targeting private IP ranges (SSRF protection)
     pub fn validate(&self) -> Result<(), String> {
-        // Require HTTPS for security
-        if self.url.scheme() != "https" {
-            return Err("Webhook URL must use HTTPS".to_string());
-        }
-
         // Ensure at least one event is configured
         if self.events.is_empty() {
             return Err("At least one event type must be configured".to_string());
         }
 
-        // TODO: Add SSRF protection - check for private IP ranges
-        // This will be implemented in Priority 3: SSRF Protection
+        // SSRF protection - validate webhook URL
+        super::ssrf_protection::validate_webhook_url(&self.url)?;
 
         Ok(())
     }

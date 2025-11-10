@@ -2,6 +2,8 @@
 
 use crate::{
     A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part, SendResponse,
+    PushNotificationConfig, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationListResponse, PushNotificationSetRequest,
     Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskStatus, TaskStatusRequest,
 };
 use async_trait::async_trait;
@@ -84,6 +86,42 @@ pub trait A2aHandler: Send + Sync {
         &self,
         request: TaskResubscribeRequest,
     ) -> A2aResult<Box<dyn Stream<Item = A2aResult<StreamingResult>> + Send + Unpin>>;
+
+    /// RPC method: tasks/pushNotificationConfig/set
+    /// Set push notification configuration for a task
+    async fn rpc_push_notification_set(
+        &self,
+        _request: PushNotificationSetRequest,
+    ) -> A2aResult<()> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/get
+    /// Get push notification configuration for a task
+    async fn rpc_push_notification_get(
+        &self,
+        _request: PushNotificationGetRequest,
+    ) -> A2aResult<Option<PushNotificationConfig>> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/list
+    /// List all push notification configurations
+    async fn rpc_push_notification_list(
+        &self,
+        _request: PushNotificationListRequest,
+    ) -> A2aResult<PushNotificationListResponse> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
+
+    /// RPC method: tasks/pushNotificationConfig/delete
+    /// Delete push notification configuration for a task
+    async fn rpc_push_notification_delete(
+        &self,
+        _request: PushNotificationDeleteRequest,
+    ) -> A2aResult<bool> {
+        Err(crate::A2aError::PushNotificationNotSupported)
+    }
 }
 
 /// Health status response
@@ -196,18 +234,31 @@ impl StreamingResponse {
 
 /// Basic handler implementation
 pub struct BasicA2aHandler {
-    agent_card: AgentCard,
+    profile: crate::AgentProfile,
+    transport_caps: crate::server::TransportCapabilities,
 }
 
 impl BasicA2aHandler {
-    /// Create a new basic handler
-    pub fn new(agent_card: AgentCard) -> Self {
-        Self { agent_card }
+    /// Create a new basic handler with an agent profile
+    pub fn new(profile: crate::AgentProfile) -> Self {
+        Self {
+            profile,
+            transport_caps: crate::server::TransportCapabilities::new(),
+        }
     }
 
-    /// Set the agent card
-    pub fn with_agent_card(mut self, agent_card: AgentCard) -> Self {
-        self.agent_card = agent_card;
+    /// Set the agent profile
+    pub fn with_profile(mut self, profile: crate::AgentProfile) -> Self {
+        self.profile = profile;
+        self
+    }
+
+    /// Set the transport capabilities
+    pub fn with_transport_capabilities(
+        mut self,
+        transport_caps: crate::server::TransportCapabilities,
+    ) -> Self {
+        self.transport_caps = transport_caps;
         self
     }
 }
@@ -224,7 +275,7 @@ impl A2aHandler for BasicA2aHandler {
     }
 
     async fn get_agent_card(&self) -> A2aResult<AgentCard> {
-        Ok(self.agent_card.clone())
+        Ok(self.transport_caps.clone().assemble_card(self.profile.clone()))
     }
 
     async fn health_check(&self) -> A2aResult<HealthStatus> {
@@ -260,19 +311,19 @@ impl A2aHandler for BasicA2aHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, MessageId};
+    use crate::{AgentId, AgentProfile, MessageId};
     use url::Url;
 
     #[tokio::test]
     async fn test_basic_handler() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
+        let agent_profile = AgentProfile::new(
             agent_id,
             "Test Agent",
             Url::parse("https://example.com").unwrap(),
         );
 
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(agent_profile);
 
         let message = Message::user_text("Hello, world!");
         let response = handler.handle_message(message).await.unwrap();
@@ -286,13 +337,13 @@ mod tests {
     #[tokio::test]
     async fn test_health_check() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let agent_card = AgentCard::new(
+        let agent_profile = AgentProfile::new(
             agent_id,
             "Test Agent",
             Url::parse("https://example.com").unwrap(),
         );
 
-        let handler = BasicA2aHandler::new(agent_card);
+        let handler = BasicA2aHandler::new(agent_profile);
         let health = handler.health_check().await.unwrap();
 
         assert!(matches!(health.status, HealthStatusType::Healthy));

@@ -5,6 +5,7 @@
 //! (JSON-RPC 2.0, gRPC, etc.)
 
 use crate::Message;
+use crate::core::push_notification::PushNotificationConfig;
 use serde::{Deserialize, Serialize};
 
 /// Request for message/send RPC method
@@ -181,6 +182,108 @@ impl AgentCardGetRequest {
     pub fn for_agent<S: Into<String>>(agent_id: S) -> Self {
         Self {
             agent_id: Some(agent_id.into()),
+        }
+    }
+}
+
+/// Request for tasks/pushNotificationConfig/set RPC method
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationSetRequest {
+    /// Task ID to configure notifications for
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    
+    /// Push notification configuration
+    pub config: PushNotificationConfig,
+}
+
+impl PushNotificationSetRequest {
+    /// Create a new push notification set request
+    pub fn new<S: Into<String>>(task_id: S, config: PushNotificationConfig) -> Self {
+        Self {
+            task_id: task_id.into(),
+            config,
+        }
+    }
+}
+
+/// Request for tasks/pushNotificationConfig/get RPC method
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationGetRequest {
+    /// Task ID to get configuration for
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+}
+
+impl PushNotificationGetRequest {
+    /// Create a new push notification get request
+    pub fn new<S: Into<String>>(task_id: S) -> Self {
+        Self {
+            task_id: task_id.into(),
+        }
+    }
+}
+
+/// Request for tasks/pushNotificationConfig/list RPC method
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationListRequest {
+    // For now, no filters - can be extended later
+}
+
+impl PushNotificationListRequest {
+    /// Create a new push notification list request
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Default for PushNotificationListRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Request for tasks/pushNotificationConfig/delete RPC method
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationDeleteRequest {
+    /// Task ID to delete configuration for
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+}
+
+impl PushNotificationDeleteRequest {
+    /// Create a new push notification delete request
+    pub fn new<S: Into<String>>(task_id: S) -> Self {
+        Self {
+            task_id: task_id.into(),
+        }
+    }
+}
+
+/// Response for tasks/pushNotificationConfig/list RPC method
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationListResponse {
+    /// List of task IDs and their configurations
+    pub configurations: Vec<PushNotificationConfigEntry>,
+}
+
+/// Entry in push notification list response
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PushNotificationConfigEntry {
+    /// Task ID
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    
+    /// Push notification configuration
+    pub config: PushNotificationConfig,
+}
+
+impl PushNotificationConfigEntry {
+    /// Create a new configuration entry
+    pub fn new<S: Into<String>>(task_id: S, config: PushNotificationConfig) -> Self {
+        Self {
+            task_id: task_id.into(),
+            config,
         }
     }
 }

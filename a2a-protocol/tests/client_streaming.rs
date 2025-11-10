@@ -3,24 +3,41 @@
 
 use a2a_protocol::prelude::*;
 use a2a_protocol::client::{A2aStreamingClient, ClientBuilder};
-use a2a_protocol::server::{TaskAwareHandler, JsonRpcRouter};
+use a2a_protocol::server::{Agent, TaskAwareHandler, JsonRpcRouter};
 use a2a_protocol::transport::{StreamingResult, JsonRpcTransport};
 use a2a_protocol::TaskResubscribeRequest;
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use async_trait::async_trait;
+
+struct TestAgent {
+    profile: AgentProfile,
+}
+
+#[async_trait]
+impl Agent for TestAgent {
+    async fn profile(&self) -> Result<AgentProfile, A2aError> {
+        Ok(self.profile.clone())
+    }
+
+    async fn process_message(&self, _message: Message) -> Result<Message, A2aError> {
+        Ok(Message::agent_text("Test response"))
+    }
+}
 
 /// Helper to start a test server with TaskAwareHandler
 async fn start_test_server() -> (SocketAddr, tokio::task::JoinHandle<()>) {
     let agent_id = AgentId::new("streaming-test-agent".to_string()).unwrap();
-    let agent_card = AgentCard::new(
+    let profile = AgentProfile::new(
         agent_id.clone(),
         "Streaming Test Agent",
         url::Url::parse("https://example.com").unwrap(),
     );
 
-    let handler = TaskAwareHandler::new(agent_card);
+    let agent = Arc::new(TestAgent { profile });
+    let handler = TaskAwareHandler::new(agent);
     let router = JsonRpcRouter::new(handler);
     let app = router.into_router();
 

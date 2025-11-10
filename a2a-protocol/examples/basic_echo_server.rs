@@ -7,16 +7,37 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{AgentLogic, ServerBuilder, TaskAwareHandler},
+    server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
+use std::sync::Arc;
 use url::Url;
 
 /// A simple echo agent that uppercases the input
-struct UppercaseEchoAgent;
+struct UppercaseEchoAgent {
+    profile: AgentProfile,
+}
+
+impl UppercaseEchoAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("uppercase-echo".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Uppercase Echo Agent",
+            Url::parse("https://example.com").unwrap(),
+        )
+        .with_description("An agent that echoes messages in uppercase");
+
+        Self { profile }
+    }
+}
 
 #[async_trait]
-impl AgentLogic for UppercaseEchoAgent {
+impl Agent for UppercaseEchoAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
         // Extract text from the message
         let text = message
@@ -27,34 +48,19 @@ impl AgentLogic for UppercaseEchoAgent {
         let response = format!("ECHO: {}", text.to_uppercase());
         Ok(Message::agent_text(response))
     }
-
-    async fn initialize(&self) -> A2aResult<()> {
-        println!("🤖 UppercaseEchoAgent initialized!");
-        Ok(())
-    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create agent card
-    let agent_id = AgentId::new("uppercase-echo".to_string())?;
-    let agent_card = AgentCard::new(
-        agent_id,
-        "Uppercase Echo Agent",
-        Url::parse("https://example.com")?,
-    );
+    println!("🤖 UppercaseEchoAgent initializing...");
 
-    // 2. Create our simple agent logic
-    let agent = UppercaseEchoAgent;
+    // 1. Create our agent
+    let agent = Arc::new(UppercaseEchoAgent::new());
 
-    // 3. Wrap it in TaskAwareHandler to get full A2A support
-    let handler = TaskAwareHandler::with_logic(agent_card, agent);
+    // 2. Wrap it in TaskAwareHandler to get full A2A support
+    let handler = TaskAwareHandler::new(agent);
 
-    // 4. Initialize the agent
-    // Note: In a real app, you'd call this in your startup code
-    // handler.logic.initialize().await?;
-
-    // 5. Build and run server
+    // 3. Build and run server
     println!("\n🚀 Starting Uppercase Echo Server");
     println!("   Try sending a message:");
     println!("   curl -X POST http://localhost:3000/rpc \\");

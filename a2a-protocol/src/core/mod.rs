@@ -7,11 +7,15 @@ pub mod message;
 pub mod message_id;
 pub mod push_notification;
 pub mod requests;
+pub mod ssrf_protection;
 pub mod streaming_events;
 pub mod task;
 
 // Re-export core types
-pub use agent_card::{AgentCapability, AgentCard, AgentSkill, StreamingCapabilities, TransportInterface};
+pub use agent_card::{
+    AgentCapability, AgentCard, AgentCardSignature, AgentProfile, AgentSkill,
+    StreamingCapabilities, TransportInterface,
+};
 pub use agent_id::AgentId;
 pub use error::{A2aError, A2aResult};
 pub use message::{
@@ -20,7 +24,11 @@ pub use message::{
 pub use message_id::MessageId;
 pub use push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent};
 pub use requests::{
-    AgentCardGetRequest, MessageSendRequest, TaskCancelRequest, TaskGetRequest,
+    AgentCardGetRequest, MessageSendRequest, 
+    PushNotificationDeleteRequest, PushNotificationGetRequest, 
+    PushNotificationListRequest, PushNotificationListResponse,
+    PushNotificationSetRequest, PushNotificationConfigEntry,
+    TaskCancelRequest, TaskGetRequest,
     TaskResubscribeRequest, TaskStatusRequest,
 };
 pub use streaming_events::{TaskArtifactUpdateEvent, TaskProgress, TaskStatusUpdateEvent};

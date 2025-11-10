@@ -6,24 +6,50 @@
 //! Run with: cargo run --example server
 
 use a2a_protocol::{
-    server::{JsonRpcRouter, TaskAwareHandler},
-    AgentCard, AgentId,
+    prelude::*,
+    server::{Agent, JsonRpcRouter, TaskAwareHandler},
 };
+use async_trait::async_trait;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use url::Url;
+
+/// A simple echo agent
+struct ExampleAgent {
+    profile: AgentProfile,
+}
+
+impl ExampleAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("example-agent".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Example A2A Agent",
+            Url::parse("https://example.com").unwrap(),
+        );
+        Self { profile }
+    }
+}
+
+#[async_trait]
+impl Agent for ExampleAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        let text = message.text_content().unwrap_or("No text");
+        Ok(Message::agent_text(format!("Echo: {}", text)))
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create agent card
-    let agent_id = AgentId::new("example-agent".to_string())?;
-    let agent_card = AgentCard::new(
-        agent_id,
-        "Example A2A Agent",
-        Url::parse("https://example.com")?,
-    );
+    // Create agent
+    let agent = Arc::new(ExampleAgent::new());
 
     // Create a task-aware handler
-    let handler = TaskAwareHandler::new(agent_card.clone());
+    let handler = TaskAwareHandler::new(agent);
 
     // Create JSON-RPC 2.0 router (A2A spec-compliant)
     let router = JsonRpcRouter::new(handler).into_router();

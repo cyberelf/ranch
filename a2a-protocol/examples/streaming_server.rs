@@ -8,16 +8,37 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{AgentLogic, ServerBuilder, TaskAwareHandler},
+    server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
+use std::sync::Arc;
 use url::Url;
 
 /// A streaming agent that simulates long-running work with progress updates
-struct StreamingAgent;
+struct StreamingAgent {
+    profile: AgentProfile,
+}
+
+impl StreamingAgent {
+    fn new() -> Self {
+        let agent_id = AgentId::new("streaming-agent".to_string()).unwrap();
+        let profile = AgentProfile::new(
+            agent_id,
+            "Streaming Agent",
+            Url::parse("https://example.com").unwrap(),
+        )
+        .with_description("An agent that supports SSE streaming for real-time updates");
+
+        Self { profile }
+    }
+}
 
 #[async_trait]
-impl AgentLogic for StreamingAgent {
+impl Agent for StreamingAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
+    }
+
     async fn process_message(&self, message: Message) -> A2aResult<Message> {
         // Extract text from the message
         let text = message
@@ -34,31 +55,20 @@ impl AgentLogic for StreamingAgent {
 
         Ok(Message::agent_text(response))
     }
-
-    async fn initialize(&self) -> A2aResult<()> {
-        println!("🌊 Streaming Agent initialized!");
-        println!("   Supports SSE streaming for real-time updates");
-        Ok(())
-    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create agent card
-    let agent_id = AgentId::new("streaming-agent".to_string())?;
-    let agent_card = AgentCard::new(
-        agent_id,
-        "Streaming Agent",
-        Url::parse("https://example.com")?,
-    );
+    println!("🌊 Streaming Agent initializing...");
+    println!("   Supports SSE streaming for real-time updates");
 
-    // 2. Create our streaming agent logic
-    let agent = StreamingAgent;
+    // 1. Create our streaming agent
+    let agent = Arc::new(StreamingAgent::new());
 
-    // 3. Wrap it in TaskAwareHandler to get full A2A support including streaming
-    let handler = TaskAwareHandler::with_logic(agent_card, agent);
+    // 2. Wrap it in TaskAwareHandler to get full A2A support including streaming
+    let handler = TaskAwareHandler::new(agent);
 
-    // 4. Build and run server with streaming enabled
+    // 3. Build and run server with streaming enabled
     println!("\n🚀 Starting Streaming Server");
     println!("   Port: 3001");
     println!("   Features: SSE streaming, JSON-RPC 2.0");

@@ -81,51 +81,128 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## 📚 Learn More
+## 📚 Documentation
 
-- **[Examples](examples/)** - 8 runnable examples covering basic to advanced usage
-- **[Getting Started Guide](GETTING_STARTED.md)** - Step-by-step tutorial
-- **[API Documentation](https://docs.rs/a2a-protocol)** - Full API reference
+- **[🚀 Getting Started Guide](GETTING_STARTED.md)** - Step-by-step tutorial for beginners
+- **[🎣 Webhooks Guide](WEBHOOKS.md)** - Push notifications and async updates (NEW in v0.7.0)
+- **[✨ Features Overview](FEATURES.md)** - Complete feature reference and comparison
+- **[💡 Examples](examples/)** - 9 runnable examples from basic to advanced
+- **[📖 API Documentation](https://docs.rs/a2a-protocol)** - Full API reference
 
-### When to Use What
+### Quick Links
 
-- **`AgentLogic` trait** - For simple agents (most common use case)
-- **`A2aHandler` trait** - For advanced agents needing full control
-- **`A2aClient`** - For non-streaming client operations
-- **`A2aStreamingClient`** - For real-time streaming updates
+- **New to A2A?** Start here: [Getting Started Guide](GETTING_STARTED.md)
+- **Need webhooks?** Read: [Webhooks Guide](WEBHOOKS.md)
+- **Which feature to use?** See: [Features Overview](FEATURES.md)
+- **Want working code?** Browse: [Examples](examples/)
+
+## What's New in v0.7.0
+
+### 🎣 Push Notifications & Webhooks
+
+Get notified when tasks complete instead of polling! Configure webhooks to receive HTTP POST notifications on task events.
+
+```bash
+# Configure webhook
+curl -X POST http://localhost:3000/rpc -d '{
+  "jsonrpc": "2.0",
+  "method": "tasks/pushNotificationConfig/set",
+  "params": {
+    "taskId": "task-123",
+    "config": {
+      "url": "https://myapp.com/webhook",
+      "events": ["completed", "failed"],
+      "authentication": {"type": "bearer", "token": "secret"}
+    }
+  }
+}'
+
+# Receive notification when task completes
+POST https://myapp.com/webhook
+{
+  "event": "completed",
+  "task": {"id": "task-123", "status": {"state": "completed"}},
+  "timestamp": "2025-11-11T10:30:00Z"
+}
+```
+
+**Benefits:**
+- ✅ No polling overhead
+- ✅ Instant notifications
+- ✅ Scales to thousands of tasks
+- ✅ Event-driven architecture
+
+### 🔒 SSRF Protection
+
+Comprehensive security to prevent Server-Side Request Forgery attacks on webhooks:
+
+- HTTPS enforcement for all webhook URLs
+- Blocks private IP ranges (10.x, 192.168.x, 172.16-31.x)
+- Blocks localhost and cloud metadata endpoints
+- Hostname filtering (.local, .internal domains)
+- 27 security tests covering all attack vectors
+
+### 📊 Production Ready
+
+- **223 tests passing** (61+ new tests for push notifications)
+- **Full A2A v0.3.0 compliance**
+- **Comprehensive documentation**
+- **Working examples included**
+
+📖 **Learn more:** [Webhooks Guide](WEBHOOKS.md) | [Examples](examples/webhook_server.rs)
 
 ## Features
 
-- **Spec Compliance**: Strict adherence to the A2A v0.3.0 specification
-- **JSON-RPC 2.0**: Full JSON-RPC 2.0 transport implementation
-- **SSE Streaming**: Server-Sent Events for real-time updates ✅ NEW in v0.6.0
-- **Async Native**: Built on tokio for high-performance async communication
-- **Type Safe**: Strong typing with serde for serialization
-- **Task Management**: Complete task lifecycle support
-- **Production Ready**: Comprehensive error handling and testing (161 tests)
-- **Easy to Use**: Simple `AgentLogic` trait for quick development ✅ NEW in v0.6.0
-- **One-Line Server**: `ServerBuilder` for minimal setup ✅ NEW in v0.6.0
+**Core Capabilities:**
+- ✅ **Spec Compliance** - Strict adherence to A2A v0.3.0 specification
+- ✅ **JSON-RPC 2.0** - Full JSON-RPC 2.0 transport implementation
+- ✅ **Async Native** - Built on tokio for high-performance async communication
+- ✅ **Type Safe** - Strong typing with serde for serialization
+- ✅ **Production Ready** - 223 tests, comprehensive error handling
+
+**Communication Modes:**
+- ✅ **Basic Messaging** - Synchronous request/response
+- ✅ **Task Management** - Complete task lifecycle support (queued → working → completed)
+- ✅ **SSE Streaming** - Real-time updates via Server-Sent Events (v0.6.0)
+- 🎣 **Push Notifications** - Webhook-based async updates (v0.7.0)
+
+**Developer Experience:**
+- ✅ **Easy to Use** - Simple `AgentLogic` trait for quick development
+- ✅ **One-Line Server** - `ServerBuilder` for minimal setup
+- ✅ **9 Examples** - From basic to advanced, all runnable
+- ✅ **Complete Docs** - Getting started, features, webhooks, API reference
+
+**Security (v0.7.0):**
+- 🔒 **SSRF Protection** - Blocks private IPs, localhost, metadata endpoints
+- 🔒 **HTTPS Enforcement** - Required for all webhook URLs  
+- 🔒 **Authentication** - Bearer tokens and custom headers
+
+📖 **Feature Comparison:** See [FEATURES.md](FEATURES.md) for detailed feature guide
 
 ## Specification Compliance
 
 This crate implements **A2A Protocol v0.3.0** with strict spec compliance:
 
-✅ **Supported:**
+✅ **Fully Implemented:**
 - JSON-RPC 2.0 transport over HTTP
 - All required RPC methods (`message/send`, `task/get`, `task/cancel`, `task/status`, `agent/card`)
-- SSE streaming (`message/stream`, `task/resubscribe`) ✅ NEW in v0.6.0
+- SSE streaming (`message/stream`, `task/resubscribe`) - v0.6.0
+- Push notifications (`tasks/pushNotificationConfig/*`) - v0.7.0
 - Complete Task lifecycle management
 - A2A Message format with Parts (TextPart, FilePart, DataPart)
 - AgentCard discovery
 
-🚧 **Planned:**
-- Push notifications (`task/pushNotificationConfig/*`)
+🚧 **Planned for v0.8.0:**
+- OAuth2 webhook authentication
+- DNS pre-resolution for SSRF protection
+- Rate limiting for webhooks
+- Webhook signature verification (HMAC)
 - gRPC transport (optional)
 - HTTP+JSON/REST transport (if spec clarifies patterns)
 
 ## 🎯 Examples
 
-We provide 8 comprehensive examples in the [examples/](examples/) directory:
+We provide 9 comprehensive examples in the [examples/](examples/) directory:
 
 1. **[basic_echo_server](examples/basic_echo_server.rs)** - Minimal server using `AgentLogic` (⭐ Start here!)
 2. **[echo_client](examples/echo_client.rs)** - Simple client for sending messages
@@ -134,11 +211,13 @@ We provide 8 comprehensive examples in the [examples/](examples/) directory:
 5. **[streaming_client](examples/streaming_client.rs)** - Client consuming SSE streams
 6. **[streaming_type_safety](examples/streaming_type_safety.rs)** - Type-safe streaming patterns
 7. **[task_server](examples/task_server.rs)** - Long-running async task handling
-8. **[multi_agent](examples/multi_agent.rs)** - Agent-to-agent communication
+8. **[webhook_server](examples/webhook_server.rs)** - Push notifications & webhooks (NEW v0.7.0)
+9. **[multi_agent](examples/multi_agent.rs)** - Agent-to-agent communication
 
 **Run any example:**
 ```bash
 cargo run --example basic_echo_server --features streaming
+cargo run --example webhook_server --features streaming
 ```
 
 See [examples/README.md](examples/README.md) for detailed usage instructions.
@@ -149,10 +228,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-a2a-protocol = "0.6.0"
+a2a-protocol = "0.7.0"
 
-# For streaming support
-a2a-protocol = { version = "0.6.0", features = ["streaming"] }
+# For streaming and webhooks support
+a2a-protocol = { version = "0.7.0", features = ["streaming"] }
 ```
 
 ### Simple Server (Using AgentLogic)

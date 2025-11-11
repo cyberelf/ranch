@@ -62,7 +62,7 @@ pub mod prelude {
     
     pub use crate::core::{
         agent_card::{
-            AgentCapability, AgentProfile, AgentProvider, AgentSkill,
+            AgentCapability, AgentProvider, AgentSkill,
             AuthenticationRequirement, RateLimit, RateLimitStrategy, StreamingCapabilities,
             TransportInterface, TransportType,
         },
@@ -91,7 +91,7 @@ pub mod prelude {
     };
     
     pub use crate::server::{
-        Agent, AgentLogic, PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
+        Agent, AgentLogic, AgentProfile, PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
     };
     pub use crate::transport::{
         JsonRpcError,

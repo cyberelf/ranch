@@ -13,7 +13,7 @@ pub mod task;
 
 // Re-export core types
 pub use agent_card::{
-    AgentCapability, AgentCard, AgentCardSignature, AgentProfile, AgentSkill,
+    AgentCapability, AgentCard, AgentCardSignature, AgentSkill,
     StreamingCapabilities, TransportInterface,
 };
 pub use agent_id::AgentId;

@@ -2,8 +2,8 @@
 
 use a2a_protocol::{
     core::push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent},
-    server::{Agent, A2aHandler, TaskAwareHandler},
-    AgentId, AgentProfile, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    server::{Agent, AgentProfile, A2aHandler, TaskAwareHandler},
+    AgentId, PushNotificationDeleteRequest, PushNotificationGetRequest,
     PushNotificationListRequest, PushNotificationSetRequest, Message,
 };
 use url::Url;

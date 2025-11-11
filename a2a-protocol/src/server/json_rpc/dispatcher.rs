@@ -121,7 +121,7 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_single_message_send() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let profile = crate::AgentProfile::new(
+        let profile = crate::server::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
@@ -146,7 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_batch() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let profile = crate::AgentProfile::new(
+        let profile = crate::server::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),
@@ -167,7 +167,7 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_notification() {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
-        let profile = crate::AgentProfile::new(
+        let profile = crate::server::AgentProfile::new(
             agent_id,
             "Test Agent",
             url::Url::parse("https://example.com").unwrap(),

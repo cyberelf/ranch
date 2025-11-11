@@ -291,7 +291,7 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, AgentProfile, Message, server::{Agent, TaskAwareHandler}};
+    use crate::{AgentId, server::AgentProfile, Message, server::{Agent, TaskAwareHandler}};
     use async_trait::async_trait;
     use std::sync::Arc;
     use url::Url;

@@ -234,13 +234,13 @@ impl StreamingResponse {
 
 /// Basic handler implementation
 pub struct BasicA2aHandler {
-    profile: crate::AgentProfile,
+    profile: super::AgentProfile,
     transport_caps: crate::server::TransportCapabilities,
 }
 
 impl BasicA2aHandler {
     /// Create a new basic handler with an agent profile
-    pub fn new(profile: crate::AgentProfile) -> Self {
+    pub fn new(profile: super::AgentProfile) -> Self {
         Self {
             profile,
             transport_caps: crate::server::TransportCapabilities::new(),
@@ -248,7 +248,7 @@ impl BasicA2aHandler {
     }
 
     /// Set the agent profile
-    pub fn with_profile(mut self, profile: crate::AgentProfile) -> Self {
+    pub fn with_profile(mut self, profile: super::AgentProfile) -> Self {
         self.profile = profile;
         self
     }
@@ -311,7 +311,7 @@ impl A2aHandler for BasicA2aHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, AgentProfile, MessageId};
+    use crate::{AgentId, server::AgentProfile};
     use url::Url;
 
     #[tokio::test]

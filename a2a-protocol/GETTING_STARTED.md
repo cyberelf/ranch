@@ -1,6 +1,6 @@
 # Getting Started with A2A Protocol
 
-This guide will help you build your first A2A agent in Rust, step by step.
+This guide will help you build your first A2A agent in Rust, step by step. By the end, you'll understand all the key features through v0.7.0.
 
 ## Prerequisites
 
@@ -15,10 +15,11 @@ This guide will help you build your first A2A agent in Rust, step by step.
 3. [Your First Client](#your-first-client)
 4. [Understanding AgentLogic vs A2aHandler](#understanding-agentlogic-vs-a2ahandler)
 5. [Working with Tasks](#working-with-tasks)
-6. [Streaming Responses](#streaming-responses)
-7. [Agent-to-Agent Communication](#agent-to-agent-communication)
-8. [Common Patterns](#common-patterns)
-9. [Troubleshooting](#troubleshooting)
+6. [Streaming Responses (v0.6.0)](#streaming-responses-v060)
+7. [Webhooks & Push Notifications (v0.7.0)](#webhooks--push-notifications-v070)
+8. [Agent-to-Agent Communication](#agent-to-agent-communication)
+9. [Common Patterns](#common-patterns)
+10. [Troubleshooting](#troubleshooting)
 
 ## Installation
 
@@ -26,7 +27,7 @@ Add the A2A protocol library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-a2a-protocol = { version = "0.6.0", features = ["streaming"] }
+a2a-protocol = { version = "0.7.0", features = ["streaming"] }
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 url = "2.4"
@@ -339,7 +340,9 @@ match response {
 }
 ```
 
-## Streaming Responses
+## Streaming Responses (v0.6.0)
+
+> **NEW in v0.6.0** - Real-time updates using Server-Sent Events (SSE)
 
 For real-time updates, use SSE streaming:
 
@@ -388,6 +391,128 @@ while let Some(result) = stream.next().await {
     }
 }
 ```
+
+**When to use streaming:**
+- Real-time progress updates
+- Long-running tasks with intermediate results
+- Chat-like interactions
+- Live data feeds
+
+## Webhooks & Push Notifications (v0.7.0)
+
+> **NEW in v0.7.0** - Get notified when tasks complete instead of polling!
+
+Webhooks let the server notify you when something happens, eliminating the need for polling.
+
+### Why Webhooks?
+
+**Without webhooks (polling):**
+```rust
+// ❌ Inefficient
+loop {
+    let status = client.get_task_status(&task_id).await?;
+    if status.state == TaskState::Completed {
+        break;
+    }
+    tokio::time::sleep(Duration::from_secs(5)).await;
+}
+```
+
+**With webhooks:**
+```rust
+// ✅ Efficient - server notifies you!
+client.configure_webhook(&task_id, webhook_config).await?;
+// Do other work... server will POST to your webhook when done
+```
+
+### Quick Webhook Setup
+
+**1. Create a webhook receiver:**
+
+```rust
+use axum::{routing::post, Router, Json};
+use serde_json::Value;
+
+async fn handle_webhook(Json(payload): Json<Value>) -> &'static str {
+    println!("📨 Task {} {}", 
+        payload["task"]["id"], 
+        payload["event"]
+    );
+    "OK"
+}
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new().route("/webhook", post(handle_webhook));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+        .await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+```
+
+**2. Configure webhook (JSON-RPC):**
+
+```bash
+curl -X POST http://localhost:3000/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tasks/pushNotificationConfig/set",
+    "params": {
+      "taskId": "your-task-id",
+      "config": {
+        "url": "https://myapp.com/webhook",
+        "events": ["completed", "failed"],
+        "authentication": {
+          "type": "bearer",
+          "token": "secret-token"
+        }
+      }
+    }
+  }'
+```
+
+**3. Receive notification:**
+
+When your task completes, you'll receive:
+
+```json
+{
+  "event": "completed",
+  "task": {
+    "id": "task-123",
+    "status": {"state": "completed"},
+    "result": {...}
+  },
+  "timestamp": "2025-11-11T10:30:00Z",
+  "agentId": "my-agent"
+}
+```
+
+### Webhook Events
+
+Subscribe to the events you care about:
+
+- `completed` - Task finishes successfully
+- `failed` - Task encounters an error
+- `cancelled` - Task is cancelled
+- `statusChanged` - Any status transition
+- `artifactAdded` - New artifact created
+
+### Webhook Security
+
+✅ **HTTPS required** - All webhook URLs must use HTTPS  
+✅ **SSRF protection** - Blocks private IPs and internal networks  
+✅ **Authentication** - Bearer tokens or custom headers  
+✅ **Retry logic** - Automatic retries with exponential backoff
+
+**For local testing**, use ngrok:
+```bash
+ngrok http 8080
+# Use the HTTPS URL: https://abc123.ngrok.io/webhook
+```
+
+📖 **Learn more:** See the complete [WEBHOOKS.md](WEBHOOKS.md) guide for detailed examples, security best practices, and troubleshooting.
 
 ## Agent-to-Agent Communication
 

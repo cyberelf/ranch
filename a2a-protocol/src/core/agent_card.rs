@@ -550,6 +550,81 @@ impl AgentCard {
         self.metadata.insert(key.into(), value.into());
         self
     }
+
+    /// Set transport capabilities (push notifications, streaming, etc.)
+    pub fn with_transport_capabilities(mut self, capabilities: TransportCapabilities) -> Self {
+        self.metadata.insert(
+            "transportCapabilities".to_string(),
+            serde_json::to_value(capabilities).unwrap(),
+        );
+        self
+    }
+
+    /// Get transport capabilities from metadata
+    pub fn transport_capabilities(&self) -> Option<TransportCapabilities> {
+        self.metadata
+            .get("transportCapabilities")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+    }
+}
+
+/// Transport capabilities for AgentCard
+///
+/// Describes the transport-level capabilities supported by this agent.
+/// This should be included in the AgentCard's metadata field under the "transportCapabilities" key.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TransportCapabilities {
+    /// Whether push notifications (webhooks) are supported
+    #[serde(default)]
+    pub push_notifications: bool,
+
+    /// Whether SSE streaming is supported
+    #[serde(default)]
+    pub streaming: bool,
+}
+
+impl TransportCapabilities {
+    /// Create new transport capabilities with all features disabled
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Enable push notifications support
+    pub fn with_push_notifications(mut self, enabled: bool) -> Self {
+        self.push_notifications = enabled;
+        self
+    }
+
+    /// Enable streaming support
+    pub fn with_streaming(mut self, enabled: bool) -> Self {
+        self.streaming = enabled;
+        self
+    }
+
+    /// Create transport capabilities with push notifications enabled
+    pub fn push_notifications_enabled() -> Self {
+        Self {
+            push_notifications: true,
+            streaming: false,
+        }
+    }
+
+    /// Create transport capabilities with streaming enabled
+    pub fn streaming_enabled() -> Self {
+        Self {
+            push_notifications: false,
+            streaming: true,
+        }
+    }
+
+    /// Create transport capabilities with all features enabled
+    pub fn all_enabled() -> Self {
+        Self {
+            push_notifications: true,
+            streaming: true,
+        }
+    }
 }
 
 /// Streaming capabilities for AgentCard metadata
@@ -631,194 +706,6 @@ impl StreamingCapabilities {
     pub fn with_keepalive(mut self, seconds: u64) -> Self {
         self.keepalive_seconds = Some(seconds);
         self
-    }
-}
-
-/// Agent Profile - Descriptive metadata provided by the agent's core logic
-///
-/// This struct contains only the descriptive attributes of an agent (what the agent is,
-/// what it can do) without transport-level capabilities (how to communicate with it).
-/// The handler layer is responsible for adding transport capabilities and assembling
-/// the complete AgentCard.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentProfile {
-    /// Agent identifier
-    pub id: AgentId,
-
-    /// Agent name
-    pub name: String,
-
-    /// Agent description
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-
-    /// Agent version
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
-
-    /// Agent URL or endpoint
-    pub url: Url,
-
-    /// Agent provider details (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider: Option<AgentProvider>,
-
-    /// URL to an icon representing the agent
-    #[serde(rename = "iconUrl", skip_serializing_if = "Option::is_none")]
-    pub icon_url: Option<Url>,
-
-    /// URL to documentation for this agent
-    #[serde(rename = "documentationUrl", skip_serializing_if = "Option::is_none")]
-    pub documentation_url: Option<Url>,
-
-    /// Default input MIME types supported by this agent
-    #[serde(
-        rename = "defaultInputModes",
-        skip_serializing_if = "Vec::is_empty",
-        default
-    )]
-    pub default_input_modes: Vec<String>,
-
-    /// Default output MIME types produced by this agent
-    #[serde(
-        rename = "defaultOutputModes",
-        skip_serializing_if = "Vec::is_empty",
-        default
-    )]
-    pub default_output_modes: Vec<String>,
-
-    /// Agent capabilities
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub capabilities: Vec<AgentCapability>,
-
-    /// Agent skills
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub skills: Vec<AgentSkill>,
-
-    /// Additional metadata
-    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
-    pub metadata: HashMap<String, serde_json::Value>,
-}
-
-impl AgentProfile {
-    /// Create a minimal agent profile
-    pub fn new<S: Into<String>>(id: AgentId, name: S, url: Url) -> Self {
-        Self {
-            id,
-            name: name.into(),
-            description: None,
-            version: None,
-            url,
-            provider: None,
-            icon_url: None,
-            documentation_url: None,
-            default_input_modes: Vec::new(),
-            default_output_modes: Vec::new(),
-            capabilities: Vec::new(),
-            skills: Vec::new(),
-            metadata: HashMap::new(),
-        }
-    }
-
-    /// Set the description
-    pub fn with_description<S: Into<String>>(mut self, description: S) -> Self {
-        self.description = Some(description.into());
-        self
-    }
-
-    /// Set the version
-    pub fn with_version<S: Into<String>>(mut self, version: S) -> Self {
-        self.version = Some(version.into());
-        self
-    }
-
-    /// Set the agent provider metadata
-    pub fn with_provider(mut self, provider: AgentProvider) -> Self {
-        self.provider = Some(provider);
-        self
-    }
-
-    /// Set or clear the agent icon URL
-    pub fn with_icon_url(mut self, icon_url: Option<Url>) -> Self {
-        self.icon_url = icon_url;
-        self
-    }
-
-    /// Set or clear the agent documentation URL
-    pub fn with_documentation_url(mut self, documentation_url: Option<Url>) -> Self {
-        self.documentation_url = documentation_url;
-        self
-    }
-
-    /// Set the default input MIME types
-    pub fn with_default_input_modes<I, S>(mut self, modes: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.default_input_modes = modes.into_iter().map(Into::into).collect();
-        self
-    }
-
-    /// Set the default output MIME types
-    pub fn with_default_output_modes<I, S>(mut self, modes: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.default_output_modes = modes.into_iter().map(Into::into).collect();
-        self
-    }
-
-    /// Add a capability
-    pub fn with_capability(mut self, capability: AgentCapability) -> Self {
-        self.capabilities.push(capability);
-        self
-    }
-
-    /// Add a skill
-    pub fn with_skill(mut self, skill: AgentSkill) -> Self {
-        self.skills.push(skill);
-        self
-    }
-
-    /// Add metadata
-    pub fn with_metadata<K: Into<String>, V: Into<serde_json::Value>>(
-        mut self,
-        key: K,
-        value: V,
-    ) -> Self {
-        self.metadata.insert(key.into(), value.into());
-        self
-    }
-
-    /// Convert this profile into a complete AgentCard with default transport settings
-    /// 
-    /// This creates an AgentCard with minimal transport-level fields. For production use,
-    /// let the handler layer assemble the card with proper transport capabilities.
-    pub fn into_agent_card(self) -> AgentCard {
-        AgentCard {
-            id: self.id,
-            name: self.name,
-            description: self.description,
-            version: self.version,
-            url: self.url,
-            protocol_version: "0.3.0".to_string(),
-            preferred_transport: TransportType::default(),
-            additional_interfaces: Vec::new(),
-            provider: self.provider,
-            icon_url: self.icon_url,
-            documentation_url: self.documentation_url,
-            signatures: Vec::new(),
-            default_input_modes: self.default_input_modes,
-            default_output_modes: self.default_output_modes,
-            supports_authenticated_extended_card: false,
-            capabilities: self.capabilities,
-            skills: self.skills,
-            authentication: None,
-            rate_limits: None,
-            metadata: self.metadata,
-        }
     }
 }
 
@@ -935,23 +822,82 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_profile_to_card() {
+    fn test_transport_capabilities_default() {
+        let caps = TransportCapabilities::new();
+        assert!(!caps.push_notifications);
+        assert!(!caps.streaming);
+    }
+
+    #[test]
+    fn test_transport_capabilities_push_notifications() {
+        let caps = TransportCapabilities::push_notifications_enabled();
+        assert!(caps.push_notifications);
+        assert!(!caps.streaming);
+    }
+
+    #[test]
+    fn test_transport_capabilities_streaming() {
+        let caps = TransportCapabilities::streaming_enabled();
+        assert!(!caps.push_notifications);
+        assert!(caps.streaming);
+    }
+
+    #[test]
+    fn test_transport_capabilities_all_enabled() {
+        let caps = TransportCapabilities::all_enabled();
+        assert!(caps.push_notifications);
+        assert!(caps.streaming);
+    }
+
+    #[test]
+    fn test_transport_capabilities_builder() {
+        let caps = TransportCapabilities::new()
+            .with_push_notifications(true)
+            .with_streaming(true);
+        
+        assert!(caps.push_notifications);
+        assert!(caps.streaming);
+    }
+
+    #[test]
+    fn test_agent_card_with_transport_capabilities() {
         let id = AgentId::new("agent1".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
         
-        let profile = AgentProfile::new(id.clone(), "Test Agent", url.clone())
-            .with_description("A test agent")
-            .with_skill(AgentSkill {
-                name: "Testing".to_string(),
-                description: Some("Testing skill".to_string()),
-                category: None,
-                tags: vec![],
-                examples: vec![],
-            });
+        let caps = TransportCapabilities::all_enabled();
+        let card = AgentCard::new(id, "Test Agent", url)
+            .with_transport_capabilities(caps.clone());
 
-        let card = profile.into_agent_card();
-        assert_eq!(card.name, "Test Agent");
-        assert_eq!(card.description, Some("A test agent".to_string()));
-        assert_eq!(card.skills.len(), 1);
+        let retrieved_caps = card.transport_capabilities().unwrap();
+        assert_eq!(retrieved_caps, caps);
+        assert!(retrieved_caps.push_notifications);
+        assert!(retrieved_caps.streaming);
+    }
+
+    #[test]
+    fn test_agent_card_transport_capabilities_serialization() {
+        let id = AgentId::new("agent1".to_string()).unwrap();
+        let url = Url::parse("https://agent.example.com").unwrap();
+        
+        let caps = TransportCapabilities::push_notifications_enabled();
+        let card = AgentCard::new(id, "Test Agent", url)
+            .with_transport_capabilities(caps);
+
+        // Serialize to JSON
+        let json = serde_json::to_value(&card).unwrap();
+        
+        // Check that transportCapabilities is in metadata
+        let metadata = json["metadata"].as_object().unwrap();
+        assert!(metadata.contains_key("transportCapabilities"));
+        
+        let transport_caps = &metadata["transportCapabilities"];
+        assert_eq!(transport_caps["pushNotifications"], true);
+        assert_eq!(transport_caps["streaming"], false);
+        
+        // Deserialize back
+        let deserialized: AgentCard = serde_json::from_value(json).unwrap();
+        let retrieved_caps = deserialized.transport_capabilities().unwrap();
+        assert!(retrieved_caps.push_notifications);
+        assert!(!retrieved_caps.streaming);
     }
 }

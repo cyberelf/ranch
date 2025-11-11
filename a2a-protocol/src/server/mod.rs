@@ -1,6 +1,7 @@
 //! Server-side implementations for A2A protocol
 
 pub mod agent_logic;
+pub mod agent_profile;
 #[cfg(feature = "json-rpc")]
 pub mod builder;
 pub mod handler;
@@ -14,6 +15,7 @@ pub mod webhook_delivery;
 
 // Re-export server types
 pub use agent_logic::{Agent, AgentLogic};
+pub use agent_profile::AgentProfile;
 #[cfg(feature = "json-rpc")]
 pub use builder::ServerBuilder;
 pub use handler::A2aHandler;

@@ -9,8 +9,9 @@ use crate::{
             AgentCardSignature, AuthenticationRequirement, RateLimit, StreamingCapabilities,
             TransportInterface, TransportType,
         },
-        AgentCard, AgentProfile,
+        AgentCard,
     },
+    server::AgentProfile,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -213,9 +214,13 @@ impl TransportCapabilities {
             metadata: profile.metadata,
         };
 
+        // Build transport capabilities for the spec-compliant field
+        let mut transport_caps = crate::core::agent_card::TransportCapabilities::new();
+
         // Add streaming metadata if enabled
         #[cfg(feature = "streaming")]
-        if let Some(streaming) = self.streaming {
+        if let Some(streaming) = &self.streaming {
+            transport_caps = transport_caps.with_streaming(true);
             card.metadata.insert(
                 "streaming".to_string(),
                 serde_json::to_value(streaming).unwrap(),
@@ -223,12 +228,19 @@ impl TransportCapabilities {
         }
 
         // Add push notification metadata if enabled
-        if let Some(push_notif) = self.push_notifications {
+        if let Some(push_notif) = &self.push_notifications {
+            transport_caps = transport_caps.with_push_notifications(push_notif.enabled);
             card.metadata.insert(
                 "pushNotifications".to_string(),
                 serde_json::to_value(push_notif).unwrap(),
             );
         }
+
+        // Add the transport capabilities to metadata (spec-compliant)
+        card.metadata.insert(
+            "transportCapabilities".to_string(),
+            serde_json::to_value(transport_caps).unwrap(),
+        );
 
         // Merge transport-level metadata
         for (key, value) in self.metadata {

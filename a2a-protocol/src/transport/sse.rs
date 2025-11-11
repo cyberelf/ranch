@@ -209,13 +209,13 @@ impl SseResponse {
 
 impl IntoResponse for SseResponse {
     fn into_response(self) -> Response {
-        let mut sse = Sse::new(self.stream);
+        let sse = Sse::new(self.stream);
         
         if let Some(keepalive) = self.keepalive {
-            sse = sse.keep_alive(KeepAlive::new().interval(keepalive));
+            sse.keep_alive(KeepAlive::new().interval(keepalive)).into_response()
+        } else {
+            sse.into_response()
         }
-
-        sse.into_response()
     }
 }
 

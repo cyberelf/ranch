@@ -3,7 +3,7 @@
 use crate::{
     core::{
         agent_card::{StreamingCapabilities, TransportType},
-        AgentCard, AgentProfile, Message, SendResponse, Task, TaskState, TaskStatus,
+        AgentCard, Message, SendResponse, Task, TaskState, TaskStatus,
     },
     server::{
         agent_logic::Agent,
@@ -423,7 +423,7 @@ impl A2aHandler for TaskAwareHandler {
 mod tests {
     use super::*;
     use crate::{
-        server::agent_logic::Agent, A2aError, AgentId, AgentProfile, Message, MessageRole,
+        server::agent_logic::Agent, server::AgentProfile, A2aError, AgentId, Message, MessageRole,
     };
     use async_trait::async_trait;
     use std::sync::Arc;

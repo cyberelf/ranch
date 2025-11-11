@@ -16,30 +16,30 @@ tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1"
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.12.24", features = ["json", "stream"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
 anyhow = "1.0"
-thiserror = "1.0"
-axum = { version = "0.7", optional = true }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
+thiserror = "2.0.17"
+axum = { version = "0.8.6", optional = true }
+tower = "0.5.2"
+tower-http = { version = "0.6.6", features = ["cors"] }
 
 # Additional dependencies for A2A protocol
 url = "2.4"
-base64 = "0.21"
+base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
-jsonschema = "0.17"
+jsonschema = "0.33.0"
 semver = "1.0"
-hyper = { version = "0.14", features = ["full"] }
-tokio-tungstenite = "0.20"
+hyper = { version = "1.7.0", features = ["full"] }
+tokio-tungstenite = "0.28.0"
 futures-util = { version = "0.3", optional = true }
 async-stream = { version = "0.3", optional = true }
 bytes = { version = "1.0", optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
-mockall = "0.11"
+mockall = "0.13.1"
 assert-json-diff = "2.0"
 
 [features]

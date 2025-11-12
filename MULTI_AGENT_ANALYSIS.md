@@ -1,11 +1,14 @@
 # Multi-Agent Framework Analysis & A2A Protocol Alignment
 
-**Date**: 2025-11-11  
-**Status**: Analysis Complete - Action Required
+**Date**: 2025-11-12 (Updated)
+**A2A Protocol Version**: v0.7.0  
+**Status**: Analysis Complete - Ready for Implementation
 
 ## Executive Summary
 
-The multi-agent framework has significant inconsistencies with the current a2a-protocol crate (v0.3.0). The framework is using custom, simplified message types that don't align with the A2A specification, and it's not leveraging the existing A2A client/transport infrastructure.
+The multi-agent framework has significant inconsistencies with the current a2a-protocol crate (v0.7.0). The framework is using custom, simplified message types that don't align with the A2A specification, and it's not leveraging the existing A2A client/transport infrastructure.
+
+**Good News**: The a2a-protocol crate has been recently refactored with improved modularity, feature flags, and cleaner abstractions. The refactoring makes integration even more straightforward than initially planned.
 
 ## Critical Issues Found
 
@@ -86,7 +89,7 @@ async fn send_message(&self, config: &AgentConfig, messages: Vec<AgentMessage>)
 }
 ```
 
-**Available A2A Infrastructure**:
+**Available A2A Infrastructure** (v0.7.0):
 ```rust
 // a2a-protocol/src/client/client.rs
 pub struct A2aClient {
@@ -96,8 +99,24 @@ pub struct A2aClient {
 
 impl A2aClient {
     pub async fn send_message(&self, message: Message) -> A2aResult<SendResponse>
+    pub async fn send_text<S: Into<String>>(&self, text: S) -> A2aResult<SendResponse>
     pub async fn get_agent_card(&self, agent_id: &AgentId) -> A2aResult<AgentCard>
+    pub async fn send_message_with_retry(&self, message: Message, max_retries: u32) -> A2aResult<SendResponse>
+    pub async fn start_conversation(&self, agent_id: &AgentId) -> A2aResult<Conversation>
     // Full task management, retries, error handling built-in
+}
+
+// a2a-protocol/src/client/transport/traits.rs
+#[async_trait]
+pub trait Transport: Send + Sync + std::fmt::Debug {
+    async fn send_message(&self, message: Message) -> A2aResult<SendResponse>;
+    async fn get_agent_card(&self, agent_id: &AgentId) -> A2aResult<AgentCard>;
+    async fn get_task(&self, request: TaskGetRequest) -> A2aResult<Task>;
+    async fn get_task_status(&self, request: TaskStatusRequest) -> A2aResult<TaskStatus>;
+    async fn cancel_task(&self, request: TaskCancelRequest) -> A2aResult<TaskStatus>;
+    async fn is_available(&self) -> bool;
+    fn config(&self) -> &TransportConfig;
+    fn transport_type(&self) -> &'static str;
 }
 ```
 
@@ -106,8 +125,15 @@ impl A2aClient {
 - Missing features: task management, push notifications, streaming, webhooks
 - No JSON-RPC 2.0 transport (A2A spec requirement)
 - Manual error handling instead of using `A2aError`
+- Not benefiting from a2a-protocol's feature flags and modular design
 
 **Recommendation**: Use `A2aClient` and `JsonRpcTransport` instead of raw HTTP client.
+
+**New in v0.7.0**:
+- Feature flags allow selective inclusion (`client`, `server`, `streaming`)
+- Transport layer completely abstracted via `Transport` trait
+- Built-in `JsonRpcTransport` with retry logic and proper error mapping
+- `TransportConfig` for timeout, retries, compression settings
 
 ---
 
@@ -237,19 +263,58 @@ Router::new()
   - `task/cancel`
   - `agent/card`
 
-**Available Infrastructure**:
+**Available Infrastructure** (v0.7.0):
 ```rust
-// a2a-protocol/src/server/json_rpc_router.rs
-pub struct JsonRpcRouter {
-    // Handles all JSON-RPC 2.0 routing
+// a2a-protocol/src/server/handler.rs
+#[async_trait]
+pub trait A2aHandler: Send + Sync {
+    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse>;
+    async fn get_agent_card(&self) -> A2aResult<AgentCard>;
+    async fn health_check(&self) -> A2aResult<HealthStatus>;
+    
+    // JSON-RPC 2.0 methods
+    async fn rpc_message_send(&self, request: MessageSendRequest) -> A2aResult<SendResponse>;
+    async fn rpc_task_get(&self, request: TaskGetRequest) -> A2aResult<Task>;
+    async fn rpc_task_cancel(&self, request: TaskCancelRequest) -> A2aResult<TaskStatus>;
+    async fn rpc_task_status(&self, request: TaskStatusRequest) -> A2aResult<TaskStatus>;
+    async fn rpc_agent_card(&self, request: AgentCardGetRequest) -> A2aResult<AgentCard>;
+    
+    // Push notification methods
+    async fn rpc_push_notification_set(&self, request: PushNotificationSetRequest) -> A2aResult<()>;
+    async fn rpc_push_notification_get(&self, request: PushNotificationGetRequest) -> A2aResult<Option<PushNotificationConfig>>;
+    // ... and more
 }
 
+// a2a-protocol/src/server/agent_logic.rs
+#[async_trait]
+pub trait AgentLogic: Send + Sync {
+    /// Simple message processing - no need to understand tasks/RPC
+    async fn process_message(&self, msg: Message) -> A2aResult<Message>;
+}
+
+#[async_trait]
 pub trait Agent: Send + Sync {
-    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse>;
-    async fn get_task(&self, task_id: &str) -> A2aResult<Task>;
-    async fn get_task_status(&self, task_id: &str) -> A2aResult<TaskStatus>;
-    async fn cancel_task(&self, task_id: &str) -> A2aResult<()>;
-    fn get_agent_card(&self) -> A2aResult<AgentCard>;
+    /// Returns agent profile (identity, skills, capabilities)
+    async fn profile(&self) -> A2aResult<AgentProfile>;
+    
+    /// Process incoming message
+    async fn process_message(&self, msg: Message) -> A2aResult<Message>;
+}
+
+// a2a-protocol/src/server/task_aware_handler.rs
+pub struct TaskAwareHandler {
+    // Wraps AgentLogic and handles all task management automatically
+    // Provides built-in task store, webhook delivery, push notifications
+}
+
+impl TaskAwareHandler {
+    pub fn new(agent: Arc<dyn Agent>) -> Self;
+    pub fn with_immediate_responses(agent: Arc<dyn Agent>) -> Self;
+}
+
+// a2a-protocol/src/server/json_rpc/axum.rs
+pub struct JsonRpcRouter {
+    // Axum router that handles JSON-RPC 2.0 routing
 }
 ```
 
@@ -257,8 +322,15 @@ pub trait Agent: Send + Sync {
 - Not A2A spec compliant
 - Cannot be discovered/used by A2A clients
 - Duplicates server infrastructure from a2a-protocol
+- Missing the simplified `AgentLogic` trait for easy implementation
 
-**Recommendation**: Use `JsonRpcRouter` and implement `Agent` trait for teams.
+**Recommendation**: Use `JsonRpcRouter` and implement `Agent` or `AgentLogic` trait for teams.
+
+**New in v0.7.0**:
+- Two-tier trait system: `AgentLogic` for simple cases, `A2aHandler` for full control
+- `TaskAwareHandler` wraps any `Agent` and provides automatic task management
+- Built-in task store, push notification store, webhook queue
+- `JsonRpcRouter` integrates with Axum for easy server setup
 
 ---
 
@@ -318,6 +390,64 @@ pub enum A2aError {
 ```
 
 **Recommendation**: Use `A2aError` throughout, wrap in domain-specific errors if needed.
+
+---
+
+## New Findings from v0.7.0 Refactoring
+
+### Positive Changes
+
+1. **Feature Flags**: a2a-protocol now uses Cargo features for modular inclusion:
+   - `client` - Client-side implementations (A2aClient, transports)
+   - `server` - Server-side implementations (handlers, routers)
+   - `streaming` - SSE streaming support
+   - `default = ["client", "server", "streaming"]`
+
+2. **Simplified Server Implementation**:
+   - `AgentLogic` trait: Simple `process_message()` for basic agents
+   - `Agent` trait: Adds `profile()` for metadata
+   - `A2aHandler` trait: Full control over all RPC methods
+   - `TaskAwareHandler`: Wraps any `Agent` with automatic task management
+
+3. **Better Transport Abstraction**:
+   - `Transport` trait is fully protocol-agnostic
+   - `JsonRpcTransport` with built-in retry logic
+   - `TransportConfig` for timeout/retry/compression settings
+   - Proper error mapping to JSON-RPC error codes
+
+4. **Built-in Infrastructure**:
+   - `TaskStore` for task lifecycle management
+   - `PushNotificationStore` for webhook configuration
+   - `WebhookQueue` for reliable webhook delivery
+   - Health check support built into handlers
+
+5. **Module Organization**:
+   - `client/` - All client-side code
+   - `server/` - All server-side code  
+   - `core/` - Shared types (Message, Task, AgentCard, etc.)
+   - Clear separation of concerns
+
+### Implementation Implications
+
+**For Multi-Agent Framework**:
+
+1. **Can choose integration level**:
+   - **Option A (Simple)**: Implement `AgentLogic` for teams - just `process_message()`
+   - **Option B (Full)**: Implement `Agent` for teams - adds profile/metadata
+   - **Option C (Advanced)**: Implement `A2aHandler` directly - full control
+
+2. **Use TaskAwareHandler wrapper**:
+   - Automatically handles task creation/tracking
+   - Built-in webhook delivery for task events
+   - No need to implement task management manually
+
+3. **Feature flags allow minimal dependencies**:
+   - Multi-agent only needs `a2a-protocol = { version = "0.7", features = ["client"] }` for agent communication
+   - Add `"server"` feature only if exposing teams as A2A services
+
+4. **Clean separation**:
+   - Client code can use Transport trait without server dependencies
+   - Server code can use handlers without client dependencies
 
 ---
 
@@ -423,85 +553,208 @@ pub enum A2aError {
 
 ## Migration Strategy
 
+### Step 0: Update Cargo.toml
+```toml
+[dependencies]
+a2a-protocol = { path = "../a2a-protocol", features = ["client", "server"] }
+# Remove: reqwest (now internal to a2a-protocol)
+```
+
 ### Step 1: Add a2a-protocol re-exports to lib.rs
 ```rust
 // multi-agent/src/lib.rs
 pub use a2a_protocol::{
-    Message, MessageRole, SendResponse, Task, TaskStatus,
-    A2aClient, A2aError, A2aResult,
-    Transport, JsonRpcTransport,
-    Agent, AgentCard,
+    // Core types
+    Message, MessageRole, Part, TextPart, DataPart, FilePart,
+    SendResponse, Task, TaskStatus, TaskState,
+    AgentCard, AgentId, MessageId,
+    A2aError, A2aResult,
+    
+    // Client types
+    A2aClient, Transport, JsonRpcTransport, TransportConfig,
+    
+    // Server types (if exposing teams as services)
+    Agent, AgentLogic, AgentProfile,
+    A2aHandler, TaskAwareHandler,
+    JsonRpcRouter,
 };
 ```
 
-### Step 2: Update Agent abstraction
+### Step 2: Create adapter for A2A Message ↔ Multi-Agent usage
 ```rust
-// Replace multi-agent/src/agent.rs
-use a2a_protocol::{Message, SendResponse, A2aError, A2aClient};
+// multi-agent/src/adapters.rs
+use a2a_protocol::{Message, MessageRole, TextPart, Part};
 
+/// Convert simple text to A2A Message
+pub fn text_to_message(text: impl Into<String>) -> Message {
+    Message::user_text(text)
+}
+
+/// Extract text content from A2A Message
+pub fn message_to_text(message: &Message) -> Option<String> {
+    message.text_content().map(|s| s.to_string())
+}
+
+/// Convenience for creating agent responses
+pub fn agent_text(text: impl Into<String>) -> Message {
+    Message::agent_text(text)
+}
+```
+
+### Step 3: Update Agent abstraction (Simplified with v0.7.0)
+```rust
+// multi-agent/src/remote_agent.rs
+use a2a_protocol::{A2aClient, A2aResult, Agent, AgentProfile, Message};
+use std::sync::Arc;
+
+/// Wrapper around A2aClient that implements Agent trait
 pub struct RemoteAgent {
     client: A2aClient,
-    config: RuntimeConfig,  // timeout, retries only
+    profile: AgentProfile,
+}
+
+impl RemoteAgent {
+    pub fn new(client: A2aClient, profile: AgentProfile) -> Self {
+        Self { client, profile }
+    }
 }
 
 #[async_trait]
 impl Agent for RemoteAgent {
-    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse> {
-        self.client.send_message_with_retry(message, self.config.max_retries).await
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        Ok(self.profile.clone())
     }
     
-    async fn get_task(&self, task_id: &str) -> A2aResult<Task> {
-        self.client.transport().get_task(task_id).await
-    }
-    
-    fn get_agent_card(&self) -> A2aResult<AgentCard> {
-        // Return cached agent card
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        match self.client.send_message(message).await? {
+            SendResponse::Message(msg) => Ok(msg),
+            SendResponse::Task(task) => {
+                // Poll task until completion
+                // This is a simplified version - real implementation would use
+                // task.get() and handle async properly
+                Ok(Message::agent_text(format!("Task created: {}", task.id)))
+            }
+        }
     }
 }
 ```
 
-### Step 3: Update Team to implement Agent
+### Step 4: Update Team to implement Agent (v0.7.0 approach)
 ```rust
 // multi-agent/src/team.rs
+use a2a_protocol::{Agent, AgentProfile, AgentId, Message, A2aResult};
+
 #[async_trait]
 impl Agent for Team {
-    async fn handle_message(&self, message: Message) -> A2aResult<SendResponse> {
-        let recipient = self.scheduler.determine_next_recipient(...).await?;
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        let capabilities = self.collect_team_capabilities();
         
-        if let Some(agent_id) = recipient.agent_id {
-            let agent = self.agent_manager.get_agent(&agent_id).await?;
-            agent.handle_message(message).await
-        } else {
-            // Return final result
-        }
+        Ok(AgentProfile {
+            id: AgentId::new(self.config.id.clone())?,
+            name: self.config.name.clone(),
+            description: self.config.description.clone(),
+            capabilities,
+            skills: vec![], // Define team skills based on member agents
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            provider: None,
+        })
     }
     
-    fn get_agent_card(&self) -> A2aResult<AgentCard> {
-        // Generate card describing team capabilities
-        AgentCard {
-            agent_id: AgentId::new(self.config.id.clone())?,
-            name: self.config.name.clone(),
-            capabilities: self.collect_team_capabilities(),
-            // ...
+    async fn process_message(&self, message: Message) -> A2aResult<Message> {
+        // Orchestration logic using scheduler
+        let mut current_message = message;
+        let mut context = HashMap::new();
+        
+        loop {
+            let recipient = self.scheduler.determine_next_recipient(
+                &self.config,
+                &self.agent_manager,
+                current_message.clone(),
+                &context,
+            ).await?;
+            
+            if recipient.should_return_to_user {
+                return Ok(current_message);
+            }
+            
+            let agent_id = recipient.agent_id
+                .ok_or_else(|| A2aError::Internal("No agent selected".to_string()))?;
+            
+            let agent = self.agent_manager.get_agent(&agent_id).await
+                .ok_or_else(|| A2aError::AgentNotFound { 
+                    agent_id: agent_id.clone() 
+                })?;
+            
+            // Process message with selected agent
+            current_message = agent.process_message(current_message).await?;
+            context.extend(recipient.context_updates);
         }
     }
 }
 ```
 
-### Step 4: Update server
+### Step 5: Expose Team as A2A service using TaskAwareHandler
 ```rust
 // multi-agent/src/server.rs
-use a2a_protocol::server::JsonRpcRouter;
+use a2a_protocol::server::{TaskAwareHandler, JsonRpcRouter};
+use axum::{Router, routing::post};
+use std::sync::Arc;
 
 impl Team {
-    pub async fn start_server(&self, port: u16) -> A2aResult<()> {
-        let router = JsonRpcRouter::new(self.clone());
-        let app = Router::new()
-            .route("/rpc", post(router.handle))
-            .layer(CorsLayer::permissive());
+    pub async fn start_a2a_server(self: Arc<Self>, port: u16) -> A2aResult<()> {
+        // Wrap team with TaskAwareHandler for automatic task management
+        let handler = TaskAwareHandler::new(self as Arc<dyn Agent>);
         
+        // Create JSON-RPC router
+        let rpc_router = JsonRpcRouter::new(Arc::new(handler));
+        
+        // Create Axum app
+        let app = Router::new()
+            .route("/rpc", post(move |body| async move {
+                rpc_router.handle(body).await
+            }))
+            .layer(tower_http::cors::CorsLayer::permissive());
+        
+        // Start server
+        let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+        let listener = tokio::net::TcpListener::bind(addr).await?;
         axum::serve(listener, app).await?;
+        
         Ok(())
+    }
+}
+```
+
+### Step 6: Update AgentManager to work with A2A types
+```rust
+// multi-agent/src/manager.rs
+use a2a_protocol::{A2aClient, AgentCard, Agent};
+use std::sync::Arc;
+
+pub struct AgentManager {
+    agents: RwLock<HashMap<String, Arc<dyn Agent>>>,
+    cards: RwLock<HashMap<String, AgentCard>>,
+}
+
+impl AgentManager {
+    pub async fn register_agent(&self, agent: Arc<dyn Agent>) -> A2aResult<()> {
+        let profile = agent.profile().await?;
+        let id = profile.id.to_string();
+        
+        let mut agents = self.agents.write().await;
+        agents.insert(id.clone(), agent);
+        
+        Ok(())
+    }
+    
+    pub async fn get_agent(&self, agent_id: &str) -> Option<Arc<dyn Agent>> {
+        let agents = self.agents.read().await;
+        agents.get(agent_id).cloned()
+    }
+    
+    pub async fn find_by_capability(&self, capability: &str) -> Vec<Arc<dyn Agent>> {
+        // Implementation using AgentProfile capabilities
+        vec![]
     }
 }
 ```

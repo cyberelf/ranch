@@ -1,6 +1,6 @@
 //! Authentication strategy implementations
 
-use crate::auth::Authenticator;
+use crate::client::auth::Authenticator;
 use async_trait::async_trait;
 use std::collections::HashMap;
 

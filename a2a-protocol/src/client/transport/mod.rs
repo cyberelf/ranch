@@ -1,11 +1,11 @@
-//! Transport layer implementations
+//! Client transport layer implementations
 
-pub mod http; // Internal HTTP client
+pub(crate) mod http_client; // Internal HTTP client
 pub mod json_rpc;
 pub mod traits;
 
 #[cfg(feature = "streaming")]
-pub mod sse; // SSE (Server-Sent Events) transport
+pub mod sse; // SSE (Server-Sent Events) for streaming
 
 // Re-export JSON-RPC types
 pub use json_rpc::{
@@ -36,5 +36,4 @@ pub use traits::{RequestInfo, Transport, TransportConfig};
 pub use traits::{StreamingResult, StreamingTransport};
 
 #[cfg(feature = "streaming")]
-pub use sse::{EventBuffer, SseEvent, SseEventId, SseResponse, SseWriter};
-
+pub use sse::{EventBuffer, SseEvent, SseEventId};

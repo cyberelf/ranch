@@ -1,8 +1,10 @@
 //! A2A client builder
 
 use crate::{
-    prelude::A2aClient,
-    transport::{JsonRpcTransport, Transport, TransportConfig},
+    client::{
+        transport::{JsonRpcTransport, Transport, TransportConfig},
+        A2aClient,
+    },
     AgentId,
 };
 use std::sync::Arc;

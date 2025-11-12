@@ -4,8 +4,6 @@
 //! It hides the complexity of axum, tokio, and JSON-RPC setup, allowing users to focus on
 //! implementing their agent logic.
 
-#![cfg(feature = "json-rpc")]
-
 use crate::{
     server::{handler::A2aHandler, json_rpc::axum::JsonRpcRouter},
     A2aError, A2aResult,

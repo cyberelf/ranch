@@ -1,15 +1,15 @@
-//! JSON-RPC transport implementation
+//! JSON-RPC transport implementation for A2A client
 
-use crate::transport::http::HttpClient;
+use crate::client::transport::http_client::HttpClient;
+use crate::client::transport::{RequestInfo, Transport, TransportConfig};
 use crate::{
-    transport::{RequestInfo, Transport, TransportConfig},
     A2aError, A2aResult, AgentCard, Message, SendResponse, Task, TaskStatus,
 };
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-/// JSON-RPC transport for A2A protocol
+/// JSON-RPC transport for A2A protocol client
 #[derive(Debug)]
 pub struct JsonRpcTransport {
     http_client: HttpClient,
@@ -154,9 +154,9 @@ impl Transport for JsonRpcTransport {
 }
 
 #[cfg(feature = "streaming")]
-use crate::transport::{StreamingResult, StreamingTransport};
+use crate::client::transport::{StreamingResult, StreamingTransport};
 #[cfg(feature = "streaming")]
-use crate::transport::sse::SseEvent;
+use crate::client::transport::sse::SseEvent;
 #[cfg(feature = "streaming")]
 use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "streaming")]

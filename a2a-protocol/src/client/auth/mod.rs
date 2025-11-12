@@ -1,4 +1,4 @@
-//! Authentication implementations for A2A protocol
+//! Authentication implementations for A2A protocol client
 
 pub mod authenticator;
 pub mod strategies;

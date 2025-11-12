@@ -4,7 +4,7 @@
 use a2a_protocol::prelude::*;
 use a2a_protocol::client::{A2aStreamingClient, ClientBuilder};
 use a2a_protocol::server::{Agent, TaskAwareHandler, JsonRpcRouter};
-use a2a_protocol::transport::{StreamingResult, JsonRpcTransport};
+use a2a_protocol::client::transport::{StreamingResult, JsonRpcTransport};
 use a2a_protocol::TaskResubscribeRequest;
 use futures_util::StreamExt;
 use std::net::SocketAddr;

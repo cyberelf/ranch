@@ -7,8 +7,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    client::A2aStreamingClient,
-    transport::{JsonRpcTransport, StreamingResult},
+    client::{A2aStreamingClient, transport::{JsonRpcTransport, StreamingResult}},
 };
 use futures_util::StreamExt;
 use std::sync::Arc;

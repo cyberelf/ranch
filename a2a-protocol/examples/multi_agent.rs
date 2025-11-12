@@ -105,7 +105,7 @@ impl ReporterAgent {
         .with_description("Generates reports using the Calculator agent");
 
         let transport = std::sync::Arc::new(
-            a2a_protocol::transport::JsonRpcTransport::new(calculator_url)?
+            a2a_protocol::client::transport::JsonRpcTransport::new(calculator_url)?
         );
         let calculator_client = ClientBuilder::new()
             .with_custom_transport(transport)

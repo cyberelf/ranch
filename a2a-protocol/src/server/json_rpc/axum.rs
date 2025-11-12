@@ -13,7 +13,7 @@ use axum::{
 use std::sync::Arc;
 
 #[cfg(feature = "streaming")]
-use crate::transport::sse::SseResponse;
+use crate::server::sse::SseResponse;
 #[cfg(feature = "streaming")]
 use serde_json::Value;
 
@@ -121,9 +121,9 @@ async fn handle_rpc(State(handler): State<Arc<dyn A2aHandler>>, body: Bytes) -> 
         }
         Err(e) => {
             // Map server error into JSON-RPC error envelope with null id
-            let error = crate::transport::json_rpc::JsonRpcError::internal_error()
+            let error = crate::core::JsonRpcError::internal_error()
                 .with_data(serde_json::json!({ "message": e.to_string() }));
-            let response = crate::transport::json_rpc::JsonRpcResponse::<serde_json::Value> {
+            let response = crate::core::JsonRpcResponse::<serde_json::Value> {
                 jsonrpc: "2.0".to_string(),
                 id: serde_json::Value::Null,
                 result: None,

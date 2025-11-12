@@ -7,7 +7,7 @@
 
 use a2a_protocol::prelude::*;
 use a2a_protocol::client::{A2aClient, A2aStreamingClient};
-use a2a_protocol::transport::JsonRpcTransport;
+use a2a_protocol::client::transport::JsonRpcTransport;
 use std::sync::Arc;
 
 #[tokio::main]

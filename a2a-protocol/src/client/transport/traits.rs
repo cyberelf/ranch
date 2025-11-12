@@ -1,4 +1,4 @@
-//! Transport layer traits and common types
+//! Transport layer traits and common types for A2A client
 
 use crate::{
     A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus,
@@ -10,7 +10,7 @@ use crate::{TaskArtifactUpdateEvent, TaskStatusUpdateEvent};
 #[cfg(feature = "streaming")]
 use futures_util::stream::Stream;
 
-/// Configuration for transport layer
+/// Configuration for client transport layer
 #[derive(Debug, Clone)]
 pub struct TransportConfig {
     /// Request timeout in seconds
@@ -37,7 +37,7 @@ impl Default for TransportConfig {
     }
 }
 
-/// Transport layer trait for A2A protocol communication
+/// Transport layer trait for A2A protocol client communication
 /// 
 /// This trait defines the interface for sending A2A messages and managing tasks.
 /// All methods return core domain types, keeping the transport layer protocol-agnostic.
@@ -149,7 +149,7 @@ pub trait StreamingTransport: Transport {
     }
 }
 
-/// Request information for transport implementations
+/// Request information for client transport implementations
 #[derive(Debug, Clone)]
 pub struct RequestInfo {
     /// Target URL or endpoint

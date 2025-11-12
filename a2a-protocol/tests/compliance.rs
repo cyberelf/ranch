@@ -253,7 +253,7 @@ mod compliance_tests {
         #[test]
         fn test_json_rpc_transport_compliance() {
             let transport =
-                a2a_protocol::transport::JsonRpcTransport::new("https://example.com/rpc").unwrap();
+                JsonRpcTransport::new("https://example.com/rpc").unwrap();
 
             assert_eq!(transport.transport_type(), "json-rpc");
 

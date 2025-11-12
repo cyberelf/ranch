@@ -2,12 +2,14 @@
 
 pub mod agent_logic;
 pub mod agent_profile;
-#[cfg(feature = "json-rpc")]
 pub mod builder;
 pub mod handler;
-#[cfg(feature = "json-rpc")]
 pub mod json_rpc;
 pub mod push_notification_store;
+
+#[cfg(feature = "streaming")]
+pub mod sse;
+
 pub mod task_aware_handler;
 pub mod task_store;
 pub mod transport_capabilities;
@@ -16,10 +18,8 @@ pub mod webhook_delivery;
 // Re-export server types
 pub use agent_logic::{Agent, AgentLogic};
 pub use agent_profile::AgentProfile;
-#[cfg(feature = "json-rpc")]
 pub use builder::ServerBuilder;
 pub use handler::A2aHandler;
-#[cfg(feature = "json-rpc")]
 pub use json_rpc::axum::JsonRpcRouter;
 pub use push_notification_store::PushNotificationStore;
 pub use task_aware_handler::TaskAwareHandler;
@@ -28,3 +28,6 @@ pub use transport_capabilities::{
     PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
 };
 pub use webhook_delivery::{DeliveryStatus, RetryConfig, WebhookPayload, WebhookQueue};
+
+#[cfg(feature = "streaming")]
+pub use sse::{SseResponse, SseWriter};

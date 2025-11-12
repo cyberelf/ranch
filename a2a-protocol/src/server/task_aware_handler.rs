@@ -22,7 +22,9 @@ use std::sync::Arc;
 #[cfg(feature = "streaming")]
 use crate::core::streaming_events::TaskStatusUpdateEvent;
 #[cfg(feature = "streaming")]
-use crate::transport::{sse::SseWriter, StreamingResult};
+use crate::server::sse::SseWriter;
+#[cfg(feature = "streaming")]
+use crate::client::transport::StreamingResult;
 #[cfg(feature = "streaming")]
 use futures_util::stream::Stream;
 #[cfg(feature = "streaming")]

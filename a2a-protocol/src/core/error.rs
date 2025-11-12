@@ -10,6 +10,7 @@ pub type A2aResult<T> = Result<T, A2aError>;
 #[derive(Error, Debug)]
 pub enum A2aError {
     /// Network-related errors
+    #[cfg(any(feature = "client", feature = "server"))]
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
 
@@ -96,6 +97,7 @@ pub enum A2aError {
 
 impl A2aError {
     /// Returns true if this error is retryable
+    #[cfg(any(feature = "client", feature = "server"))]
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
@@ -107,10 +109,42 @@ impl A2aError {
         )
     }
 
+    /// Returns true if this error is retryable
+    #[cfg(not(any(feature = "client", feature = "server")))]
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            A2aError::Timeout
+                | A2aError::RateLimited(_)
+                | A2aError::Server(_)
+                | A2aError::InvalidAgentResponse(_)
+        )
+    }
+
     /// Returns the HTTP status code if applicable
+    #[cfg(any(feature = "client", feature = "server"))]
     pub fn status_code(&self) -> Option<u16> {
         match self {
             A2aError::Network(err) => err.status().map(|s| s.as_u16()),
+            A2aError::Authentication(_) => Some(401),
+            A2aError::AgentNotFound(_) | A2aError::TaskNotFound { .. } => Some(404),
+            A2aError::RateLimited(_) => Some(429),
+            A2aError::Validation(_) => Some(400),
+            A2aError::ProtocolViolation(_) => Some(422),
+            A2aError::TaskNotCancelable { .. } => Some(409),
+            A2aError::PushNotificationNotSupported => Some(501),
+            A2aError::UnsupportedOperation(_) => Some(501),
+            A2aError::ContentTypeNotSupported { .. } => Some(415),
+            A2aError::InvalidAgentResponse(_) => Some(502),
+            A2aError::AuthenticatedExtendedCardNotConfigured => Some(501),
+            _ => None,
+        }
+    }
+
+    /// Returns the HTTP status code if applicable
+    #[cfg(not(any(feature = "client", feature = "server")))]
+    pub fn status_code(&self) -> Option<u16> {
+        match self {
             A2aError::Authentication(_) => Some(401),
             A2aError::AgentNotFound(_) | A2aError::TaskNotFound { .. } => Some(404),
             A2aError::RateLimited(_) => Some(429),

@@ -11,31 +11,37 @@ keywords = ["a2a", "agent", "protocol", "ai", "communication"]
 categories = ["network-programming", "api-bindings"]
 
 [dependencies]
-# Workspace dependencies
+# Core dependencies (always included)
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1"
-reqwest = { version = "0.12.24", features = ["json", "stream"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
 anyhow = "1.0"
 thiserror = "2.0.17"
-axum = { version = "0.8.6", optional = true }
-tower = "0.5.2"
-tower-http = { version = "0.6.6", features = ["cors"] }
-
-# Additional dependencies for A2A protocol
 url = "2.4"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 jsonschema = "0.33.0"
 semver = "1.0"
-hyper = { version = "1.7.0", features = ["full"] }
-tokio-tungstenite = "0.28.0"
+
+# Shared dependencies (used by both client and server)
+reqwest = { version = "0.12.24", features = ["json", "stream"], optional = true }
+
+# Server-only dependencies
+axum = { version = "0.8.6", optional = true }
+tower = { version = "0.5.2", optional = true }
+tower-http = { version = "0.6.6", features = ["cors"], optional = true }
+hyper = { version = "1.7.0", features = ["full"], optional = true }
+
+# Streaming dependencies (used by both client and server when enabled)
 futures-util = { version = "0.3", optional = true }
 async-stream = { version = "0.3", optional = true }
 bytes = { version = "1.0", optional = true }
+
+# Currently unused
+tokio-tungstenite = { version = "0.28.0", optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
@@ -43,11 +49,22 @@ mockall = "0.13.1"
 assert-json-diff = "2.0"
 
 [features]
-default = ["http-client", "json-rpc", "streaming"]
-http-client = []
-json-rpc = ["axum"]
+default = ["client", "server", "streaming"]
+
+# Core feature sets
+client = ["reqwest"]
+server = ["reqwest", "axum", "tower", "tower-http", "hyper"]
+
+# Streaming support (requires client for StreamingResult and transport types)
+streaming = ["client", "futures-util", "async-stream", "bytes"]
+
+# Legacy feature names (for backward compatibility)
+http-client = ["client"]
+json-rpc = ["server"]
+
+# Protocol variants (future use)
 grpc = []
-websocket = []
-# Optional streaming support (SSE-based, per JSON-RPC extension)
-streaming = ["json-rpc", "futures-util", "async-stream", "bytes"]
-full = ["http-client", "json-rpc", "grpc", "websocket", "streaming"]
+websocket = ["tokio-tungstenite"]
+
+# Full featured build
+full = ["client", "server", "streaming", "websocket"]

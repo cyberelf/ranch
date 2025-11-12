@@ -15,11 +15,18 @@
 //!
 //! ## Quick Start
 //!
+//! ### Client Usage
+//!
+//! Add to your `Cargo.toml`:
+//! ```toml
+//! [dependencies]
+//! a2a-protocol = { version = "0.7", features = ["client"] }
+//! ```
+//!
 //! ```no_run
 //! use a2a_protocol::{
 //!     prelude::*,
-//!     client::A2aClient,
-//!     transport::JsonRpcTransport,
+//!     client::{A2aClient, JsonRpcTransport},
 //! };
 //! use std::sync::Arc;
 //!
@@ -45,21 +52,41 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! ### Server Usage
+//!
+//! Add to your `Cargo.toml`:
+//! ```toml
+//! [dependencies]
+//! a2a-protocol = { version = "0.7", features = ["server"] }
+//! ```
+//!
+//! See the examples directory for complete server implementation examples.
 
-pub mod auth;
-pub mod client;
+// Core protocol types (shared between client and server)
 pub mod core;
+
+// Client-side implementations (outbound requests)
+#[cfg(feature = "client")]
+pub mod client;
+
+// Server-side implementations (inbound request handling)
+#[cfg(feature = "server")]
 pub mod server;
-pub mod transport;
 
 // Re-export commonly used types
 pub mod prelude {
-    pub use crate::auth::Authenticator;
-    pub use crate::client::A2aClient;
+    // Client types (only available with "client" feature)
+    #[cfg(feature = "client")]
+    pub use crate::client::{
+        A2aClient, Authenticator, ApiKeyAuth, BearerAuth,
+        JsonRpcTransport, Transport,
+    };
     
-    #[cfg(feature = "streaming")]
+    #[cfg(all(feature = "client", feature = "streaming"))]
     pub use crate::client::A2aStreamingClient;
     
+    // Core protocol types (always available)
     pub use crate::core::{
         agent_card::{
             AgentCapability, AgentProvider, AgentSkill,
@@ -84,21 +111,25 @@ pub mod prelude {
         Task,
         TaskCancelRequest,
         TaskGetRequest,
+        TaskResubscribeRequest,
         TaskState,
         TaskStatus,
         TaskStatusRequest,
         TextPart,
     };
     
+    // Server types (only available with "server" feature)
+    #[cfg(feature = "server")]
     pub use crate::server::{
         Agent, AgentLogic, AgentProfile, PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
     };
-    pub use crate::transport::{
+    
+    // JSON-RPC protocol types (for advanced use, only with client feature)
+    #[cfg(feature = "client")]
+    pub use crate::client::transport::{
         JsonRpcError,
-        // JSON-RPC 2.0 protocol types
         JsonRpcRequest,
         JsonRpcResponse,
-        Transport,
     };
 
     // Backwards compatibility

@@ -2,7 +2,7 @@
 
 use crate::{
     server::A2aHandler,
-    transport::json_rpc::{
+    core::{
         is_batch_request, is_notification, map_error_to_rpc,
         JsonRpcResponse,
     },
@@ -225,7 +225,7 @@ mod tests {
                 &self,
                 _message: crate::Message,
             ) -> crate::A2aResult<
-                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::transport::StreamingResult>> + Send + Unpin>,
+                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::client::transport::StreamingResult>> + Send + Unpin>,
             > {
                 Err(A2aError::Server("streaming not supported".to_string()))
             }
@@ -235,7 +235,7 @@ mod tests {
                 &self,
                 _request: crate::TaskResubscribeRequest,
             ) -> crate::A2aResult<
-                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::transport::StreamingResult>> + Send + Unpin>,
+                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::client::transport::StreamingResult>> + Send + Unpin>,
             > {
                 Err(A2aError::Server("streaming not supported".to_string()))
             }

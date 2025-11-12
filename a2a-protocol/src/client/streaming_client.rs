@@ -3,8 +3,10 @@
 #![cfg(feature = "streaming")]
 
 use crate::{
-    client::A2aClient,
-    transport::{StreamingResult, StreamingTransport},
+    client::{
+        transport::{StreamingResult, StreamingTransport},
+        A2aClient,
+    },
     A2aResult, Message, TaskResubscribeRequest,
 };
 use futures_util::stream::Stream;
@@ -31,8 +33,7 @@ use std::sync::Arc;
 ///
 /// ```no_run
 /// use a2a_protocol::prelude::*;
-/// use a2a_protocol::client::A2aStreamingClient;
-/// use a2a_protocol::transport::JsonRpcTransport;
+/// use a2a_protocol::client::{A2aStreamingClient, transport::JsonRpcTransport};
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> A2aResult<()> {
@@ -78,8 +79,7 @@ impl<T: StreamingTransport + 'static> A2aStreamingClient<T> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::client::A2aStreamingClient;
-    /// # use a2a_protocol::transport::JsonRpcTransport;
+    /// # use a2a_protocol::client::{A2aStreamingClient, transport::JsonRpcTransport};
     /// # use std::sync::Arc;
     /// let transport = Arc::new(JsonRpcTransport::new("https://agent.example.com/rpc").unwrap());
     /// let client = A2aStreamingClient::new(transport);
@@ -102,8 +102,7 @@ impl<T: StreamingTransport + 'static> A2aStreamingClient<T> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::client::A2aStreamingClient;
-    /// # use a2a_protocol::transport::JsonRpcTransport;
+    /// # use a2a_protocol::client::{A2aStreamingClient, transport::JsonRpcTransport};
     /// # use std::sync::Arc;
     /// # let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
     /// let client = A2aStreamingClient::new(transport);
@@ -141,8 +140,8 @@ impl<T: StreamingTransport + 'static> A2aStreamingClient<T> {
     ///
     /// ```no_run
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::client::A2aStreamingClient;
-    /// # use a2a_protocol::transport::{JsonRpcTransport, StreamingResult};
+    /// # use a2a_protocol::prelude::*;
+    /// # use a2a_protocol::client::{A2aStreamingClient, transport::{JsonRpcTransport, StreamingResult}};
     /// # use futures_util::StreamExt;
     /// # use std::sync::Arc;
     /// # async fn example() -> A2aResult<()> {
@@ -203,8 +202,8 @@ impl<T: StreamingTransport + 'static> A2aStreamingClient<T> {
     ///
     /// ```no_run
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::{TaskResubscribeRequest, client::A2aStreamingClient};
-    /// # use a2a_protocol::transport::{JsonRpcTransport, StreamingResult};
+    /// # use a2a_protocol::prelude::*;
+    /// # use a2a_protocol::client::{A2aStreamingClient, transport::{JsonRpcTransport, StreamingResult}};
     /// # use futures_util::StreamExt;
     /// # use std::sync::Arc;
     /// # async fn example() -> A2aResult<()> {
@@ -239,7 +238,7 @@ impl<T: StreamingTransport + 'static> A2aStreamingClient<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::JsonRpcTransport;
+    use crate::client::transport::JsonRpcTransport;
 
     #[test]
     fn test_streaming_client_creation() {

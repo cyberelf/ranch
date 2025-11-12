@@ -1,23 +1,22 @@
 //! Internal HTTP client implementation
 //!
 //! This module provides low-level HTTP communication functionality used by
-//! transport implementations (e.g., JsonRpcTransport). It is not a public
-//! A2A transport itself.
+//! client transport implementations (e.g., JsonRpcTransport).
 //!
-//! **Note:** This is internal infrastructure. For A2A protocol communication,
+//! **Note:** This is internal client infrastructure. For A2A protocol communication,
 //! use `JsonRpcTransport` (JSON-RPC 2.0 over HTTP).
 
 use crate::{
-    transport::{RequestInfo, TransportConfig},
+    client::transport::{RequestInfo, TransportConfig},
     A2aError, A2aResult,
 };
 use reqwest::{Client, StatusCode};
 use std::time::Duration;
 
-/// Internal HTTP client for transport implementations
+/// Internal HTTP client for client transport implementations
 ///
-/// This is not a public A2A transport. It provides HTTP communication
-/// primitives used by other transports like `JsonRpcTransport`.
+/// This provides HTTP communication primitives used by client transports
+/// like `JsonRpcTransport`.
 ///
 /// **For A2A communication, use `JsonRpcTransport` instead.**
 #[derive(Debug)]
@@ -169,9 +168,6 @@ impl HttpClient {
         Ok(response)
     }
 }
-
-// No Transport implementation - HttpClient is internal only
-// Use JsonRpcTransport for A2A protocol communication
 
 #[cfg(test)]
 mod tests {

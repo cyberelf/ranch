@@ -1,7 +1,7 @@
 //! A2A client implementation
 
 use crate::{
-    transport::{Transport, TransportConfig},
+    client::transport::{Transport, TransportConfig},
     A2aResult, AgentCard, AgentId, Message, SendResponse,
 };
 use std::sync::Arc;
@@ -176,7 +176,7 @@ impl Conversation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::JsonRpcTransport;
+    use crate::client::transport::JsonRpcTransport;
     use std::sync::Arc;
 
     #[tokio::test]

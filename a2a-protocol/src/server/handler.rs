@@ -9,7 +9,7 @@ use crate::{
 use async_trait::async_trait;
 
 #[cfg(feature = "streaming")]
-use crate::transport::StreamingResult;
+use crate::client::transport::StreamingResult;
 #[cfg(feature = "streaming")]
 use futures_util::stream::Stream;
 

@@ -1,9 +1,29 @@
-use crate::agent::{AgentConfig, ProtocolType};
 use crate::team::{TeamConfig, TeamAgentConfig, TeamMode, SchedulerConfig};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+/// Agent configuration
+#[derive(Debug, Clone, Deserialize)]
+pub struct AgentConfig {
+    pub id: String,
+    pub name: String,
+    pub endpoint: String,
+    pub protocol: ProtocolType,
+    pub capabilities: Vec<String>,
+    pub metadata: HashMap<String, String>,
+    pub timeout_seconds: u64,
+    pub max_retries: u32,
+}
+
+/// Protocol type for agent communication
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProtocolType {
+    OpenAI,
+    A2A,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

@@ -1,5 +1,5 @@
-use crate::agent::AgentMessage;
 use crate::team::Team;
+use a2a_protocol::prelude::*;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -144,21 +144,28 @@ async fn openai_chat_handler(
     State(team): State<Arc<Team>>,
     Json(request): Json<OpenAIChatRequest>,
 ) -> Result<Json<OpenAIChatResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let messages: Vec<AgentMessage> = request
-        .messages
-        .into_iter()
-        .map(|msg| AgentMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            role: msg.role,
-            content: msg.content,
-            metadata: HashMap::new(),
-        })
-        .collect();
+    // Convert last OpenAI message to A2A Message
+    let last_msg = request.messages.last()
+        .ok_or_else(|| {
+            let error_response = ErrorResponse {
+                error: ErrorDetail {
+                    message: "No messages provided".to_string(),
+                    r#type: "invalid_request".to_string(),
+                    code: "missing_messages".to_string(),
+                },
+            };
+            (StatusCode::BAD_REQUEST, Json(error_response))
+        })?;
+    
+    let message = Message::user_text(&last_msg.content);
 
-    match team.process_messages(messages).await {
+    match team.process_message(message).await {
         Ok(response) => {
+            let content = crate::adapters::extract_text(&response)
+                .unwrap_or_else(|| "No response content".to_string());
+            
             let openai_response = OpenAIChatResponse {
-                id: response.id,
+                id: uuid::Uuid::new_v4().to_string(),
                 object: "chat.completion".to_string(),
                 created: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -168,15 +175,15 @@ async fn openai_chat_handler(
                 choices: vec![OpenAIChoice {
                     index: 0,
                     message: OpenAIResponseMessage {
-                        role: response.role,
-                        content: response.content,
+                        role: "assistant".to_string(),
+                        content,
                     },
-                    finish_reason: response.finish_reason,
+                    finish_reason: Some("stop".to_string()),
                 }],
                 usage: OpenAIUsage {
-                    prompt_tokens: response.usage.as_ref().map(|u| u.prompt_tokens).unwrap_or(0),
-                    completion_tokens: response.usage.as_ref().map(|u| u.completion_tokens).unwrap_or(0),
-                    total_tokens: response.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0),
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
+                    total_tokens: 0,
                 },
             };
             
@@ -200,32 +207,39 @@ async fn a2a_chat_handler(
     State(team): State<Arc<Team>>,
     Json(request): Json<A2AChatRequest>,
 ) -> Result<Json<A2AChatResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let messages: Vec<AgentMessage> = request
-        .messages
-        .into_iter()
-        .map(|msg| AgentMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            role: msg.role,
-            content: msg.content,
-            metadata: msg.metadata,
-        })
-        .collect();
+    // Convert A2A message to internal Message
+    let last_msg = request.messages.last()
+        .ok_or_else(|| {
+            let error_response = ErrorResponse {
+                error: ErrorDetail {
+                    message: "No messages provided".to_string(),
+                    r#type: "invalid_request".to_string(),
+                    code: "missing_messages".to_string(),
+                },
+            };
+            (StatusCode::BAD_REQUEST, Json(error_response))
+        })?;
+    
+    let message = Message::user_text(&last_msg.content);
 
-    match team.process_messages(messages).await {
+    match team.process_message(message).await {
         Ok(response) => {
+            let content = crate::adapters::extract_text(&response)
+                .unwrap_or_else(|| "No response content".to_string());
+            
             let a2a_response = A2AChatResponse {
-                id: response.id,
+                id: uuid::Uuid::new_v4().to_string(),
                 response: A2AResponseMessage {
-                    content: response.content,
-                    role: response.role,
-                    finish_reason: response.finish_reason,
-                    usage: response.usage.map(|u| A2AUsage {
-                        input_tokens: u.prompt_tokens,
-                        output_tokens: u.completion_tokens,
-                        total_tokens: u.total_tokens,
+                    content,
+                    role: "assistant".to_string(),
+                    finish_reason: Some("stop".to_string()),
+                    usage: Some(A2AUsage {
+                        input_tokens: 0,
+                        output_tokens: 0,
+                        total_tokens: 0,
                     }),
                 },
-                metadata: response.metadata,
+                metadata: HashMap::new(),
             };
             
             Ok(Json(a2a_response))

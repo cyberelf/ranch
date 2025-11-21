@@ -1,5 +1,4 @@
 use multi_agent::*;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::env;
 
@@ -12,20 +11,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent_manager = Arc::new(AgentManager::new());
 
-    let openai_api_key = env::var("OPENAI_API_KEY").ok();
-    let a2a_auth_token = env::var("A2A_AUTH_TOKEN").ok();
-
+    // Register agents from config
     for agent_config in config.to_agent_configs() {
-        let protocol = protocols::create_protocol_adapter(
-            &agent_config.protocol,
-            match agent_config.protocol {
-                ProtocolType::OpenAI => openai_api_key.clone(),
-                ProtocolType::A2A => a2a_auth_token.clone(),
-            },
-        );
-
-        let agent = Arc::new(RemoteAgent::new(agent_config, protocol));
-        agent_manager.register_agent(agent).await?;
+        // Create A2A client for the agent endpoint
+        let transport = Arc::new(JsonRpcTransport::new(&agent_config.endpoint)?);
+        let client = A2aClient::new(transport);
+        
+        // Create remote agent
+        let agent = Arc::new(RemoteAgent::new(client));
+        
+        // Register with agent manager (automatically extracts ID from info)
+        let _id = agent_manager.register(agent).await?;
     }
 
     let teams: Vec<Arc<Team>> = config
@@ -41,16 +37,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let team = teams[0].clone();
 
-    let message = AgentMessage {
-        id: uuid::Uuid::new_v4().to_string(),
-        role: "user".to_string(),
-        content: "What are the latest developments in Rust async programming?".to_string(),
-        metadata: HashMap::new(),
-    };
+    // Create a simple test message
+    let message = Message::user_text("What are the latest developments in Rust async programming?");
 
     match team.process_message(message).await {
         Ok(response) => {
-            println!("Response: {}", response.content);
+            // Extract text from response message parts
+            for part in response.parts {
+                if let Part::Text(TextPart { text, .. }) = part {
+                    println!("Response: {}", text);
+                }
+            }
         }
         Err(e) => {
             eprintln!("Error: {}", e);

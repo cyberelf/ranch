@@ -1,5 +1,6 @@
-use crate::agent::{AgentMessage, AgentResponse};
-use crate::manager::{AgentManager, AgentRef};
+use crate::manager::AgentManager;
+use crate::Agent;
+use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -115,13 +116,13 @@ impl Team {
         }
     }
 
-    pub async fn process_message(&self, message: AgentMessage) -> Result<AgentResponse, TeamError> {
+    pub async fn process_message(&self, message: Message) -> Result<Message, TeamError> {
         self.process_messages(vec![message]).await
     }
 
-    pub async fn process_messages(&self, initial_messages: Vec<AgentMessage>) -> Result<AgentResponse, TeamError> {
+    pub async fn process_messages(&self, initial_messages: Vec<Message>) -> Result<Message, TeamError> {
         let mut current_messages = initial_messages;
-        let mut last_response: Option<AgentResponse> = None;
+        let mut last_response: Option<Message> = None;
         let mut context = HashMap::new();
 
         loop {
@@ -147,19 +148,18 @@ impl Team {
             let agent_id = recipient.agent_id
                 .ok_or_else(|| TeamError::Scheduling("No agent ID provided".to_string()))?;
 
-            let agent = self.agent_manager.get_agent(&agent_id).await
+            let agent = self.agent_manager.get(&agent_id).await
                 .ok_or_else(|| TeamError::Agent(format!("Agent {} not found", agent_id)))?;
 
-            last_response = Some(agent.send_message(current_messages.clone()).await
+            // Process the last message with the selected agent
+            let input_message = current_messages.last()
+                .ok_or_else(|| TeamError::Scheduling("No messages to process".to_string()))?;
+            
+            last_response = Some(agent.process(input_message.clone()).await
                 .map_err(|e| TeamError::Agent(e.to_string()))?);
 
             // Prepare messages for next iteration
-            current_messages = vec![AgentMessage {
-                id: uuid::Uuid::new_v4().to_string(),
-                role: "assistant".to_string(),
-                content: last_response.as_ref().unwrap().content.clone(),
-                metadata: context.clone(),
-            }];
+            current_messages = vec![last_response.clone().unwrap()];
         }
     }
 
@@ -171,8 +171,9 @@ impl Team {
         let mut results = Vec::new();
         
         for agent_config in &self.config.agents {
-            if let Some(agent) = self.agent_manager.get_agent(&agent_config.agent_id).await {
-                let healthy = agent.health_check().await.unwrap_or(false);
+            if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
+                // Try to use health_check method
+                let healthy = agent.health_check().await;
                 results.push((agent_config.agent_id.clone(), healthy));
             } else {
                 results.push((agent_config.agent_id.clone(), false));
@@ -189,8 +190,8 @@ pub trait Scheduler: Send + Sync {
         &self,
         team_config: &TeamConfig,
         agent_manager: &AgentManager,
-        messages: Vec<AgentMessage>,
-        last_response: Option<AgentResponse>,
+        messages: Vec<Message>,
+        last_response: Option<Message>,
         context: &HashMap<String, String>,
     ) -> Result<Recipient, TeamError>;
 }
@@ -223,8 +224,8 @@ impl SupervisorScheduler {
         }
     }
 
-    async fn get_supervisor_agent(&self, agent_manager: &AgentManager) -> Option<AgentRef> {
-        agent_manager.get_agent(&self.config.supervisor_agent_id).await
+    async fn get_supervisor_agent(&self, agent_manager: &AgentManager) -> Option<Arc<dyn Agent>> {
+        agent_manager.get(&self.config.supervisor_agent_id).await
     }
 }
 
@@ -234,14 +235,14 @@ impl Scheduler for SupervisorScheduler {
         &self,
         _team_config: &TeamConfig,
         agent_manager: &AgentManager,
-        _messages: Vec<AgentMessage>,
-        _last_response: Option<AgentResponse>,
+        _messages: Vec<Message>,
+        _last_response: Option<Message>,
         _context: &HashMap<String, String>,
     ) -> Result<Recipient, TeamError> {
-        let supervisor = self.get_supervisor_agent(agent_manager).await
+        let _supervisor = self.get_supervisor_agent(agent_manager).await
             .ok_or_else(|| TeamError::Configuration("No supervisor agent configured".to_string()))?;
 
-        Ok(Recipient::agent(supervisor.get_config().id.clone()))
+        Ok(Recipient::agent(self.config.supervisor_agent_id.clone()))
     }
 }
 
@@ -268,8 +269,8 @@ impl Scheduler for WorkflowScheduler {
         &self,
         _team_config: &TeamConfig,
         _agent_manager: &AgentManager,
-        _messages: Vec<AgentMessage>,
-        last_response: Option<AgentResponse>,
+        _messages: Vec<Message>,
+        last_response: Option<Message>,
         _context: &HashMap<String, String>,
     ) -> Result<Recipient, TeamError> {
         let mut current_step = self.current_step.write().await;
@@ -283,10 +284,12 @@ impl Scheduler for WorkflowScheduler {
         // Check if there's a condition for this step
         if let Some(condition) = &step.condition {
             if let Some(response) = &last_response {
-                // Simple condition checking - in a real implementation, this would be more sophisticated
-                if !response.content.contains(condition) {
-                    *current_step += 1;
-                    return self.determine_next_recipient(_team_config, _agent_manager, _messages, last_response, _context).await;
+                // Simple condition checking - check message content
+                if let Some(content) = crate::adapters::extract_text(&response) {
+                    if !content.contains(condition) {
+                        *current_step += 1;
+                        return self.determine_next_recipient(_team_config, _agent_manager, _messages, last_response, _context).await;
+                    }
                 }
             }
         }

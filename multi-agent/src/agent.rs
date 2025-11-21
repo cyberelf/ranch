@@ -1,81 +1,38 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use uuid::Uuid;
+//! Agent trait for multi-agent framework
+//!
+//! This module defines the `Agent` trait used by the multi-agent framework
+//! for coordinating multiple agents. This is separate from the a2a-protocol's
+//! server-side Agent trait.
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentConfig {
+use a2a_protocol::prelude::*;
+use async_trait::async_trait;
+use std::collections::HashMap;
+
+/// Agent profile information for the multi-agent framework
+#[derive(Debug, Clone)]
+pub struct AgentInfo {
     pub id: String,
     pub name: String,
-    pub endpoint: String,
-    pub protocol: ProtocolType,
+    pub description: String,
     pub capabilities: Vec<String>,
     pub metadata: HashMap<String, String>,
-    pub timeout_seconds: u64,
-    pub max_retries: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ProtocolType {
-    OpenAI,
-    A2A,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentMessage {
-    pub id: String,
-    pub role: String,
-    pub content: String,
-    pub metadata: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentResponse {
-    pub id: String,
-    pub content: String,
-    pub role: String,
-    pub finish_reason: Option<String>,
-    pub usage: Option<Usage>,
-    pub metadata: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Usage {
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-    pub total_tokens: u32,
-}
-
-impl AgentConfig {
-    pub fn new(
-        name: String,
-        endpoint: String,
-        protocol: ProtocolType,
-    ) -> Self {
-        Self {
-            id: Uuid::new_v4().to_string(),
-            name,
-            endpoint,
-            protocol,
-            capabilities: Vec::new(),
-            metadata: HashMap::new(),
-            timeout_seconds: 30,
-            max_retries: 3,
-        }
-    }
-
-    pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self {
-        self.capabilities = capabilities;
-        self
-    }
-
-    pub fn with_timeout(mut self, timeout_seconds: u64) -> Self {
-        self.timeout_seconds = timeout_seconds;
-        self
-    }
-
-    pub fn with_max_retries(mut self, max_retries: u32) -> Self {
-        self.max_retries = max_retries;
-        self
+/// Agent trait for multi-agent coordination
+///
+/// This trait defines the interface for agents managed by the multi-agent framework.
+/// It is focused on message processing and capability exposure, not on implementing
+/// the full A2A protocol server interface.
+#[async_trait]
+pub trait Agent: Send + Sync {
+    /// Get agent information
+    async fn info(&self) -> A2aResult<AgentInfo>;
+    
+    /// Process a message and return a response
+    async fn process(&self, message: Message) -> A2aResult<Message>;
+    
+    /// Check if the agent is healthy and responsive
+    async fn health_check(&self) -> bool {
+        self.info().await.is_ok()
     }
 }

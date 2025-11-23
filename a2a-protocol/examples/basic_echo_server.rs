@@ -43,7 +43,7 @@ impl Agent for UppercaseEchoAgent {
         let text = message
             .text_content()
             .ok_or_else(|| A2aError::Validation("No text content in message".to_string()))?;
-
+        println!("Received message: {}", text);
         // Process it (uppercase) and return
         let response = format!("ECHO: {}", text.to_uppercase());
         Ok(Message::agent_text(response))
@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent = Arc::new(UppercaseEchoAgent::new());
 
     // 2. Wrap it in TaskAwareHandler to get full A2A support
-    let handler = TaskAwareHandler::new(agent);
+    let handler = TaskAwareHandler::with_immediate_responses(agent);
 
     // 3. Build and run server
     println!("\n🚀 Starting Uppercase Echo Server");

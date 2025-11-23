@@ -1,8 +1,7 @@
-//! Agent trait for multi-agent framework
+//! Core traits for the multi-agent framework
 //!
-//! This module defines the `Agent` trait used by the multi-agent framework
-//! for coordinating multiple agents. This is separate from the a2a-protocol's
-//! server-side Agent trait.
+//! This module contains the fundamental trait definitions used throughout
+//! the multi-agent framework.
 
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
@@ -27,10 +26,10 @@ pub struct AgentInfo {
 pub trait Agent: Send + Sync {
     /// Get agent information
     async fn info(&self) -> A2aResult<AgentInfo>;
-    
+
     /// Process a message and return a response
     async fn process(&self, message: Message) -> A2aResult<Message>;
-    
+
     /// Check if the agent is healthy and responsive
     async fn health_check(&self) -> bool {
         self.info().await.is_ok()

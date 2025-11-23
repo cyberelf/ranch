@@ -1,25 +1,25 @@
-//! Remote agent implementation using A2A protocol
+//! A2A agent implementation
 //!
-//! This module provides the `RemoteAgent` struct which wraps an `A2aClient`
+//! This module provides the `A2AAgent` struct which wraps an `A2aClient`
 //! and implements the multi-agent `Agent` trait for coordination.
 
-use crate::AgentInfo;
+use crate::agent::AgentInfo;
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Configuration for remote agent runtime behavior
+/// Configuration for A2A agent runtime behavior
 #[derive(Debug, Clone, PartialEq)]
-pub struct RemoteAgentConfig {
+pub struct A2AAgentConfig {
     /// Maximum retry attempts for transient failures
     pub max_retries: u32,
-    
+
     /// How to handle async task responses
     pub task_handling: TaskHandling,
 }
 
-impl Default for RemoteAgentConfig {
+impl Default for A2AAgentConfig {
     fn default() -> Self {
         Self {
             max_retries: 3,
@@ -33,58 +33,58 @@ impl Default for RemoteAgentConfig {
 pub enum TaskHandling {
     /// Poll the task until completion (blocking)
     PollUntilComplete,
-    
+
     /// Return task info immediately without waiting
     ReturnTaskInfo,
-    
+
     /// Reject async tasks with an error
     RejectTasks,
 }
 
-/// Remote agent that communicates via A2A protocol
+/// A2A agent that communicates via the A2A protocol
 ///
 /// This agent wraps an `A2aClient` and provides caching of the agent card
 /// for efficient operation.
-pub struct RemoteAgent {
+pub struct A2AAgent {
     /// A2A client for communication
     client: A2aClient,
-    
+
     /// Configuration for runtime behavior
-    config: RemoteAgentConfig,
-    
+    config: A2AAgentConfig,
+
     /// Cached agent card
     card_cache: Arc<RwLock<Option<AgentCard>>>,
 }
 
-impl RemoteAgent {
-    /// Create a new remote agent with default configuration
+impl A2AAgent {
+    /// Create a new A2A agent with default configuration
     pub fn new(client: A2aClient) -> Self {
         Self {
             client,
-            config: RemoteAgentConfig::default(),
+            config: A2AAgentConfig::default(),
             card_cache: Arc::new(RwLock::new(None)),
         }
     }
-    
-    /// Create a new remote agent with custom configuration
-    pub fn with_config(client: A2aClient, config: RemoteAgentConfig) -> Self {
+
+    /// Create a new A2A agent with custom configuration
+    pub fn with_config(client: A2aClient, config: A2AAgentConfig) -> Self {
         Self {
             client,
             config,
             card_cache: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     /// Get the underlying A2A client
     pub fn client(&self) -> &A2aClient {
         &self.client
     }
-    
+
     /// Get the agent configuration
-    pub fn config(&self) -> &RemoteAgentConfig {
+    pub fn config(&self) -> &A2AAgentConfig {
         &self.config
     }
-    
+
     /// Fetch the agent card (with caching)
     async fn fetch_card(&self) -> A2aResult<AgentCard> {
         // Check cache
@@ -94,19 +94,19 @@ impl RemoteAgent {
                 return Ok(card.clone());
             }
         }
-        
+
         // Fetch from remote - use our own agent_id to get our card
         let card = self.client.transport().get_agent_card(&self.client.agent_id()).await?;
-        
+
         // Update cache
         {
             let mut cache = self.card_cache.write().await;
             *cache = Some(card.clone());
         }
-        
+
         Ok(card)
     }
-    
+
     /// Handle a task response based on configuration
     async fn handle_task(&self, task: Task) -> A2aResult<Message> {
         match self.config.task_handling {
@@ -121,7 +121,7 @@ impl RemoteAgent {
             )),
         }
     }
-    
+
     /// Poll a task until completion
     ///
     /// This method will poll the task status every 500ms until the task
@@ -159,7 +159,7 @@ impl RemoteAgent {
                 _ => {
                     // Still processing - wait and poll
                     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                    
+
                     let request = TaskGetRequest {
                         task_id: task.id.clone(),
                     };
@@ -168,7 +168,7 @@ impl RemoteAgent {
             }
         }
     }
-    
+
     /// Clear the profile and card caches
     ///
     /// This is useful if the remote agent's capabilities have changed
@@ -180,7 +180,7 @@ impl RemoteAgent {
 }
 
 #[async_trait]
-impl crate::Agent for RemoteAgent {
+impl crate::agent::Agent for A2AAgent {
     async fn info(&self) -> A2aResult<AgentInfo> {
         // Check cache
         {
@@ -195,7 +195,7 @@ impl crate::Agent for RemoteAgent {
                 });
             }
         }
-        
+
         // Fetch card and extract info
         let card = self.fetch_card().await?;
         let info = AgentInfo {
@@ -205,16 +205,16 @@ impl crate::Agent for RemoteAgent {
             capabilities: card.capabilities.iter().map(|c| c.name.clone()).collect(),
             metadata: card.metadata.iter().map(|(k, v)| (k.clone(), v.to_string())).collect(),
         };
-        
+
         Ok(info)
     }
-    
+
     async fn process(&self, message: Message) -> A2aResult<Message> {
         let response = self
             .client
             .send_message_with_retry(message, self.config.max_retries)
             .await?;
-        
+
         match response {
             SendResponse::Message(msg) => Ok(msg),
             SendResponse::Task(task) => self.handle_task(task).await,
@@ -227,27 +227,27 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_remote_agent_creation() {
+    async fn test_a2a_agent_creation() {
         let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
         let client = A2aClient::new(Arc::new(transport));
-        let agent = RemoteAgent::new(client);
-        
+        let agent = A2AAgent::new(client);
+
         assert_eq!(agent.config.max_retries, 3);
         assert_eq!(agent.config.task_handling, TaskHandling::PollUntilComplete);
     }
-    
+
     #[tokio::test]
-    async fn test_remote_agent_with_config() {
+    async fn test_a2a_agent_with_config() {
         let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
         let client = A2aClient::new(Arc::new(transport));
-        
-        let config = RemoteAgentConfig {
+
+        let config = A2AAgentConfig {
             max_retries: 5,
             task_handling: TaskHandling::ReturnTaskInfo,
         };
-        
-        let agent = RemoteAgent::with_config(client, config);
-        
+
+        let agent = A2AAgent::with_config(client, config);
+
         assert_eq!(agent.config.max_retries, 5);
         assert_eq!(agent.config.task_handling, TaskHandling::ReturnTaskInfo);
     }

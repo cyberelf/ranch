@@ -67,10 +67,15 @@ impl AgentManager {
     /// This method fetches the info from each registered agent.
     /// Agents that fail to return info are silently skipped.
     pub async fn list_info(&self) -> Vec<AgentInfo> {
-        let agents = self.agents.read().await;
-        let mut infos = Vec::new();
+        // 1. Acquire lock, clone references, and release lock immediately
+        let agents: Vec<Arc<dyn Agent>> = {
+            let guard = self.agents.read().await;
+            guard.values().cloned().collect()
+        };
 
-        for agent in agents.values() {
+        // 2. Perform async operations without holding the lock
+        let mut infos = Vec::new();
+        for agent in agents {
             if let Ok(info) = agent.info().await {
                 infos.push(info);
             }
@@ -90,16 +95,20 @@ impl AgentManager {
     /// # Returns
     /// A vector of agents that have matching capabilities
     pub async fn find_by_capability(&self, capability: &str) -> Vec<Arc<dyn Agent>> {
-        let agents = self.agents.read().await;
-        let mut matching = Vec::new();
+        // 1. Acquire lock, clone references, and release lock immediately
+        let agents: Vec<Arc<dyn Agent>> = {
+            let guard = self.agents.read().await;
+            guard.values().cloned().collect()
+        };
 
-        for agent in agents.values() {
+        // 2. Perform async operations without holding the lock
+        let mut matching = Vec::new();
+        for agent in agents {
             if let Ok(info) = agent.info().await {
-                // Check if any capability contains the search string
                 if info.capabilities.iter().any(|cap| {
                     cap.to_lowercase().contains(&capability.to_lowercase())
                 }) {
-                    matching.push(agent.clone());
+                    matching.push(agent);
                 }
             }
         }

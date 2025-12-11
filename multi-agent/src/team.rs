@@ -3,9 +3,35 @@ use crate::{Agent, AgentInfo};
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+/// Cycle detection for nested teams
+#[derive(Debug, thiserror::Error)]
+#[error("Cycle detected in team nesting: {0}")]
+pub struct CycleError(pub String);
+
+/// Check if a team can be registered without creating a cycle
+/// 
+/// # Arguments
+/// * `team_id` - ID of the team being registered
+/// * `visited` - Set of already visited team IDs in the current path
+/// 
+/// # Returns
+/// * `Ok(())` if no cycle detected
+/// * `Err(CycleError)` if a cycle would be created
+pub fn track_team_nesting(team_id: &str, visited: &mut HashSet<String>) -> Result<(), CycleError> {
+    if visited.contains(team_id) {
+        return Err(CycleError(format!(
+            "Team '{}' would create a cycle (path: {})",
+            team_id,
+            visited.iter().cloned().collect::<Vec<_>>().join(" -> ")
+        )));
+    }
+    visited.insert(team_id.to_string());
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 pub struct Recipient {
@@ -189,6 +215,69 @@ impl Team {
         }
         
         results
+    }
+}
+
+// Implement Agent trait for Team to enable teams as agents
+#[async_trait]
+impl Agent for Team {
+    /// Get agent information for the team
+    /// 
+    /// Returns aggregated capabilities from all member agents
+    async fn info(&self) -> A2aResult<AgentInfo> {
+        let mut capabilities = HashSet::new();
+        
+        // Aggregate capabilities from all member agents
+        for agent_config in &self.config.agents {
+            if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
+                match agent.info().await {
+                    Ok(info) => {
+                        capabilities.extend(info.capabilities);
+                    }
+                    Err(e) => {
+                        // Log warning but continue - graceful degradation
+                        eprintln!("Warning: Failed to get info from agent {}: {}", agent_config.agent_id, e);
+                    }
+                }
+            }
+        }
+        
+        // Add team-specific capabilities from config
+        for agent_config in &self.config.agents {
+            capabilities.extend(agent_config.capabilities.clone());
+        }
+        
+        let mut metadata = HashMap::new();
+        metadata.insert("type".to_string(), "team".to_string());
+        metadata.insert("mode".to_string(), match self.config.mode {
+            TeamMode::Supervisor => "supervisor".to_string(),
+            TeamMode::Workflow => "workflow".to_string(),
+        });
+        metadata.insert("member_count".to_string(), self.config.agents.len().to_string());
+        
+        Ok(AgentInfo {
+            id: self.config.id.clone(),
+            name: self.config.name.clone(),
+            description: self.config.description.clone(),
+            capabilities: capabilities.into_iter().collect(),
+            metadata,
+        })
+    }
+    
+    /// Process a message through the team's orchestration
+    /// 
+    /// Delegates to scheduler which routes to appropriate member agents
+    async fn process(&self, message: Message) -> A2aResult<Message> {
+        self.process_message(message)
+            .await
+            .map_err(|e| A2aError::Internal(e.to_string()))
+    }
+    
+    /// Check if team is healthy - all member agents responsive
+    async fn health_check(&self) -> bool {
+        let results = Team::health_check(self).await;
+        // Team is healthy if at least one agent is healthy
+        results.iter().any(|(_, healthy)| *healthy)
     }
 }
 

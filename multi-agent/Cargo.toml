@@ -10,6 +10,10 @@ repository.workspace = true
 # A2A Protocol with client and server features
 a2a-protocol = { path = "../a2a-protocol", features = ["client", "server"] }
 
+# HTTP server
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+
 # URL handling
 url = "2.4"
 

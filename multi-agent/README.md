@@ -153,6 +153,63 @@ let team_config = TeamConfig {
 let team = Arc::new(Team::new(team_config, agent_manager));
 ```
 
+### Using TeamServer (A2A JSON-RPC Server)
+
+```rust
+use multi_agent::{Team, TeamServer};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Create your team
+    let team = Arc::new(Team::new(team_config, agent_manager));
+    
+    // Create and start TeamServer
+    let server = TeamServer::new(team, 3000);
+    server.start().await?;
+    
+    Ok(())
+}
+```
+
+The TeamServer exposes your team as an A2A-compliant service via JSON-RPC 2.0:
+
+**Supported JSON-RPC Methods:**
+- `message/send` - Send a message to the team
+- `task/get` - Get details about a task
+- `task/status` - Get task status
+- `task/cancel` - Cancel a running task
+- `agent/card` - Get team's capabilities as an AgentCard
+
+**Example JSON-RPC Request:**
+```bash
+curl -X POST http://localhost:3000/rpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"type": "text", "text": "Hello team!"}]
+      }
+    },
+    "id": 1
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "task_id": "task-abc123",
+    "status": "queued"
+  },
+  "id": 1
+}
+```
+
 ## Configuration Reference
 
 ### Agent Configuration

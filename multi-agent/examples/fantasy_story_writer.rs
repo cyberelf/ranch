@@ -34,28 +34,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let transport = Arc::new(JsonRpcTransport::new(&agent_config.endpoint)?);
                 let client = A2aClient::new(transport);
 
-                let a2a_config = A2AAgentConfig {
-                    max_retries: agent_config.max_retries,
-                    task_handling: TaskHandling::PollUntilComplete,
-                };
+                // Use TryFrom for config conversion
+                let a2a_config: A2AAgentConfig = agent_config.clone().try_into()?;
 
                 Arc::new(A2AAgent::with_config(client, a2a_config))
             }
             ProtocolType::OpenAI => {
                 println!("🤖 Registering OpenAI agent: {} ({})", agent_config.name, agent_config.id);
 
-                let openai_config = OpenAIAgentConfig {
-                    api_key: env::var("OPENAI_API_KEY").ok(),
-                    max_retries: agent_config.max_retries,
-                    timeout_seconds: agent_config.timeout_seconds,
-                    model: agent_config.metadata.get("model")
-                        .cloned()
-                        .unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
-                    temperature: agent_config.metadata.get("temperature")
-                        .and_then(|v| v.parse().ok()),
-                    max_tokens: agent_config.metadata.get("max_tokens")
-                        .and_then(|v| v.parse().ok()),
-                };
+                // Use TryFrom for config conversion
+                let mut openai_config: OpenAIAgentConfig = agent_config.clone().try_into()?;
+                
+                // Override api_key from environment if available
+                if let Ok(api_key) = env::var("OPENAI_API_KEY") {
+                    openai_config.api_key = Some(api_key);
+                }
 
                 Arc::new(OpenAIAgent::new(agent_config.endpoint, openai_config))
             }

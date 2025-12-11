@@ -1,0 +1,95 @@
+# Fantasy Story Writing Multi-Agent Configuration
+
+# NOTE: To use custom endpoints or models, modify the values below:
+# - OpenAI default: https://api.openai.com/v1
+# - Azure OpenAI: https://your-resource.openai.azure.com/openai/deployments/your-deployment
+# - Custom provider: https://your-provider.com/v1
+# - Model examples: gpt-4, gpt-3.5-turbo, gpt-4-turbo, claude-3-opus-20240229
+
+# Story Orchestrator - OpenAI GPT-4 for creative direction and planning
+[[agents]]
+id = "orchestrator"
+name = "Story Orchestrator"
+endpoint = "https://api.openai.com/v1"
+protocol = "openai"
+capabilities = ["story_planning", "creative_direction", "coordination", "world_building"]
+timeout_seconds = 45
+max_retries = 3
+
+[agents.metadata]
+model = "gpt-4"
+temperature = "0.8"
+max_tokens = "1500"
+system_prompt = "You are a master storyteller and creative director. You coordinate the creation of fantasy stories, providing overarching narrative structure, themes, and direction. You work with specialized agents to create compelling fantasy narratives."
+
+# Composer - OpenAI GPT-4 for prose and scene writing
+[[agents]]
+id = "composer"
+name = "Story Composer"
+endpoint = "https://api.openai.com/v1"
+protocol = "openai"
+capabilities = ["prose_writing", "scene_composition", "descriptive_language", "dialogue"]
+timeout_seconds = 60
+max_retries = 3
+
+[agents.metadata]
+model = "gpt-4"
+temperature = "0.9"
+max_tokens = "2000"
+system_prompt = "You are a master prose writer and storyteller. You create vivid, immersive fantasy scenes with rich descriptions, compelling dialogue, and engaging narrative flow. You excel at bringing fantasy worlds to life through your writing."
+
+# Review and Advisor - Local A2A agent for quality control and suggestions
+[[agents]]
+id = "advisor"
+name = "Story Advisor"
+endpoint = "http://localhost:8081/rpc"
+protocol = "a2a"
+capabilities = ["story_review", "editing_suggestions", "consistency_checking", "improvement_ideas"]
+timeout_seconds = 30
+max_retries = 2
+
+[agents.metadata]
+model = "claude-3"
+temperature = "0.6"
+max_tokens = "1000"
+system_prompt = "You are an expert story editor and creative advisor. You review fantasy stories for consistency, pacing, character development, and plot coherence. You provide constructive feedback and improvement suggestions."
+
+# Fantasy Story Writing Team
+[[teams]]
+id = "fantasy-story-team"
+name = "Fantasy Story Writing Team"
+description = "A collaborative team of AI agents for creating fantasy stories"
+mode = "workflow"
+
+[teams.scheduler_config]
+type = "workflow"
+
+[[teams.scheduler_config.steps]]
+agent_id = "orchestrator"
+order = 1
+condition = ""  # Always execute first
+
+[[teams.scheduler_config.steps]]
+agent_id = "composer"
+order = 2
+condition = ""  # Always execute after orchestrator
+
+[[teams.scheduler_config.steps]]
+agent_id = "advisor"
+order = 3
+condition = ""  # Always execute last for review
+
+[[teams.agents]]
+agent_id = "orchestrator"
+role = "story_planner"
+capabilities = ["story_planning", "creative_direction"]
+
+[[teams.agents]]
+agent_id = "composer"
+role = "prose_writer"
+capabilities = ["prose_writing", "scene_composition"]
+
+[[teams.agents]]
+agent_id = "advisor"
+role = "editor"
+capabilities = ["story_review", "editing_suggestions"]

@@ -1,5 +1,5 @@
 use crate::manager::AgentManager;
-use crate::Agent;
+use crate::{Agent, AgentInfo};
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -154,9 +154,17 @@ impl Team {
             // Process the last message with the selected agent
             let input_message = current_messages.last()
                 .ok_or_else(|| TeamError::Scheduling("No messages to process".to_string()))?;
-            
+
+            println!("  📞 Processing message with agent: {} ({})", agent_id, agent.info().await.unwrap_or_else(|_| AgentInfo {
+                id: agent_id.clone(),
+                name: "Unknown Agent".to_string(),
+                description: "Agent information unavailable".to_string(),
+                capabilities: vec![],
+                metadata: HashMap::new(),
+            }).name);
             last_response = Some(agent.process(input_message.clone()).await
                 .map_err(|e| TeamError::Agent(e.to_string()))?);
+            println!("  ✅ Agent {} completed processing", agent_id);
 
             // Prepare messages for next iteration
             current_messages = vec![last_response.clone().unwrap()];
@@ -276,6 +284,7 @@ impl Scheduler for WorkflowScheduler {
         let mut current_step = self.current_step.write().await;
 
         if *current_step >= self.config.steps.len() {
+            println!("🏁 Workflow finished - returning result to user");
             return Ok(Recipient::user());
         }
 
@@ -295,10 +304,15 @@ impl Scheduler for WorkflowScheduler {
         }
 
         let agent_id = step.agent_id.clone();
+        let step_number = *current_step + 1;
         *current_step += 1;
+
+        // Debug logging for workflow step
+        println!("🔄 Workflow Step {}: Calling agent '{}'", step_number, agent_id);
 
         // If this was the last step, return to user next time
         if *current_step >= self.config.steps.len() {
+            println!("✅ Workflow completed after {} steps", step_number);
             let mut context_updates = HashMap::new();
             context_updates.insert("workflow_complete".to_string(), "true".to_string());
             return Ok(Recipient::agent(agent_id).with_context_updates(context_updates));

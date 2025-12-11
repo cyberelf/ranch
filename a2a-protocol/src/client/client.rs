@@ -1,8 +1,7 @@
 //! A2A client implementation
 
 use crate::{
-    client::transport::{Transport, TransportConfig},
-    A2aResult, AgentCard, AgentId, Message, SendResponse,
+    A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus, client::transport::{Transport, TransportConfig}
 };
 use std::sync::Arc;
 
@@ -51,9 +50,24 @@ impl A2aClient {
         self.send_message(message).await
     }
 
+    /// Get a task by ID
+    pub async fn get_task(&self, request: crate::TaskGetRequest) -> A2aResult<Task> {
+        self.transport.get_task(request).await
+    }
+
+    /// Get the status of a task
+    pub async fn get_task_status(&self, request: crate::TaskStatusRequest) -> A2aResult<TaskStatus> {
+        self.transport.get_task_status(request).await
+    }
+
+    /// Cancel a task
+    pub async fn cancel_task(&self, request: crate::TaskCancelRequest) -> A2aResult<TaskStatus> {
+        self.transport.cancel_task(request).await
+    }
+
     /// Fetch the agent card for a target agent
-    pub async fn get_agent_card(&self, agent_id: &AgentId) -> A2aResult<AgentCard> {
-        self.transport.get_agent_card(agent_id).await
+    pub async fn get_agent_card(&self) -> A2aResult<AgentCard> {
+        self.transport.get_agent_card(&self.agent_id).await
     }
 
     /// Check if the client can communicate with the agent
@@ -104,11 +118,11 @@ impl A2aClient {
     }
 
     /// Create a new conversation with an agent
-    pub async fn start_conversation(&self, agent_id: &AgentId) -> A2aResult<Conversation> {
-        let agent_card = self.get_agent_card(agent_id).await?;
+    pub async fn start_conversation(&self) -> A2aResult<Conversation> {
+        let agent_card = self.get_agent_card().await?;
         Ok(Conversation::new(
             self.clone(),
-            agent_id.clone(),
+            self.agent_id.clone(),
             agent_card,
         ))
     }

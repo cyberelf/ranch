@@ -96,7 +96,7 @@ impl A2AAgent {
         }
 
         // Fetch from remote - use our own agent_id to get our card
-        let card = self.client.transport().get_agent_card(&self.client.agent_id()).await?;
+        let card = self.client.get_agent_card().await?;
 
         // Update cache
         {
@@ -163,7 +163,7 @@ impl A2AAgent {
                     let request = TaskGetRequest {
                         task_id: task.id.clone(),
                     };
-                    task = self.client.transport().get_task(request).await?;
+                    task = self.client.get_task(request).await?;
                 }
             }
         }

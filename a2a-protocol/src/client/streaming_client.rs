@@ -263,10 +263,10 @@ mod tests {
     fn test_compile_time_type_safety() {
         // This test verifies that A2aStreamingClient only accepts StreamingTransport
         let transport = Arc::new(JsonRpcTransport::new("https://example.com/rpc").unwrap());
-        
+
         // This compiles because JsonRpcTransport implements StreamingTransport
         let _client = A2aStreamingClient::new(transport);
-        
+
         // If we tried to use a non-streaming transport, this wouldn't compile:
         // let bad_transport = Arc::new(SomeNonStreamingTransport::new());
         // let _client = A2aStreamingClient::new(bad_transport); // Compile error!

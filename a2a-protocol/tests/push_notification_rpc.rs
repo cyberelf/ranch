@@ -2,13 +2,13 @@
 
 use a2a_protocol::{
     core::push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent},
-    server::{Agent, AgentProfile, A2aHandler, TaskAwareHandler},
-    AgentId, PushNotificationDeleteRequest, PushNotificationGetRequest,
-    PushNotificationListRequest, PushNotificationSetRequest, Message,
+    server::{A2aHandler, Agent, AgentProfile, TaskAwareHandler},
+    AgentId, Message, PushNotificationDeleteRequest, PushNotificationGetRequest,
+    PushNotificationListRequest, PushNotificationSetRequest,
 };
-use url::Url;
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
+use url::Url;
 
 struct TestAgent {
     profile: AgentProfile,
@@ -56,7 +56,10 @@ async fn test_push_notification_set_and_get() {
 
     // Get configuration
     let get_request = PushNotificationGetRequest::new("task-123");
-    let retrieved = handler.rpc_push_notification_get(get_request).await.unwrap();
+    let retrieved = handler
+        .rpc_push_notification_get(get_request)
+        .await
+        .unwrap();
     assert!(retrieved.is_some());
     assert_eq!(retrieved.unwrap().url, config.url);
 }
@@ -66,7 +69,10 @@ async fn test_push_notification_get_nonexistent() {
     let handler = create_test_handler();
 
     let get_request = PushNotificationGetRequest::new("nonexistent");
-    let result = handler.rpc_push_notification_get(get_request).await.unwrap();
+    let result = handler
+        .rpc_push_notification_get(get_request)
+        .await
+        .unwrap();
     assert!(result.is_none());
 }
 
@@ -107,7 +113,10 @@ async fn test_push_notification_list_empty() {
     let handler = create_test_handler();
 
     let list_request = PushNotificationListRequest::new();
-    let response = handler.rpc_push_notification_list(list_request).await.unwrap();
+    let response = handler
+        .rpc_push_notification_list(list_request)
+        .await
+        .unwrap();
     assert_eq!(response.configurations.len(), 0);
 }
 
@@ -136,7 +145,10 @@ async fn test_push_notification_list_multiple() {
 
     // List configurations
     let list_request = PushNotificationListRequest::new();
-    let response = handler.rpc_push_notification_list(list_request).await.unwrap();
+    let response = handler
+        .rpc_push_notification_list(list_request)
+        .await
+        .unwrap();
     assert_eq!(response.configurations.len(), 2);
 
     let task_ids: Vec<String> = response
@@ -169,7 +181,10 @@ async fn test_push_notification_delete() {
 
     // Verify it's gone
     let get_request = PushNotificationGetRequest::new("task-123");
-    let result = handler.rpc_push_notification_get(get_request).await.unwrap();
+    let result = handler
+        .rpc_push_notification_get(get_request)
+        .await
+        .unwrap();
     assert!(result.is_none());
 }
 
@@ -209,12 +224,18 @@ async fn test_push_notification_update() {
 
     // Verify updated configuration
     let get_request = PushNotificationGetRequest::new("task-123");
-    let retrieved = handler.rpc_push_notification_get(get_request).await.unwrap();
+    let retrieved = handler
+        .rpc_push_notification_get(get_request)
+        .await
+        .unwrap();
     assert!(retrieved.is_some());
     assert_eq!(retrieved.unwrap().url, config2.url);
 
     // Verify only one configuration exists
     let list_request = PushNotificationListRequest::new();
-    let response = handler.rpc_push_notification_list(list_request).await.unwrap();
+    let response = handler
+        .rpc_push_notification_list(list_request)
+        .await
+        .unwrap();
     assert_eq!(response.configurations.len(), 1);
 }

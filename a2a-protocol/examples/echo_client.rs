@@ -5,10 +5,7 @@
 //!
 //! Run with: cargo run --example echo_client --features streaming
 
-use a2a_protocol::{
-    prelude::*,
-    client::ClientBuilder,
-};
+use a2a_protocol::{client::ClientBuilder, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Try to get agent card (this also verifies connectivity)
     println!("📡 Connecting to server...");
-    
+
     // Create a simple request to test connectivity by sending a message
     let test_message = Message::user_text("ping");
     match client.send_message(test_message).await {
@@ -55,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Send a simple message
     println!("📤 Sending message: 'hello world'");
     let message = Message::user_text("hello world");
-    
+
     match client.send_message(message).await {
         Ok(response) => match response {
             SendResponse::Message(msg) => {
@@ -78,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Send another message
     println!("📤 Sending message: 'rust is awesome'");
     let message = Message::user_text("rust is awesome");
-    
+
     match client.send_message(message).await {
         Ok(response) => match response {
             SendResponse::Message(msg) => {

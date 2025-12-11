@@ -10,9 +10,9 @@ use a2a_protocol::{
     server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
-use url::Url;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
+use url::Url;
 
 /// A long-running task agent that simulates heavy computation
 struct TaskAgent {
@@ -53,16 +53,16 @@ impl Agent for TaskAgent {
 
         // For non-quick messages, simulate heavy computation
         println!("🔄 Processing long-running task: {}", text);
-        
+
         // Simulate work with a delay (configurable in production)
         // In a real agent, this would be actual computation
         const PROCESSING_DELAY_SECS: u64 = 2;
         sleep(Duration::from_secs(PROCESSING_DELAY_SECS)).await;
-        
+
         // Generate result
         let word_count = text.split_whitespace().count();
         let char_count = text.chars().count();
-        
+
         let result = format!(
             "Task completed!\n\n\
             Processed message: '{}'\n\n\
@@ -82,7 +82,7 @@ impl Agent for TaskAgent {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("⏳ Task Agent initializing...");
     println!("   Supports async task processing with status polling");
-    
+
     // 1. Create our task agent
     let agent = Arc::new(TaskAgent::new());
 
@@ -147,10 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{\"taskId\": \"TASK_ID\"}}");
     println!("     }}'\n");
 
-    ServerBuilder::new(handler)
-        .with_port(3002)
-        .run()
-        .await?;
+    ServerBuilder::new(handler).with_port(3002).run().await?;
 
     Ok(())
 }

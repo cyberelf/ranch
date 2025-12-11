@@ -4,4 +4,4 @@
 #![cfg(feature = "streaming")]
 
 // Re-export shared SSE types from core
-pub use crate::core::{SseEvent, SseEventId, EventBuffer};
+pub use crate::core::{EventBuffer, SseEvent, SseEventId};

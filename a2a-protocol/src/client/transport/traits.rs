@@ -1,8 +1,6 @@
 //! Transport layer traits and common types for A2A client
 
-use crate::{
-    A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus,
-};
+use crate::{A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus};
 use async_trait::async_trait;
 
 #[cfg(feature = "streaming")]
@@ -38,10 +36,10 @@ impl Default for TransportConfig {
 }
 
 /// Transport layer trait for A2A protocol client communication
-/// 
+///
 /// This trait defines the interface for sending A2A messages and managing tasks.
 /// All methods return core domain types, keeping the transport layer protocol-agnostic.
-/// 
+///
 /// Implementations handle protocol-specific details (JSON-RPC, gRPC, etc.) internally.
 #[async_trait]
 pub trait Transport: Send + Sync + std::fmt::Debug {
@@ -83,13 +81,13 @@ pub trait Transport: Send + Sync + std::fmt::Debug {
 pub enum StreamingResult {
     /// Immediate message response
     Message(Message),
-    
+
     /// Task object
     Task(Task),
-    
+
     /// Task status update event
     TaskStatusUpdate(TaskStatusUpdateEvent),
-    
+
     /// Task artifact update event
     TaskArtifactUpdate(TaskArtifactUpdateEvent),
 }

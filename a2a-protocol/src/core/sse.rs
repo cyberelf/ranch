@@ -39,13 +39,13 @@ impl std::fmt::Display for SseEventId {
 pub struct SseEvent {
     /// Event ID for replay
     pub id: Option<SseEventId>,
-    
+
     /// Event type (e.g., "task-status-update")
     pub event_type: Option<String>,
-    
+
     /// Event data (JSON)
     pub data: serde_json::Value,
-    
+
     /// Reconnection timeout in milliseconds
     pub retry: Option<u64>,
 }
@@ -176,15 +176,14 @@ impl EventBuffer {
 
     pub fn get_events_after(&self, last_id: &SseEventId) -> Vec<(SseEventId, StreamingResult)> {
         let buffer = self.buffer.read().unwrap();
-        
-        let start_pos = buffer.iter().position(|(id, _)| id == last_id)
+
+        let start_pos = buffer
+            .iter()
+            .position(|(id, _)| id == last_id)
             .map(|pos| pos + 1)
             .unwrap_or(0);
 
-        buffer.iter()
-            .skip(start_pos)
-            .cloned()
-            .collect()
+        buffer.iter().skip(start_pos).cloned().collect()
     }
 
     pub fn len(&self) -> usize {
@@ -227,7 +226,7 @@ mod tests {
     fn test_sse_event_parse() {
         let text = "id: 456\nevent: update\ndata: {\"status\":\"ok\"}\n\n";
         let event = SseEvent::from_sse_format(text).unwrap();
-        
+
         assert_eq!(event.id.unwrap().as_str(), "456");
         assert_eq!(event.event_type.unwrap(), "update");
         assert_eq!(event.data["status"], "ok");
@@ -236,9 +235,9 @@ mod tests {
     #[cfg(feature = "streaming")]
     #[test]
     fn test_event_buffer() {
-        use crate::core::{TaskStatus, TaskState};
-        use crate::core::streaming_events::TaskStatusUpdateEvent;
         use crate::client::transport::StreamingResult;
+        use crate::core::streaming_events::TaskStatusUpdateEvent;
+        use crate::core::{TaskState, TaskStatus};
 
         let buffer = EventBuffer::new(3);
         assert_eq!(buffer.len(), 0);
@@ -247,12 +246,12 @@ mod tests {
         let status = TaskStatus::new(TaskState::Working);
 
         let id1 = buffer.push(StreamingResult::TaskStatusUpdate(
-            TaskStatusUpdateEvent::new("task_1", status.clone())
+            TaskStatusUpdateEvent::new("task_1", status.clone()),
         ));
         let _id2 = buffer.push(StreamingResult::TaskStatusUpdate(
-            TaskStatusUpdateEvent::new("task_2", status.clone())
+            TaskStatusUpdateEvent::new("task_2", status.clone()),
         ));
-        
+
         assert_eq!(buffer.len(), 2);
 
         let events_after_1 = buffer.get_events_after(&id1);
@@ -260,12 +259,12 @@ mod tests {
 
         // Add more to trigger overflow
         buffer.push(StreamingResult::TaskStatusUpdate(
-            TaskStatusUpdateEvent::new("task_3", status.clone())
+            TaskStatusUpdateEvent::new("task_3", status.clone()),
         ));
         buffer.push(StreamingResult::TaskStatusUpdate(
-            TaskStatusUpdateEvent::new("task_4", status)
+            TaskStatusUpdateEvent::new("task_4", status),
         ));
-        
+
         assert_eq!(buffer.len(), 3); // Capped at max_size
     }
 }

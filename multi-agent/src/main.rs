@@ -1,7 +1,7 @@
 use multi_agent::*;
-use std::sync::Arc;
 use std::env;
 use std::io::{self, Write};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -34,12 +34,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     api_key: env::var("OPENAI_API_KEY").ok(),
                     max_retries: agent_config.max_retries,
                     timeout_seconds: agent_config.timeout_seconds,
-                    model: agent_config.metadata.get("model")
+                    model: agent_config
+                        .metadata
+                        .get("model")
                         .cloned()
                         .unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
-                    temperature: agent_config.metadata.get("temperature")
+                    temperature: agent_config
+                        .metadata
+                        .get("temperature")
                         .and_then(|v| v.parse().ok()),
-                    max_tokens: agent_config.metadata.get("max_tokens")
+                    max_tokens: agent_config
+                        .metadata
+                        .get("max_tokens")
                         .and_then(|v| v.parse().ok()),
                 };
 
@@ -95,7 +101,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let health_results = agent_manager.health_check_all().await;
             println!("Agent health status:");
             for (id, healthy) in health_results {
-                let status = if healthy { "✓ Healthy" } else { "✗ Unhealthy" };
+                let status = if healthy {
+                    "✓ Healthy"
+                } else {
+                    "✗ Unhealthy"
+                };
                 println!("  {}: {}", id, status);
             }
             continue;

@@ -8,7 +8,7 @@ use crate::{
     server::{handler::A2aHandler, json_rpc::axum::JsonRpcRouter},
     A2aError, A2aResult,
 };
-use std::net::{SocketAddr, IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 /// Builder for creating an A2A server with fluent configuration
 ///
@@ -140,7 +140,9 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///     .with_host_port("0.0.0.0", 8080);
     /// ```
     pub fn with_host_port(mut self, host: &str, port: u16) -> Self {
-        let ip: IpAddr = host.parse().unwrap_or(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        let ip: IpAddr = host
+            .parse()
+            .unwrap_or(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         self.address = SocketAddr::new(ip, port);
         self
     }
@@ -229,13 +231,18 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
         println!("Endpoints:");
         println!("  POST http://{}/rpc - JSON-RPC 2.0 endpoint", self.address);
         #[cfg(feature = "streaming")]
-        println!("  GET  http://{}/stream - SSE streaming endpoint", self.address);
+        println!(
+            "  GET  http://{}/stream - SSE streaming endpoint",
+            self.address
+        );
         println!();
 
         // Bind and serve
         let listener = tokio::net::TcpListener::bind(self.address)
             .await
-            .map_err(|e| A2aError::Internal(format!("Failed to bind to {}: {}", self.address, e)))?;
+            .map_err(|e| {
+                A2aError::Internal(format!("Failed to bind to {}: {}", self.address, e))
+            })?;
 
         axum::serve(listener, router)
             .await
@@ -289,7 +296,11 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, server::AgentProfile, Message, server::{Agent, TaskAwareHandler}};
+    use crate::{
+        server::AgentProfile,
+        server::{Agent, TaskAwareHandler},
+        AgentId, Message,
+    };
     use async_trait::async_trait;
     use std::sync::Arc;
     use url::Url;
@@ -305,7 +316,10 @@ mod tests {
         }
 
         async fn process_message(&self, msg: Message) -> crate::A2aResult<Message> {
-            Ok(Message::agent_text(format!("Echo: {}", msg.text_content().unwrap_or(""))))
+            Ok(Message::agent_text(format!(
+                "Echo: {}",
+                msg.text_content().unwrap_or("")
+            )))
         }
     }
 
@@ -326,7 +340,7 @@ mod tests {
     fn test_builder_defaults() {
         let handler = create_test_handler();
         let builder = ServerBuilder::new(handler);
-        
+
         assert_eq!(builder.address.ip().to_string(), "127.0.0.1");
         assert_eq!(builder.address.port(), 3000);
     }
@@ -335,7 +349,7 @@ mod tests {
     fn test_builder_with_port() {
         let handler = create_test_handler();
         let builder = ServerBuilder::new(handler).with_port(8080);
-        
+
         assert_eq!(builder.address.port(), 8080);
         assert_eq!(builder.address.ip().to_string(), "127.0.0.1");
     }
@@ -344,7 +358,7 @@ mod tests {
     fn test_builder_with_host_port() {
         let handler = create_test_handler();
         let builder = ServerBuilder::new(handler).with_host_port("0.0.0.0", 9000);
-        
+
         assert_eq!(builder.address.port(), 9000);
         assert_eq!(builder.address.ip().to_string(), "0.0.0.0");
     }
@@ -354,17 +368,15 @@ mod tests {
         let handler = create_test_handler();
         let addr: SocketAddr = "192.168.1.1:4000".parse().unwrap();
         let builder = ServerBuilder::new(handler).with_address(addr);
-        
+
         assert_eq!(builder.address, addr);
     }
 
     #[test]
     fn test_builder_build() {
         let handler = create_test_handler();
-        let router = ServerBuilder::new(handler)
-            .with_port(3000)
-            .build();
-        
+        let router = ServerBuilder::new(handler).with_port(3000).build();
+
         // Router should be created successfully
         // We can't easily test its internal structure, but we can verify it compiles
         drop(router);

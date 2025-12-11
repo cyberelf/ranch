@@ -101,17 +101,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"process this with streaming\"}}]");
+    println!(
+        "           \"parts\": [{{\"kind\":\"text\",\"text\":\"process this with streaming\"}}]"
+    );
     println!("         }}");
     println!("       }}");
     println!("     }}'");
     println!("\n   Or use the streaming_client example:");
     println!("   cargo run --example streaming_client --features streaming\n");
 
-    ServerBuilder::new(handler)
-        .with_port(3001)
-        .run()
-        .await?;
+    ServerBuilder::new(handler).with_port(3001).run().await?;
 
     Ok(())
 }

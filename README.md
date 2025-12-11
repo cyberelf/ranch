@@ -20,9 +20,29 @@ A robust multi-agent system built in Rust for managing, coordinating, and facili
 The project is structured around several key components:
 
 - **a2a-protocol**: Core implementation of the Agent-to-Agent communication protocol
-- **Multi-agent coordination**: Central hub for agent management and orchestration
+- **multi-agent**: Framework for orchestrating teams of agents
 - **Communication layers**: HTTP and JSON-RPC transport protocols
 - **Task management**: Distributed task execution and monitoring
+
+### Documentation
+
+- **[AGENT.md](AGENT.md)** - Comprehensive agent architecture guide
+  - Overview of agent trait hierarchy
+  - Component relationships
+  - When to use which trait
+  - Links to crate-specific guides
+  
+- **[a2a-protocol/AGENT.md](a2a-protocol/AGENT.md)** - A2A protocol implementation guide
+  - A2A Agent trait implementation
+  - Task lifecycle management
+  - JSON-RPC server setup
+  - Authentication strategies
+  
+- **[multi-agent/AGENT.md](multi-agent/AGENT.md)** - Multi-agent framework guide
+  - Team composition patterns
+  - Scheduler implementation
+  - Configuration via TOML
+  - Nested team hierarchies
 
 ## Quick Start
 

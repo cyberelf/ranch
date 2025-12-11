@@ -8,6 +8,7 @@ pub mod adapters;
 pub mod agent;
 pub mod config;
 pub mod manager;
+pub mod server;
 pub mod team;
 
 // Re-export commonly used types from a2a-protocol
@@ -17,7 +18,11 @@ pub use a2a_protocol::prelude::*;
 pub use adapters::{agent_message, extract_text, join_text, user_message};
 
 // Re-export multi-agent specific types
-pub use agent::{Agent, AgentInfo, A2AAgent, A2AAgentConfig, MultiAgentError, MultiAgentResult, OpenAIAgent, OpenAIAgentConfig, TaskHandling};
-pub use config::{AgentConfig, Config, ProtocolType};
+pub use agent::{
+    A2AAgent, A2AAgentConfig, Agent, AgentInfo, MultiAgentError, MultiAgentResult, OpenAIAgent,
+    OpenAIAgentConfig, TaskHandling,
+};
+pub use config::{AgentConfig, Config, ConfigConversionError, ProtocolType};
 pub use manager::AgentManager;
-pub use team::{SchedulerConfig, Team, TeamConfig};
+pub use server::TeamServer;
+pub use team::{track_team_nesting, CycleError, SchedulerConfig, Team, TeamConfig};

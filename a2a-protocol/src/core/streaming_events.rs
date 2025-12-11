@@ -4,7 +4,7 @@
 //! Per A2A protocol spec, message/stream returns a stream of JSON-RPC responses where
 //! result can be: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
 
-use super::{TaskStatus, TaskState};
+use super::{TaskState, TaskStatus};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

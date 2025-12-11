@@ -4,11 +4,9 @@
 //! their descriptive metadata (identity, capabilities, skills) separate from transport-level
 //! details. The profile is consumed by the handler layer to assemble a complete `AgentCard`.
 
-use crate::{
-    core::{
-        agent_card::{AgentCapability, AgentProvider, AgentSkill, TransportType},
-        AgentCard, AgentId,
-    },
+use crate::core::{
+    agent_card::{AgentCapability, AgentProvider, AgentSkill, TransportType},
+    AgentCard, AgentId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -173,7 +171,7 @@ impl AgentProfile {
     }
 
     /// Convert this profile into a complete AgentCard with default transport settings
-    /// 
+    ///
     /// This creates an AgentCard with minimal transport-level fields. For production use,
     /// let the handler layer assemble the card with proper transport capabilities.
     pub fn into_agent_card(self) -> AgentCard {
@@ -210,7 +208,7 @@ mod tests {
     fn test_agent_profile_to_card() {
         let id = AgentId::new("agent1".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
-        
+
         let profile = AgentProfile::new(id.clone(), "Test Agent", url.clone())
             .with_description("A test agent")
             .with_skill(AgentSkill {
@@ -231,7 +229,7 @@ mod tests {
     fn test_agent_profile_builder() {
         let id = AgentId::new("agent1".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
-        
+
         let profile = AgentProfile::new(id, "Test Agent", url)
             .with_description("Test description")
             .with_version("1.0.0")

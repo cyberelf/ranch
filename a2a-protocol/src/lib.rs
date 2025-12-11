@@ -79,19 +79,17 @@ pub mod prelude {
     // Client types (only available with "client" feature)
     #[cfg(feature = "client")]
     pub use crate::client::{
-        A2aClient, Authenticator, ApiKeyAuth, BearerAuth,
-        JsonRpcTransport, Transport,
+        A2aClient, ApiKeyAuth, Authenticator, BearerAuth, JsonRpcTransport, Transport,
     };
-    
+
     #[cfg(all(feature = "client", feature = "streaming"))]
     pub use crate::client::A2aStreamingClient;
-    
+
     // Core protocol types (always available)
     pub use crate::core::{
         agent_card::{
-            AgentCapability, AgentProvider, AgentSkill,
-            AuthenticationRequirement, RateLimit, RateLimitStrategy, StreamingCapabilities,
-            TransportInterface, TransportType,
+            AgentCapability, AgentProvider, AgentSkill, AuthenticationRequirement, RateLimit,
+            RateLimitStrategy, StreamingCapabilities, TransportInterface, TransportType,
         },
         agent_id::AgentId,
         message_id::MessageId,
@@ -117,20 +115,17 @@ pub mod prelude {
         TaskStatusRequest,
         TextPart,
     };
-    
+
     // Server types (only available with "server" feature)
     #[cfg(feature = "server")]
     pub use crate::server::{
-        Agent, AgentLogic, AgentProfile, PushNotificationSupport, TransportCapabilities, WebhookRetryPolicy,
+        Agent, AgentLogic, AgentProfile, PushNotificationSupport, TransportCapabilities,
+        WebhookRetryPolicy,
     };
-    
+
     // JSON-RPC protocol types (for advanced use, only with client feature)
     #[cfg(feature = "client")]
-    pub use crate::client::transport::{
-        JsonRpcError,
-        JsonRpcRequest,
-        JsonRpcResponse,
-    };
+    pub use crate::client::transport::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 
     // Backwards compatibility
     #[allow(deprecated)]

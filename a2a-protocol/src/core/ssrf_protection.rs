@@ -136,10 +136,7 @@ fn validate_hostname(hostname: &str) -> Result<(), String> {
     let lower = hostname.to_lowercase();
 
     // Block common localhost names
-    if lower == "localhost"
-        || lower.ends_with(".localhost")
-        || lower == "localhost.localdomain"
-    {
+    if lower == "localhost" || lower.ends_with(".localhost") || lower == "localhost.localdomain" {
         return Err("Webhook URL cannot target localhost hostname".to_string());
     }
 

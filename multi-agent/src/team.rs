@@ -3,9 +3,35 @@ use crate::{Agent, AgentInfo};
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+/// Cycle detection for nested teams
+#[derive(Debug, thiserror::Error)]
+#[error("Cycle detected in team nesting: {0}")]
+pub struct CycleError(pub String);
+
+/// Check if a team can be registered without creating a cycle
+///
+/// # Arguments
+/// * `team_id` - ID of the team being registered
+/// * `visited` - Set of already visited team IDs in the current path
+///
+/// # Returns
+/// * `Ok(())` if no cycle detected
+/// * `Err(CycleError)` if a cycle would be created
+pub fn track_team_nesting(team_id: &str, visited: &mut HashSet<String>) -> Result<(), CycleError> {
+    if visited.contains(team_id) {
+        return Err(CycleError(format!(
+            "Team '{}' would create a cycle (path: {})",
+            team_id,
+            visited.iter().cloned().collect::<Vec<_>>().join(" -> ")
+        )));
+    }
+    visited.insert(team_id.to_string());
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 pub struct Recipient {
@@ -80,14 +106,12 @@ pub enum SchedulerConfig {
     Workflow(WorkflowSchedulerConfig),
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamAgentConfig {
     pub agent_id: String,
     pub role: String,
     pub capabilities: Vec<String>,
 }
-
 
 pub struct Team {
     config: TeamConfig,
@@ -96,17 +120,14 @@ pub struct Team {
 }
 
 impl Team {
-    pub fn new(
-        config: TeamConfig,
-        agent_manager: Arc<AgentManager>,
-    ) -> Self {
+    pub fn new(config: TeamConfig, agent_manager: Arc<AgentManager>) -> Self {
         let scheduler: Arc<dyn Scheduler> = match &config.scheduler_config {
             SchedulerConfig::Supervisor(supervisor_config) => {
                 Arc::new(SupervisorScheduler::new(supervisor_config.clone()))
-            },
+            }
             SchedulerConfig::Workflow(workflow_config) => {
                 Arc::new(WorkflowScheduler::new(workflow_config.clone()))
-            },
+            }
         };
 
         Self {
@@ -120,19 +141,25 @@ impl Team {
         self.process_messages(vec![message]).await
     }
 
-    pub async fn process_messages(&self, initial_messages: Vec<Message>) -> Result<Message, TeamError> {
+    pub async fn process_messages(
+        &self,
+        initial_messages: Vec<Message>,
+    ) -> Result<Message, TeamError> {
         let mut current_messages = initial_messages;
         let mut last_response: Option<Message> = None;
         let mut context = HashMap::new();
 
         loop {
-            let recipient = self.scheduler.determine_next_recipient(
-                &self.config,
-                &self.agent_manager,
-                current_messages.clone(),
-                last_response.clone(),
-                &context,
-            ).await?;
+            let recipient = self
+                .scheduler
+                .determine_next_recipient(
+                    &self.config,
+                    &self.agent_manager,
+                    current_messages.clone(),
+                    last_response.clone(),
+                    &context,
+                )
+                .await?;
 
             // Apply context updates from scheduler
             context.extend(recipient.context_updates);
@@ -145,25 +172,42 @@ impl Team {
                 }
             }
 
-            let agent_id = recipient.agent_id
+            let agent_id = recipient
+                .agent_id
                 .ok_or_else(|| TeamError::Scheduling("No agent ID provided".to_string()))?;
 
-            let agent = self.agent_manager.get(&agent_id).await
+            let agent = self
+                .agent_manager
+                .get(&agent_id)
+                .await
                 .ok_or_else(|| TeamError::Agent(format!("Agent {} not found", agent_id)))?;
 
             // Process the last message with the selected agent
-            let input_message = current_messages.last()
+            let input_message = current_messages
+                .last()
                 .ok_or_else(|| TeamError::Scheduling("No messages to process".to_string()))?;
 
-            println!("  📞 Processing message with agent: {} ({})", agent_id, agent.info().await.unwrap_or_else(|_| AgentInfo {
-                id: agent_id.clone(),
-                name: "Unknown Agent".to_string(),
-                description: "Agent information unavailable".to_string(),
-                capabilities: vec![],
-                metadata: HashMap::new(),
-            }).name);
-            last_response = Some(agent.process(input_message.clone()).await
-                .map_err(|e| TeamError::Agent(e.to_string()))?);
+            println!(
+                "  📞 Processing message with agent: {} ({})",
+                agent_id,
+                agent
+                    .info()
+                    .await
+                    .unwrap_or_else(|_| AgentInfo {
+                        id: agent_id.clone(),
+                        name: "Unknown Agent".to_string(),
+                        description: "Agent information unavailable".to_string(),
+                        capabilities: vec![],
+                        metadata: HashMap::new(),
+                    })
+                    .name
+            );
+            last_response = Some(
+                agent
+                    .process(input_message.clone())
+                    .await
+                    .map_err(|e| TeamError::Agent(e.to_string()))?,
+            );
             println!("  ✅ Agent {} completed processing", agent_id);
 
             // Prepare messages for next iteration
@@ -177,7 +221,7 @@ impl Team {
 
     pub async fn health_check(&self) -> Vec<(String, bool)> {
         let mut results = Vec::new();
-        
+
         for agent_config in &self.config.agents {
             if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
                 // Try to use health_check method
@@ -187,8 +231,80 @@ impl Team {
                 results.push((agent_config.agent_id.clone(), false));
             }
         }
-        
+
         results
+    }
+}
+
+// Implement Agent trait for Team to enable teams as agents
+#[async_trait]
+impl Agent for Team {
+    /// Get agent information for the team
+    ///
+    /// Returns aggregated capabilities from all member agents
+    async fn info(&self) -> A2aResult<AgentInfo> {
+        let mut capabilities = HashSet::new();
+
+        // Aggregate capabilities from all member agents
+        for agent_config in &self.config.agents {
+            if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
+                match agent.info().await {
+                    Ok(info) => {
+                        capabilities.extend(info.capabilities);
+                    }
+                    Err(e) => {
+                        // Log warning but continue - graceful degradation
+                        eprintln!(
+                            "Warning: Failed to get info from agent {}: {}",
+                            agent_config.agent_id, e
+                        );
+                    }
+                }
+            }
+        }
+
+        // Add team-specific capabilities from config
+        for agent_config in &self.config.agents {
+            capabilities.extend(agent_config.capabilities.clone());
+        }
+
+        let mut metadata = HashMap::new();
+        metadata.insert("type".to_string(), "team".to_string());
+        metadata.insert(
+            "mode".to_string(),
+            match self.config.mode {
+                TeamMode::Supervisor => "supervisor".to_string(),
+                TeamMode::Workflow => "workflow".to_string(),
+            },
+        );
+        metadata.insert(
+            "member_count".to_string(),
+            self.config.agents.len().to_string(),
+        );
+
+        Ok(AgentInfo {
+            id: self.config.id.clone(),
+            name: self.config.name.clone(),
+            description: self.config.description.clone(),
+            capabilities: capabilities.into_iter().collect(),
+            metadata,
+        })
+    }
+
+    /// Process a message through the team's orchestration
+    ///
+    /// Delegates to scheduler which routes to appropriate member agents
+    async fn process(&self, message: Message) -> A2aResult<Message> {
+        self.process_message(message)
+            .await
+            .map_err(|e| A2aError::Internal(e.to_string()))
+    }
+
+    /// Check if team is healthy - all member agents responsive
+    async fn health_check(&self) -> bool {
+        let results = Team::health_check(self).await;
+        // Team is healthy if at least one agent is healthy
+        results.iter().any(|(_, healthy)| *healthy)
     }
 }
 
@@ -208,13 +324,13 @@ pub trait Scheduler: Send + Sync {
 pub enum TeamError {
     #[error("Agent error: {0}")]
     Agent(String),
-    
+
     #[error("No agent available for request")]
     NoAgentAvailable,
-    
+
     #[error("Scheduling error: {0}")]
     Scheduling(String),
-    
+
     #[error("Configuration error: {0}")]
     Configuration(String),
 }
@@ -247,8 +363,12 @@ impl Scheduler for SupervisorScheduler {
         _last_response: Option<Message>,
         _context: &HashMap<String, String>,
     ) -> Result<Recipient, TeamError> {
-        let _supervisor = self.get_supervisor_agent(agent_manager).await
-            .ok_or_else(|| TeamError::Configuration("No supervisor agent configured".to_string()))?;
+        let _supervisor = self
+            .get_supervisor_agent(agent_manager)
+            .await
+            .ok_or_else(|| {
+                TeamError::Configuration("No supervisor agent configured".to_string())
+            })?;
 
         Ok(Recipient::agent(self.config.supervisor_agent_id.clone()))
     }
@@ -294,10 +414,18 @@ impl Scheduler for WorkflowScheduler {
         if let Some(condition) = &step.condition {
             if let Some(response) = &last_response {
                 // Simple condition checking - check message content
-                if let Some(content) = crate::adapters::extract_text(&response) {
+                if let Some(content) = crate::adapters::extract_text(response) {
                     if !content.contains(condition) {
                         *current_step += 1;
-                        return self.determine_next_recipient(_team_config, _agent_manager, _messages, last_response, _context).await;
+                        return self
+                            .determine_next_recipient(
+                                _team_config,
+                                _agent_manager,
+                                _messages,
+                                last_response,
+                                _context,
+                            )
+                            .await;
                     }
                 }
             }
@@ -308,7 +436,10 @@ impl Scheduler for WorkflowScheduler {
         *current_step += 1;
 
         // Debug logging for workflow step
-        println!("🔄 Workflow Step {}: Calling agent '{}'", step_number, agent_id);
+        println!(
+            "🔄 Workflow Step {}: Calling agent '{}'",
+            step_number, agent_id
+        );
 
         // If this was the last step, return to user next time
         if *current_step >= self.config.steps.len() {

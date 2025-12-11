@@ -1,16 +1,16 @@
 //! Integration tests for client streaming API
 #![cfg(feature = "streaming")]
 
-use a2a_protocol::prelude::*;
+use a2a_protocol::client::transport::{JsonRpcTransport, StreamingResult};
 use a2a_protocol::client::{A2aStreamingClient, ClientBuilder};
-use a2a_protocol::server::{Agent, TaskAwareHandler, JsonRpcRouter};
-use a2a_protocol::client::transport::{StreamingResult, JsonRpcTransport};
+use a2a_protocol::prelude::*;
+use a2a_protocol::server::{Agent, JsonRpcRouter, TaskAwareHandler};
 use a2a_protocol::TaskResubscribeRequest;
+use async_trait::async_trait;
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use async_trait::async_trait;
 
 struct TestAgent {
     profile: AgentProfile,
@@ -57,7 +57,7 @@ async fn start_test_server() -> (SocketAddr, tokio::task::JoinHandle<()>) {
 #[tokio::test]
 async fn test_client_stream_message() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     // Create streaming client - compile-time guarantee of streaming support
     let endpoint = format!("http://{}/rpc", addr);
     let transport = Arc::new(JsonRpcTransport::new(&endpoint).unwrap());
@@ -74,7 +74,7 @@ async fn test_client_stream_message() {
             Ok(event) => events.push(event),
             Err(e) => panic!("Stream error: {:?}", e),
         }
-        
+
         // Limit to prevent infinite loops in case of bugs
         if events.len() > 100 {
             break;
@@ -83,7 +83,7 @@ async fn test_client_stream_message() {
 
     // We should receive at least a task creation event
     assert!(!events.is_empty(), "Should receive at least one event");
-    
+
     // First event should be a Task
     match &events[0] {
         StreamingResult::Task(task) => {
@@ -96,7 +96,7 @@ async fn test_client_stream_message() {
 #[tokio::test]
 async fn test_client_stream_text() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
     let transport = Arc::new(JsonRpcTransport::new(&endpoint).unwrap());
     let client = A2aStreamingClient::new(transport);
@@ -118,7 +118,7 @@ async fn test_client_stream_text() {
 #[tokio::test]
 async fn test_client_resubscribe_task() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
     let transport = Arc::new(JsonRpcTransport::new(&endpoint).unwrap());
     let client = A2aStreamingClient::new(transport);
@@ -149,7 +149,7 @@ async fn test_client_resubscribe_task() {
         if let Err(e) = result {
             eprintln!("Resubscribe stream error: {:?}", e);
         }
-        
+
         if event_count > 10 {
             break;
         }
@@ -163,7 +163,7 @@ async fn test_client_resubscribe_task() {
 #[tokio::test]
 async fn test_client_resubscribe_with_last_event_id() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
     let transport = Arc::new(JsonRpcTransport::new(&endpoint).unwrap());
     let client = A2aStreamingClient::new(transport);
@@ -191,7 +191,10 @@ async fn test_client_resubscribe_with_last_event_id() {
     // This should work even if the server doesn't have event-123
     // (it will start from the beginning or current position)
     let result = client.resubscribe_task(request).await;
-    assert!(result.is_ok(), "Resubscribe with lastEventId should not error");
+    assert!(
+        result.is_ok(),
+        "Resubscribe with lastEventId should not error"
+    );
 }
 
 #[tokio::test]
@@ -204,15 +207,18 @@ async fn test_streaming_error_handling() {
     let message = Message::user_text("This should fail");
     let result = client.stream_message(message).await;
 
-    assert!(result.is_err(), "Should error when connecting to non-existent server");
+    assert!(
+        result.is_err(),
+        "Should error when connecting to non-existent server"
+    );
 }
 
 #[tokio::test]
 async fn test_client_builder_with_streaming() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
-    
+
     // A2aClient no longer supports streaming - use A2aStreamingClient instead
     let client = ClientBuilder::new()
         .with_json_rpc(&endpoint)
@@ -228,9 +234,9 @@ async fn test_client_builder_with_streaming() {
 #[tokio::test]
 async fn test_typed_streaming_client() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
-    
+
     // Create a typed streaming client for compile-time guarantees
     let streaming_client = ClientBuilder::new()
         .with_json_rpc(&endpoint)
@@ -250,15 +256,18 @@ async fn test_typed_streaming_client() {
         }
     }
 
-    assert!(received_event, "Typed streaming client should receive events");
+    assert!(
+        received_event,
+        "Typed streaming client should receive events"
+    );
 }
 
 #[tokio::test]
 async fn test_typed_client_base_access() {
     let (addr, _server_handle) = start_test_server().await;
-    
+
     let endpoint = format!("http://{}/rpc", addr);
-    
+
     let streaming_client = ClientBuilder::new()
         .with_json_rpc(&endpoint)
         .build_streaming()
@@ -267,8 +276,7 @@ async fn test_typed_client_base_access() {
     // Access base client methods directly via Deref (no .base() needed!)
     assert_eq!(streaming_client.transport_type(), "json-rpc");
     assert!(streaming_client.config().timeout_seconds > 0);
-    
+
     // Can still use .base() explicitly if preferred
     assert_eq!(streaming_client.base().transport_type(), "json-rpc");
 }
-

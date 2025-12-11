@@ -51,10 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let handler = TaskAwareHandler::new(agent);
 
     // 3. Build and run server - that's it!
-    ServerBuilder::new(handler)
-        .with_port(3000)
-        .run()
-        .await?;
+    ServerBuilder::new(handler).with_port(3000).run().await?;
 
     Ok(())
 }

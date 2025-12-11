@@ -105,10 +105,13 @@ impl AgentManager {
         let mut matching = Vec::new();
         for agent in agents {
             if let Ok(info) = agent.info().await {
-                if info.capabilities.iter().any(|cap| {
-                    cap.to_lowercase().contains(&capability.to_lowercase())
-                }) {
-                    matching.push(agent);
+                // Check if any capability contains the search string
+                if info
+                    .capabilities
+                    .iter()
+                    .any(|cap| cap.to_lowercase().contains(&capability.to_lowercase()))
+                {
+                    matching.push(agent.clone());
                 }
             }
         }

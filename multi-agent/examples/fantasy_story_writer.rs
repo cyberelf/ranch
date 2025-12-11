@@ -7,9 +7,9 @@
 //! - Story Advisor (A2A Agent) - Reviews and provides improvement suggestions
 
 use multi_agent::*;
-use std::sync::Arc;
 use std::env;
 use std::io::Write;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,33 +29,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for agent_config in config.to_agent_configs() {
         let agent: Arc<dyn Agent> = match agent_config.protocol {
             ProtocolType::A2A => {
-                println!("🔗 Registering A2A agent: {} ({})", agent_config.name, agent_config.id);
+                println!(
+                    "🔗 Registering A2A agent: {} ({})",
+                    agent_config.name, agent_config.id
+                );
 
                 let transport = Arc::new(JsonRpcTransport::new(&agent_config.endpoint)?);
                 let client = A2aClient::new(transport);
 
-                let a2a_config = A2AAgentConfig {
-                    max_retries: agent_config.max_retries,
-                    task_handling: TaskHandling::PollUntilComplete,
-                };
+                // Use TryFrom for config conversion
+                let a2a_config: A2AAgentConfig = agent_config.clone().try_into()?;
 
                 Arc::new(A2AAgent::with_config(client, a2a_config))
             }
             ProtocolType::OpenAI => {
-                println!("🤖 Registering OpenAI agent: {} ({})", agent_config.name, agent_config.id);
+                println!(
+                    "🤖 Registering OpenAI agent: {} ({})",
+                    agent_config.name, agent_config.id
+                );
 
-                let openai_config = OpenAIAgentConfig {
-                    api_key: env::var("OPENAI_API_KEY").ok(),
-                    max_retries: agent_config.max_retries,
-                    timeout_seconds: agent_config.timeout_seconds,
-                    model: agent_config.metadata.get("model")
-                        .cloned()
-                        .unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
-                    temperature: agent_config.metadata.get("temperature")
-                        .and_then(|v| v.parse().ok()),
-                    max_tokens: agent_config.metadata.get("max_tokens")
-                        .and_then(|v| v.parse().ok()),
-                };
+                // Use TryFrom for config conversion
+                let mut openai_config: OpenAIAgentConfig = agent_config.clone().try_into()?;
+
+                // Override api_key from environment if available
+                if let Ok(api_key) = env::var("OPENAI_API_KEY") {
+                    openai_config.api_key = Some(api_key);
+                }
 
                 Arc::new(OpenAIAgent::new(agent_config.endpoint, openai_config))
             }
@@ -67,7 +66,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent_count = agent_manager.count().await;
     if agent_count == 0 {
-        eprintln!("❌ No agents registered. Please check your configuration and environment variables.");
+        eprintln!(
+            "❌ No agents registered. Please check your configuration and environment variables."
+        );
         return Ok(());
     }
 
@@ -86,13 +87,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🏥 Checking agent health...");
     let health_results = agent_manager.health_check_all().await;
     for (id, healthy) in &health_results {
-        let status = if *healthy { "✅ Healthy" } else { "❌ Unhealthy" };
+        let status = if *healthy {
+            "✅ Healthy"
+        } else {
+            "❌ Unhealthy"
+        };
         println!("   {}: {}", id, status);
     }
 
     // Get the fantasy story writing team
     let team_configs = config.to_team_configs();
-    let fantasy_team = team_configs.iter()
+    let fantasy_team = team_configs
+        .iter()
         .find(|team| team.id == "fantasy-story-team")
         .ok_or("Fantasy story team not found in configuration")?;
 
@@ -130,7 +136,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("🏥 Agent Health Status:");
             let health_results = agent_manager.health_check_all().await;
             for (id, healthy) in health_results {
-                let status = if healthy { "✅ Healthy" } else { "❌ Unhealthy" };
+                let status = if healthy {
+                    "✅ Healthy"
+                } else {
+                    "❌ Unhealthy"
+                };
                 println!("   {}: {}", id, status);
             }
             println!();
@@ -149,7 +159,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Check if it's a story request
         if input.starts_with("story ") {
-            let topic = input.strip_prefix("story ").unwrap_or("a magical adventure");
+            let topic = input
+                .strip_prefix("story ")
+                .unwrap_or("a magical adventure");
             write_fantasy_story(&team, topic).await?;
             continue;
         }
@@ -161,9 +173,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn write_fantasy_story(team: &Arc<Team>, topic: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn write_fantasy_story(
+    team: &Arc<Team>,
+    topic: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📖 Writing Fantasy Story About: '{}'", topic);
-    println!("================================{}", "=".repeat(topic.len()));
+    println!(
+        "================================{}",
+        "=".repeat(topic.len())
+    );
 
     let start_time = std::time::Instant::now();
 
@@ -185,8 +203,8 @@ async fn write_fantasy_story(team: &Arc<Team>, topic: &str) -> Result<(), Box<dy
 
     match team.process_message(message).await {
         Ok(response) => {
-            let response_text = extract_text(&response)
-                .unwrap_or_else(|| "No response received".to_string());
+            let response_text =
+                extract_text(&response).unwrap_or_else(|| "No response received".to_string());
 
             println!("🎯 Story Plan Created:");
             println!("====================");
@@ -194,7 +212,10 @@ async fn write_fantasy_story(team: &Arc<Team>, topic: &str) -> Result<(), Box<dy
             println!();
 
             let elapsed = start_time.elapsed();
-            println!("⏱️  Story completed in {:.2} seconds", elapsed.as_secs_f64());
+            println!(
+                "⏱️  Story completed in {:.2} seconds",
+                elapsed.as_secs_f64()
+            );
         }
         Err(e) => {
             eprintln!("❌ Error writing fantasy story: {}", e);

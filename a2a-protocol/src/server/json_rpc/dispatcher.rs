@@ -1,13 +1,10 @@
 //! Framework-agnostic JSON-RPC 2.0 dispatcher for A2A
 
 use crate::{
+    core::{is_batch_request, is_notification, map_error_to_rpc, JsonRpcResponse},
     server::A2aHandler,
-    core::{
-        is_batch_request, is_notification, map_error_to_rpc,
-        JsonRpcResponse,
-    },
-    A2aError, A2aResult, AgentCardGetRequest, MessageSendRequest,
-    TaskCancelRequest, TaskGetRequest, TaskStatusRequest,
+    A2aError, A2aResult, AgentCardGetRequest, MessageSendRequest, TaskCancelRequest,
+    TaskGetRequest, TaskStatusRequest,
 };
 use serde_json::Value;
 
@@ -225,7 +222,12 @@ mod tests {
                 &self,
                 _message: crate::Message,
             ) -> crate::A2aResult<
-                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::client::transport::StreamingResult>> + Send + Unpin>,
+                Box<
+                    dyn futures_util::stream::Stream<
+                            Item = crate::A2aResult<crate::client::transport::StreamingResult>,
+                        > + Send
+                        + Unpin,
+                >,
             > {
                 Err(A2aError::Server("streaming not supported".to_string()))
             }
@@ -235,7 +237,12 @@ mod tests {
                 &self,
                 _request: crate::TaskResubscribeRequest,
             ) -> crate::A2aResult<
-                Box<dyn futures_util::stream::Stream<Item = crate::A2aResult<crate::client::transport::StreamingResult>> + Send + Unpin>,
+                Box<
+                    dyn futures_util::stream::Stream<
+                            Item = crate::A2aResult<crate::client::transport::StreamingResult>,
+                        > + Send
+                        + Unpin,
+                >,
             > {
                 Err(A2aError::Server("streaming not supported".to_string()))
             }

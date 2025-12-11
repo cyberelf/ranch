@@ -16,11 +16,10 @@ pub use client::A2aClient;
 pub use streaming_client::A2aStreamingClient;
 
 // Re-export commonly used client types
-pub use auth::{Authenticator, ApiKeyAuth, BearerAuth};
+pub use auth::{ApiKeyAuth, Authenticator, BearerAuth};
 pub use transport::{
-    JsonRpcTransport, Transport, TransportConfig,
-    JsonRpcRequest, JsonRpcResponse, JsonRpcError,
+    JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcTransport, Transport, TransportConfig,
 };
 
 #[cfg(feature = "streaming")]
-pub use transport::{StreamingTransport, StreamingResult};
+pub use transport::{StreamingResult, StreamingTransport};

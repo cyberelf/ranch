@@ -42,9 +42,13 @@ impl HttpClient {
         // For JSON-RPC endpoints, don't add trailing slash
         // Only add trailing slash if the URL is a base domain (e.g., "http://example.com")
         // but not if it's an endpoint path (e.g., "http://example.com/rpc")
-        let url_has_path = base_url.trim_end_matches('/').contains("://") 
-            && base_url.trim_end_matches('/').split("://").nth(1).map_or(false, |s| s.contains('/'));
-        
+        let url_has_path = base_url.trim_end_matches('/').contains("://")
+            && base_url
+                .trim_end_matches('/')
+                .split("://")
+                .nth(1)
+                .map_or(false, |s| s.contains('/'));
+
         if !url_has_path && !base_url.ends_with('/') {
             base_url.push('/');
         }

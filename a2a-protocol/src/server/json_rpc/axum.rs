@@ -28,18 +28,18 @@ impl JsonRpcRouter {
         H: A2aHandler + 'static,
     {
         let handler = Arc::new(handler);
-        
+
         #[cfg(feature = "streaming")]
         let router = Router::new()
             .route("/rpc", post(handle_rpc))
             .route("/stream", post(handle_stream))
             .with_state(handler);
-        
+
         #[cfg(not(feature = "streaming"))]
         let router = Router::new()
             .route("/rpc", post(handle_rpc))
             .with_state(handler);
-        
+
         Self { router }
     }
 
@@ -55,10 +55,7 @@ async fn handle_stream(State(handler): State<Arc<dyn A2aHandler>>, body: Bytes) 
     let value = match value {
         Ok(v) => v,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid JSON: {}", e),
-            ).into_response();
+            return (StatusCode::BAD_REQUEST, format!("Invalid JSON: {}", e)).into_response();
         }
     };
 
@@ -73,39 +70,30 @@ async fn handle_stream(State(handler): State<Arc<dyn A2aHandler>>, body: Bytes) 
             match serde_json::from_value(message_value) {
                 Ok(message) => handler.rpc_message_stream(message).await,
                 Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        format!("Invalid message: {}", e),
-                    ).into_response();
+                    return (StatusCode::BAD_REQUEST, format!("Invalid message: {}", e))
+                        .into_response();
                 }
             }
         }
-        "task/resubscribe" => {
-            match serde_json::from_value(params) {
-                Ok(request) => handler.rpc_task_resubscribe(request).await,
-                Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        format!("Invalid request: {}", e),
-                    ).into_response();
-                }
+        "task/resubscribe" => match serde_json::from_value(params) {
+            Ok(request) => handler.rpc_task_resubscribe(request).await,
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, format!("Invalid request: {}", e))
+                    .into_response();
             }
-        }
+        },
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
                 format!("Unknown streaming method: {}", method),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     match stream_result {
-        Ok(stream) => {
-            SseResponse::new(stream).into_response()
-        }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e)).into_response()
-        }
+        Ok(stream) => SseResponse::new(stream).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e)).into_response(),
     }
 }
 

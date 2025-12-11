@@ -209,7 +209,6 @@ impl SendResponse {
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_task_creation() {
         let task = Task::generate();

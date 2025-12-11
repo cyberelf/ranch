@@ -153,31 +153,31 @@
 
 ### Implementation for User Story 3
 
-- [ ] T022 [P] [US3] Create root AGENT.md with architecture overview
+- [X] T022 [P] [US3] Create root AGENT.md with architecture overview
   - High-level agent architecture diagram (ASCII or Mermaid)
   - Explanation of trait hierarchy: multi-agent Agent vs a2a-protocol Agent
   - Component relationships: Team, AgentManager, Schedulers, TeamServer
   - When to use which trait
   - Links to crate-specific AGENT.md files
-- [ ] T023 [P] [US3] Create a2a-protocol/AGENT.md for A2A protocol guide
+- [X] T023 [P] [US3] Create a2a-protocol/AGENT.md for A2A protocol guide
   - How to implement a2a-protocol Agent trait
   - Task lifecycle management (queued -> working -> completed/failed)
   - JSON-RPC server setup with TaskAwareHandler + JsonRpcRouter
   - Authentication strategies (API key, Bearer, OAuth2)
   - Code examples: minimal agent, stateful agent, streaming agent
-- [ ] T024 [P] [US3] Create multi-agent/AGENT.md for multi-agent framework guide
+- [X] T024 [P] [US3] Create multi-agent/AGENT.md for multi-agent framework guide
   - How to implement multi-agent Agent trait
   - Scheduler patterns: Supervisor mode vs Workflow mode
   - Team composition and configuration via TOML
   - Differences between multi-agent Agent and a2a-protocol Agent
   - Nested team composition patterns
   - Code examples: custom agent, custom scheduler, nested teams
-- [ ] T025 [US3] Add architecture diagrams to AGENT.md files
+- [X] T025 [US3] Add architecture diagrams to AGENT.md files
   - Trait hierarchy diagram showing Agent traits in both crates
   - Team orchestration flow diagram
   - TeamServer request lifecycle diagram
   - Config conversion flow diagram
-- [ ] T026 [US3] Verify all code examples in AGENT.md files compile
+- [X] T026 [US3] Verify all code examples in AGENT.md files compile
   - Extract code blocks from AGENT.md files
   - Compile as doc tests or standalone examples
   - Fix any compilation errors

@@ -107,7 +107,7 @@ struct OpenAIUsage {
 
 impl OpenAIAgent {
     /// Create a new OpenAI agent with the given endpoint and configuration
-    pub fn new(base_url: String, config: OpenAIAgentConfig) -> Self {
+    pub fn with_config(base_url: String, config: OpenAIAgentConfig) -> Self {
         let agent_info = AgentInfo {
             id: format!("openai-{}", uuid::Uuid::new_v4()),
             name: "OpenAI Agent".to_string(),
@@ -140,8 +140,8 @@ impl OpenAIAgent {
     }
 
     /// Create a new OpenAI agent with default configuration
-    pub fn new_default(base_url: String) -> Self {
-        Self::new(base_url, OpenAIAgentConfig::default())
+    pub fn new(base_url: String) -> Self {
+        Self::with_config(base_url, OpenAIAgentConfig::default())
     }
 
     /// Send a message to the OpenAI API
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_openai_agent_creation() {
         let base_url = "https://api.openai.com/v1".to_string();
-        let agent = OpenAIAgent::new_default(base_url);
+        let agent = OpenAIAgent::new(base_url);
 
         assert_eq!(agent.config.model, "gpt-3.5-turbo");
         assert_eq!(agent.config.max_retries, 3);
@@ -261,7 +261,7 @@ mod tests {
             ..Default::default()
         };
 
-        let agent = OpenAIAgent::new(base_url, config);
+        let agent = OpenAIAgent::with_config(base_url, config);
 
         assert_eq!(agent.config.model, "gpt-4");
         assert_eq!(agent.config.temperature, Some(0.7));

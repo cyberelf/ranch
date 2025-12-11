@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_tokens: Some(1500),
     };
 
-    let orchestrator = Arc::new(OpenAIAgent::new(
+    let orchestrator = Arc::new(OpenAIAgent::with_config(
         openai_base_url.clone(),
         orchestrator_config,
     ));
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_tokens: Some(2000),
     };
 
-    let composer = Arc::new(OpenAIAgent::new(openai_base_url.clone(), composer_config));
+    let composer = Arc::new(OpenAIAgent::with_config(openai_base_url.clone(), composer_config));
 
     let composer_id = agent_manager.register(composer).await?;
     println!("✅ Registered Story Composer: {}", composer_id);

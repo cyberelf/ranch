@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .and_then(|v| v.parse().ok()),
                 };
 
-                Arc::new(OpenAIAgent::new(agent_config.endpoint, openai_config))
+                Arc::new(OpenAIAgent::with_config(agent_config.endpoint, openai_config))
             }
         };
 

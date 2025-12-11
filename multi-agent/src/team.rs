@@ -238,7 +238,7 @@ impl Team {
 
 // Implement Agent trait for Team to enable teams as agents
 #[async_trait]
-impl Agent for Team {
+impl crate::agent::Agent for Team {
     /// Get agent information for the team
     ///
     /// Returns aggregated capabilities from all member agents
@@ -338,6 +338,7 @@ pub enum TeamError {
 pub struct SupervisorScheduler {
     config: SupervisorSchedulerConfig,
     context: RwLock<HashMap<String, String>>,
+    call_count: RwLock<usize>,
 }
 
 impl SupervisorScheduler {
@@ -345,6 +346,7 @@ impl SupervisorScheduler {
         Self {
             config,
             context: RwLock::new(HashMap::new()),
+            call_count: RwLock::new(0),
         }
     }
 
@@ -360,7 +362,7 @@ impl Scheduler for SupervisorScheduler {
         _team_config: &TeamConfig,
         agent_manager: &AgentManager,
         _messages: Vec<Message>,
-        _last_response: Option<Message>,
+        last_response: Option<Message>,
         _context: &HashMap<String, String>,
     ) -> Result<Recipient, TeamError> {
         let _supervisor = self
@@ -370,7 +372,23 @@ impl Scheduler for SupervisorScheduler {
                 TeamError::Configuration("No supervisor agent configured".to_string())
             })?;
 
-        Ok(Recipient::agent(self.config.supervisor_agent_id.clone()))
+        // Track call count to prevent infinite loops
+        let mut count = self.call_count.write().await;
+        *count += 1;
+
+        // If this is the first call, route to supervisor
+        // After the supervisor responds, return to user
+        if *count == 1 {
+            Ok(Recipient::agent(self.config.supervisor_agent_id.clone()))
+        } else if last_response.is_some() {
+            // Reset counter for next message
+            *count = 0;
+            Ok(Recipient::user())
+        } else {
+            // Safety check - avoid infinite loop
+            *count = 0;
+            Ok(Recipient::user())
+        }
     }
 }
 

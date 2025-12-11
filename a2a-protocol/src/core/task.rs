@@ -213,7 +213,7 @@ mod tests {
     fn test_task_creation() {
         let task = Task::generate();
         assert_eq!(task.status.state, TaskState::Pending);
-        assert!(task.id.len() > 0);
+        assert!(!task.id.is_empty());
     }
 
     #[test]

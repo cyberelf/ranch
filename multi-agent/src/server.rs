@@ -87,12 +87,22 @@ impl A2aServerAgent for TeamAgentAdapter {
 /// # Example
 ///
 /// ```no_run
-/// use multi_agent::{Team, TeamConfig, AgentManager, TeamServer};
+/// use multi_agent::{Team, AgentManager, TeamServer};
+/// use multi_agent::team::{TeamConfig, TeamMode, TeamAgentConfig, SchedulerConfig, SupervisorSchedulerConfig};
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let manager = Arc::new(AgentManager::new());
-/// let team_config = TeamConfig { /* ... */ };
+/// let team_config = TeamConfig {
+///     id: "example-team".to_string(),
+///     name: "Example Team".to_string(),
+///     description: "An example team".to_string(),
+///     mode: TeamMode::Supervisor,
+///     agents: vec![],
+///     scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
+///         supervisor_agent_id: "supervisor".to_string(),
+///     }),
+/// };
 /// let team = Arc::new(Team::new(team_config, manager));
 ///
 /// let server = TeamServer::new(team, 8080);

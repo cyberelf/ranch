@@ -231,34 +231,34 @@
   - Send message and show delegation to agent1
   - Print clear console output showing flow
   - Add README section at top explaining purpose
-- [ ] T031 [P] [US5] Create multi-agent/examples/supervisor_team.rs
+- [X] T031 [P] [US5] Create multi-agent/examples/supervisor_team.rs
   - Create supervisor agent and 3 specialist agents
   - Create team with supervisor mode
   - Send query requiring specialist selection
   - Show supervisor choosing correct specialist
   - Print decision-making process
   - Add README section at top
-- [ ] T032 [P] [US5] Create multi-agent/examples/workflow_team.rs
+- [X] T032 [P] [US5] Create multi-agentexamples/workflow_team.rs
   - Create 3 agents for sequential steps (research, draft, edit)
   - Create team with workflow mode
   - Send message flowing through all steps
   - Show state passing between agents
   - Print progress through workflow
   - Add README section at top
-- [ ] T033 [P] [US5] Create multi-agent/examples/remote_agents.rs
+- [X] T033 [P] [US5] Create multi-agent/examples/remote_agents.rs
   - Configure 2-3 A2AAgent instances with remote endpoints
   - Create team coordinating these remote agents
   - Show team orchestrating distributed agents
   - Handle network errors gracefully
   - Add README section at top explaining remote setup
-- [ ] T034 [US5] Create multi-agent/examples/team_server.rs
+- [X] T034 [US5] Create multi-agent/examples/team_server.rs
   - Create a team with 2-3 agents
   - Create and start TeamServer on port 8080
   - Print server startup message
   - Show example curl commands for testing
   - Handle graceful shutdown (Ctrl+C)
   - Add README section at top
-- [ ] T035 [US5] Create multi-agent/examples/README.md
+- [X] T035 [US5] Create multi-agent/examples/README.md
   - Overview of all examples
   - What each example demonstrates
   - How to run each example

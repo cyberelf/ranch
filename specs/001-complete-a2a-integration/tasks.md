@@ -225,7 +225,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T030 [P] [US5] Create multi-agent/examples/simple_team.rs
+- [X] T030 [P] [US5] Create multi-agent/examples/simple_team.rs
   - Create 2 mock agents (agent1, agent2)
   - Create team with supervisor mode
   - Send message and show delegation to agent1

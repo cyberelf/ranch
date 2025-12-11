@@ -273,16 +273,16 @@
 
 **Purpose**: Final improvements affecting multiple user stories
 
-- [ ] T036 [P] Run cargo clippy on entire workspace and fix all warnings
-- [ ] T037 [P] Run cargo fmt on entire workspace
-- [ ] T038 [P] Update root README.md with links to new AGENT.md files
-- [ ] T039 [P] Update IMPLEMENTATION_PLAN.md marking Phases 3-6 complete
-- [ ] T040 Verify integration test coverage >80% for new components
+- [X] T036 [P] Run cargo clippy on entire workspace and fix all warnings
+- [X] T037 [P] Run cargo fmt on entire workspace
+- [X] T038 [P] Update root README.md with links to new AGENT.md files
+- [X] T039 [P] Update IMPLEMENTATION_PLAN.md marking Phases 3-6 complete
+- [X] T040 Verify integration test coverage >80% for new components
   - Run cargo tarpaulin or similar coverage tool
   - Focus on Team-as-Agent and TeamServer modules
-- [ ] T041 Run all examples and verify output matches documentation
-- [ ] T042 Follow quickstart.md validation steps
-- [ ] T043 Update CHANGELOG.md for v2.0.0 release
+- [X] T041 Run all examples and verify output matches documentation
+- [X] T042 Follow quickstart.md validation steps
+- [X] T043 Update CHANGELOG.md for v2.0.0 release
   - Document Team as Agent trait implementation
   - Document TeamServer for A2A protocol exposure
   - Document TryFrom config conversions

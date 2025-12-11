@@ -18,13 +18,13 @@ use tokio::time::sleep;
 pub struct WebhookPayload {
     /// Event type that triggered this webhook
     pub event: TaskEvent,
-    
+
     /// The full task object
     pub task: Task,
-    
+
     /// Timestamp when the event occurred (ISO 8601)
     pub timestamp: String,
-    
+
     /// ID of the agent sending the webhook
     pub agent_id: String,
 }
@@ -86,8 +86,7 @@ impl Default for RetryConfig {
 impl RetryConfig {
     /// Calculate delay for a given retry attempt
     pub fn calculate_delay(&self, attempt: u32) -> Duration {
-        let delay_secs = (self.initial_delay as f64 
-            * self.backoff_multiplier.powi(attempt as i32))
+        let delay_secs = (self.initial_delay as f64 * self.backoff_multiplier.powi(attempt as i32))
             .min(self.max_delay as f64);
         Duration::from_secs(delay_secs as u64)
     }
@@ -116,7 +115,7 @@ impl WebhookQueue {
     pub fn new(queue_size: usize, retry_config: RetryConfig) -> Self {
         let (sender, receiver) = mpsc::channel(queue_size);
         let retry_config = Arc::new(retry_config);
-        
+
         // Spawn the worker task only if we're in a tokio runtime
         if tokio::runtime::Handle::try_current().is_ok() {
             let worker_retry_config = retry_config.clone();
@@ -125,18 +124,18 @@ impl WebhookQueue {
                 Self::worker(receiver, worker_sender, worker_retry_config).await;
             });
         }
-        
+
         Self {
             sender,
             retry_config,
         }
     }
-    
+
     /// Create a webhook queue with default configuration
     pub fn with_defaults() -> Self {
         Self::new(1000, RetryConfig::default())
     }
-    
+
     /// Enqueue a webhook for delivery
     pub async fn enqueue(
         &self,
@@ -148,15 +147,15 @@ impl WebhookQueue {
             payload,
             attempt: 0,
         };
-        
+
         self.sender
             .send(request)
             .await
             .map_err(|_| A2aError::Server("Webhook queue is closed".to_string()))?;
-        
+
         Ok(())
     }
-    
+
     /// Worker task that processes queued webhooks
     async fn worker(
         mut receiver: mpsc::Receiver<WebhookDeliveryRequest>,
@@ -167,14 +166,10 @@ impl WebhookQueue {
             .timeout(Duration::from_secs(retry_config.request_timeout))
             .build()
             .expect("Failed to create HTTP client");
-        
+
         while let Some(request) = receiver.recv().await {
-            let result = Self::deliver_webhook(
-                &client,
-                &request.config,
-                &request.payload,
-            ).await;
-            
+            let result = Self::deliver_webhook(&client, &request.config, &request.payload).await;
+
             match result {
                 Ok(_) => {
                     // Successfully delivered
@@ -186,17 +181,17 @@ impl WebhookQueue {
                         // Retry
                         let next_attempt = request.attempt + 1;
                         let delay = retry_config.calculate_delay(next_attempt);
-                        
+
                         // Note: Could add logging here in production
                         // Retrying webhook delivery after failure
-                        
+
                         // Spawn a task to retry after delay
                         let retry_sender = sender.clone();
                         let retry_request = WebhookDeliveryRequest {
                             attempt: next_attempt,
                             ..request
                         };
-                        
+
                         tokio::spawn(async move {
                             sleep(delay).await;
                             let _ = retry_sender.send(retry_request).await;
@@ -210,28 +205,26 @@ impl WebhookQueue {
             }
         }
     }
-    
+
     /// Deliver a single webhook
     async fn deliver_webhook(
         client: &Client,
         config: &PushNotificationConfig,
         payload: &WebhookPayload,
     ) -> A2aResult<Response> {
-        let mut request = client
-            .post(config.url.clone())
-            .json(payload);
-        
+        let mut request = client.post(config.url.clone()).json(payload);
+
         // Add authentication headers
         if let Some(auth) = &config.authentication {
             request = Self::add_authentication(request, auth);
         }
-        
+
         // Send request
         let response = request
             .send()
             .await
             .map_err(|e| A2aError::Server(format!("Webhook delivery failed: {}", e)))?;
-        
+
         // Check response status
         if !response.status().is_success() {
             return Err(A2aError::Server(format!(
@@ -239,10 +232,10 @@ impl WebhookQueue {
                 response.status()
             )));
         }
-        
+
         Ok(response)
     }
-    
+
     /// Add authentication to a request
     fn add_authentication(
         mut request: reqwest::RequestBuilder,
@@ -272,16 +265,16 @@ mod tests {
     #[test]
     fn test_retry_config_delay_calculation() {
         let config = RetryConfig::default();
-        
+
         // First retry: 1 * 2^1 = 2 seconds
         assert_eq!(config.calculate_delay(1), Duration::from_secs(2));
-        
+
         // Second retry: 1 * 2^2 = 4 seconds
         assert_eq!(config.calculate_delay(2), Duration::from_secs(4));
-        
+
         // Third retry: 1 * 2^3 = 8 seconds
         assert_eq!(config.calculate_delay(3), Duration::from_secs(8));
-        
+
         // Large retry should be capped at max_delay
         assert_eq!(config.calculate_delay(10), Duration::from_secs(60));
     }
@@ -289,12 +282,9 @@ mod tests {
     #[test]
     fn test_webhook_payload_creation() {
         let task = Task::new("Test task");
-        let payload = WebhookPayload::new(
-            TaskEvent::Completed,
-            task.clone(),
-            "agent-123".to_string(),
-        );
-        
+        let payload =
+            WebhookPayload::new(TaskEvent::Completed, task.clone(), "agent-123".to_string());
+
         assert_eq!(payload.event, TaskEvent::Completed);
         assert_eq!(payload.task.id, task.id);
         assert_eq!(payload.agent_id, "agent-123");
@@ -310,20 +300,16 @@ mod tests {
     #[tokio::test]
     async fn test_webhook_queue_enqueue() {
         let queue = WebhookQueue::with_defaults();
-        
+
         let config = PushNotificationConfig::new(
             Url::parse("https://example.com/webhook").unwrap(),
             vec![TaskEvent::Completed],
             None,
         );
-        
+
         let task = Task::new("Test task");
-        let payload = WebhookPayload::new(
-            TaskEvent::Completed,
-            task,
-            "agent-123".to_string(),
-        );
-        
+        let payload = WebhookPayload::new(TaskEvent::Completed, task, "agent-123".to_string());
+
         let result = queue.enqueue(config, payload).await;
         assert!(result.is_ok());
     }
@@ -332,11 +318,11 @@ mod tests {
     fn test_add_authentication_bearer() {
         let client = Client::new();
         let request = client.post("https://example.com");
-        
+
         let auth = PushNotificationAuth::Bearer {
             token: "test-token".to_string(),
         };
-        
+
         let _authenticated = WebhookQueue::add_authentication(request, &auth);
         // Note: reqwest doesn't expose headers for inspection in tests,
         // but we can verify it compiles and runs
@@ -346,12 +332,12 @@ mod tests {
     fn test_add_authentication_custom_headers() {
         let client = Client::new();
         let request = client.post("https://example.com");
-        
+
         let mut headers = HashMap::new();
         headers.insert("X-API-Key".to_string(), "secret".to_string());
-        
+
         let auth = PushNotificationAuth::CustomHeaders { headers };
-        
+
         let _authenticated = WebhookQueue::add_authentication(request, &auth);
         // Note: reqwest doesn't expose headers for inspection in tests,
         // but we can verify it compiles and runs

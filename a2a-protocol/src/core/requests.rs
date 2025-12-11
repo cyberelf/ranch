@@ -4,8 +4,8 @@
 //! They are transport-agnostic and can be used with any RPC transport
 //! (JSON-RPC 2.0, gRPC, etc.)
 
-use crate::Message;
 use crate::core::push_notification::PushNotificationConfig;
+use crate::Message;
 use serde::{Deserialize, Serialize};
 
 /// Request for message/send RPC method
@@ -123,12 +123,12 @@ pub struct TaskResubscribeRequest {
     pub task_id: String,
 
     /// Optional metadata for resuming the stream
-    /// 
+    ///
     /// Common fields (transport implementations may use these):
     /// - `lastEventId`: Resume from this event ID (for SSE: mapped to Last-Event-ID header)
     /// - `sequenceNumber`: Resume from this sequence number
     /// - `resumeToken`: Opaque token for resuming the stream
-    /// 
+    ///
     /// The transport implementation handles how to use this metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -192,7 +192,7 @@ pub struct PushNotificationSetRequest {
     /// Task ID to configure notifications for
     #[serde(rename = "taskId")]
     pub task_id: String,
-    
+
     /// Push notification configuration
     pub config: PushNotificationConfig,
 }
@@ -273,7 +273,7 @@ pub struct PushNotificationConfigEntry {
     /// Task ID
     #[serde(rename = "taskId")]
     pub task_id: String,
-    
+
     /// Push notification configuration
     pub config: PushNotificationConfig,
 }
@@ -341,8 +341,8 @@ mod tests {
         assert!(req_with_metadata.metadata.is_some());
 
         // Test with Last-Event-ID (for SSE)
-        let req_with_last_event = TaskResubscribeRequest::new("task-791")
-            .with_last_event_id("event-123");
+        let req_with_last_event =
+            TaskResubscribeRequest::new("task-791").with_last_event_id("event-123");
         assert_eq!(req_with_last_event.task_id, "task-791");
         assert_eq!(
             req_with_last_event.metadata.unwrap()["lastEventId"],
@@ -350,12 +350,8 @@ mod tests {
         );
 
         // Test with sequence number (for gRPC or ordered streams)
-        let req_with_seq = TaskResubscribeRequest::new("task-792")
-            .with_sequence_number(42);
+        let req_with_seq = TaskResubscribeRequest::new("task-792").with_sequence_number(42);
         assert_eq!(req_with_seq.task_id, "task-792");
-        assert_eq!(
-            req_with_seq.metadata.unwrap()["sequenceNumber"],
-            42
-        );
+        assert_eq!(req_with_seq.metadata.unwrap()["sequenceNumber"], 42);
     }
 }

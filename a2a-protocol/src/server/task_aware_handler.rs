@@ -11,7 +11,7 @@ use crate::{
         transport_capabilities::{PushNotificationSupport, TransportCapabilities},
         A2aHandler, PushNotificationStore, TaskStore, WebhookPayload, WebhookQueue,
     },
-    AgentCardGetRequest, A2aResult, MessageSendRequest, PushNotificationConfig,
+    A2aResult, AgentCardGetRequest, MessageSendRequest, PushNotificationConfig,
     PushNotificationConfigEntry, PushNotificationDeleteRequest, PushNotificationGetRequest,
     PushNotificationListRequest, PushNotificationListResponse, PushNotificationSetRequest,
     TaskCancelRequest, TaskEvent, TaskGetRequest, TaskResubscribeRequest, TaskStatusRequest,
@@ -20,11 +20,11 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 #[cfg(feature = "streaming")]
+use crate::client::transport::StreamingResult;
+#[cfg(feature = "streaming")]
 use crate::core::streaming_events::TaskStatusUpdateEvent;
 #[cfg(feature = "streaming")]
 use crate::server::sse::SseWriter;
-#[cfg(feature = "streaming")]
-use crate::client::transport::StreamingResult;
 #[cfg(feature = "streaming")]
 use futures_util::stream::Stream;
 #[cfg(feature = "streaming")]
@@ -105,8 +105,7 @@ impl TaskAwareHandler {
                     // Get agent profile to get agent_id
                     if let Ok(profile) = self.agent.profile().await {
                         // Create webhook payload
-                        let payload =
-                            WebhookPayload::new(event, task, profile.id.to_string());
+                        let payload = WebhookPayload::new(event, task, profile.id.to_string());
 
                         // Enqueue webhook delivery (fire and forget)
                         let _ = self.webhook_queue.enqueue(config, payload).await;
@@ -415,9 +414,7 @@ impl A2aHandler for TaskAwareHandler {
         &self,
         request: PushNotificationDeleteRequest,
     ) -> A2aResult<bool> {
-        self.push_notification_store
-            .delete(&request.task_id)
-            .await
+        self.push_notification_store.delete(&request.task_id).await
     }
 }
 

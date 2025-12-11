@@ -2,11 +2,11 @@
 //!
 //! Provides Axum-based SSE response types for streaming A2A protocol data to clients.
 
-use crate::core::{A2aError, A2aResult};
 use crate::client::transport::StreamingResult;
+use crate::core::{A2aError, A2aResult};
 use async_stream::stream;
-use axum::response::{IntoResponse, Response, Sse};
 use axum::response::sse::{Event as AxumSseEvent, KeepAlive};
+use axum::response::{IntoResponse, Response, Sse};
 use futures_util::stream::{Stream, StreamExt};
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
@@ -28,12 +28,8 @@ impl SseResponse {
         let event_stream = stream.map(|result| {
             result.and_then(|sr| {
                 let (event_type, data) = match sr {
-                    StreamingResult::Message(msg) => {
-                        ("message", serde_json::to_value(&msg)?)
-                    }
-                    StreamingResult::Task(task) => {
-                        ("task", serde_json::to_value(&task)?)
-                    }
+                    StreamingResult::Message(msg) => ("message", serde_json::to_value(&msg)?),
+                    StreamingResult::Task(task) => ("task", serde_json::to_value(&task)?),
                     StreamingResult::TaskStatusUpdate(event) => {
                         ("task-status-update", serde_json::to_value(&event)?)
                     }
@@ -44,9 +40,7 @@ impl SseResponse {
 
                 let data_str = serde_json::to_string(&data)?;
 
-                Ok(AxumSseEvent::default()
-                    .event(event_type)
-                    .data(data_str))
+                Ok(AxumSseEvent::default().event(event_type).data(data_str))
             })
         });
 
@@ -72,9 +66,10 @@ impl SseResponse {
 impl IntoResponse for SseResponse {
     fn into_response(self) -> Response {
         let sse = Sse::new(self.stream);
-        
+
         if let Some(keepalive) = self.keepalive {
-            sse.keep_alive(KeepAlive::new().interval(keepalive)).into_response()
+            sse.keep_alive(KeepAlive::new().interval(keepalive))
+                .into_response()
         } else {
             sse.into_response()
         }
@@ -97,12 +92,13 @@ impl SseWriter {
     }
 
     pub fn send(&self, result: StreamingResult) -> A2aResult<()> {
-        self.tx.send(result)
+        self.tx
+            .send(result)
             .map_err(|_| A2aError::Internal("No active subscribers".to_string()))?;
-        
+
         let mut counter = self.event_counter.write().unwrap();
         *counter += 1;
-        
+
         Ok(())
     }
 
@@ -143,8 +139,8 @@ impl Clone for SseWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{TaskStatus, TaskState};
     use crate::core::streaming_events::TaskStatusUpdateEvent;
+    use crate::core::{TaskState, TaskStatus};
 
     #[test]
     fn test_sse_writer() {
@@ -153,9 +149,7 @@ mod tests {
         assert_eq!(writer.subscriber_count(), 0);
 
         let status = TaskStatus::new(TaskState::Working);
-        let event = StreamingResult::TaskStatusUpdate(
-            TaskStatusUpdateEvent::new("task_1", status)
-        );
+        let event = StreamingResult::TaskStatusUpdate(TaskStatusUpdateEvent::new("task_1", status));
 
         // Need a subscriber before we can send
         let _stream = writer.subscribe();

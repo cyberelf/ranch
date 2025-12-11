@@ -123,14 +123,18 @@ impl MultiAgentError {
     pub fn user_message(&self) -> String {
         match self {
             Self::Network(msg) => format!("Connection failed: {}", msg),
-            Self::Authentication(_) => "Authentication failed. Please check your credentials.".to_string(),
+            Self::Authentication(_) => {
+                "Authentication failed. Please check your credentials.".to_string()
+            }
             Self::Configuration(msg) => format!("Configuration error: {}", msg),
             Self::Protocol(msg) => format!("Protocol error: {}", msg),
             Self::Agent(msg) => format!("Agent error: {}", msg),
             Self::Task(msg) => format!("Task failed: {}", msg),
             Self::Validation(msg) => format!("Invalid input: {}", msg),
             Self::Timeout => "Operation timed out. Please try again.".to_string(),
-            Self::RateLimited(duration) => format!("Rate limited. Please wait {} seconds.", duration.as_secs()),
+            Self::RateLimited(duration) => {
+                format!("Rate limited. Please wait {} seconds.", duration.as_secs())
+            }
             Self::Internal(msg) => format!("An error occurred: {}", msg),
             Self::Json(_) => "Data format error occurred.".to_string(),
             Self::Io(_) => "File system error occurred.".to_string(),
@@ -172,16 +176,21 @@ impl From<a2a_protocol::A2aError> for MultiAgentError {
             AgentNotFound(id) => Self::Agent(format!("Agent not found: {}", id)),
             InvalidAgentId(id) => Self::Validation(format!("Invalid agent ID: {}", id)),
             TaskNotFound { task_id } => Self::Task(format!("Task not found: {}", task_id)),
-            TaskNotCancelable { task_id, state } => {
-                Self::Task(format!("Task {} cannot be cancelled from state {:?}", task_id, state))
+            TaskNotCancelable { task_id, state } => Self::Task(format!(
+                "Task {} cannot be cancelled from state {:?}",
+                task_id, state
+            )),
+            PushNotificationNotSupported => {
+                Self::Protocol("Push notifications not supported".to_string())
             }
-            PushNotificationNotSupported => Self::Protocol("Push notifications not supported".to_string()),
             UnsupportedOperation(op) => Self::Protocol(format!("Unsupported operation: {}", op)),
             ContentTypeNotSupported { content_type } => {
                 Self::Protocol(format!("Content type not supported: {}", content_type))
             }
             InvalidAgentResponse(msg) => Self::Protocol(format!("Invalid agent response: {}", msg)),
-            AuthenticatedExtendedCardNotConfigured => Self::Configuration("Authenticated extended card not configured".to_string()),
+            AuthenticatedExtendedCardNotConfigured => {
+                Self::Configuration("Authenticated extended card not configured".to_string())
+            }
             Timeout => Self::Timeout,
             RateLimited(duration) => Self::RateLimited(duration),
             Server(msg) => Self::Agent(format!("Agent server error: {}", msg)),

@@ -1,7 +1,8 @@
 //! A2A client implementation
 
 use crate::{
-    A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus, client::transport::{Transport, TransportConfig}
+    client::transport::{Transport, TransportConfig},
+    A2aResult, AgentCard, AgentId, Message, SendResponse, Task, TaskStatus,
 };
 use std::sync::Arc;
 
@@ -56,7 +57,10 @@ impl A2aClient {
     }
 
     /// Get the status of a task
-    pub async fn get_task_status(&self, request: crate::TaskStatusRequest) -> A2aResult<TaskStatus> {
+    pub async fn get_task_status(
+        &self,
+        request: crate::TaskStatusRequest,
+    ) -> A2aResult<TaskStatus> {
         self.transport.get_task_status(request).await
     }
 
@@ -209,5 +213,4 @@ mod tests {
 
         assert_eq!(client.agent_id(), &agent_id);
     }
-
 }

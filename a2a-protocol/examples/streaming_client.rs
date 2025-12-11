@@ -6,8 +6,11 @@
 //! Run with: cargo run --example streaming_client --features streaming
 
 use a2a_protocol::{
+    client::{
+        transport::{JsonRpcTransport, StreamingResult},
+        A2aStreamingClient,
+    },
     prelude::*,
-    client::{A2aStreamingClient, transport::{JsonRpcTransport, StreamingResult}},
 };
 use futures_util::StreamExt;
 use std::sync::Arc;
@@ -55,58 +58,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Now demonstrate streaming
     println!("🌊 Starting streaming request...");
     println!("   Message: 'process this data with streaming'");
-    
+
     let message = Message::user_text("process this data with streaming");
-    
+
     match client.stream_message(message).await {
         Ok(mut stream) => {
             println!("✓ Stream established! Receiving events...\n");
-            
+
             let mut event_count = 0;
             while let Some(result) = stream.next().await {
                 event_count += 1;
                 match result {
-                    Ok(streaming_result) => {
-                        match streaming_result {
-                            StreamingResult::Message(msg) => {
-                                println!("📥 Event #{}: Message", event_count);
-                                if let Some(text) = msg.text_content() {
-                                    println!("   Content: {}\n", text);
-                                }
-                            }
-                            StreamingResult::Task(task) => {
-                                println!("📥 Event #{}: Task", event_count);
-                                println!("   ID: {}", task.id);
-                                println!("   Status: {:?}\n", task.status.state);
-                            }
-                            StreamingResult::TaskStatusUpdate(update) => {
-                                println!("📥 Event #{}: Task Status Update", event_count);
-                                println!("   Task ID: {}", update.task_id);
-                                println!("   Status: {:?}", update.status.state);
-                                if let Some(reason) = update.status.reason {
-                                    println!("   Reason: {}", reason);
-                                }
-                                println!();
-                            }
-                            StreamingResult::TaskArtifactUpdate(artifact) => {
-                                println!("📥 Event #{}: Task Artifact Update", event_count);
-                                println!("   Task ID: {}", artifact.task_id);
-                                println!("   Artifact ID: {}", artifact.artifact_id);
-                                println!("   Type: {}", artifact.artifact_type);
-                                if let Some(metadata) = artifact.metadata {
-                                    println!("   Metadata: {}", metadata);
-                                }
-                                println!();
+                    Ok(streaming_result) => match streaming_result {
+                        StreamingResult::Message(msg) => {
+                            println!("📥 Event #{}: Message", event_count);
+                            if let Some(text) = msg.text_content() {
+                                println!("   Content: {}\n", text);
                             }
                         }
-                    }
+                        StreamingResult::Task(task) => {
+                            println!("📥 Event #{}: Task", event_count);
+                            println!("   ID: {}", task.id);
+                            println!("   Status: {:?}\n", task.status.state);
+                        }
+                        StreamingResult::TaskStatusUpdate(update) => {
+                            println!("📥 Event #{}: Task Status Update", event_count);
+                            println!("   Task ID: {}", update.task_id);
+                            println!("   Status: {:?}", update.status.state);
+                            if let Some(reason) = update.status.reason {
+                                println!("   Reason: {}", reason);
+                            }
+                            println!();
+                        }
+                        StreamingResult::TaskArtifactUpdate(artifact) => {
+                            println!("📥 Event #{}: Task Artifact Update", event_count);
+                            println!("   Task ID: {}", artifact.task_id);
+                            println!("   Artifact ID: {}", artifact.artifact_id);
+                            println!("   Type: {}", artifact.artifact_type);
+                            if let Some(metadata) = artifact.metadata {
+                                println!("   Metadata: {}", metadata);
+                            }
+                            println!();
+                        }
+                    },
                     Err(e) => {
                         println!("❌ Error receiving event: {}", e);
                         break;
                     }
                 }
             }
-            
+
             println!("✓ Stream complete! Received {} events", event_count);
         }
         Err(e) => {

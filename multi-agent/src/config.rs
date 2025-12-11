@@ -1,5 +1,5 @@
 use crate::agent::{A2AAgentConfig, OpenAIAgentConfig, TaskHandling};
-use crate::team::{TeamConfig, TeamAgentConfig, TeamMode, SchedulerConfig};
+use crate::team::{SchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
@@ -14,10 +14,10 @@ pub enum ConfigConversionError {
         expected: ProtocolType,
         found: ProtocolType,
     },
-    
+
     #[error("Missing required field: {0}")]
     MissingField(&'static str),
-    
+
     #[error("Invalid field value for {field}: {value} ({reason})")]
     InvalidValue {
         field: &'static str,
@@ -81,8 +81,6 @@ pub struct TeamAgentConfigFile {
     pub role: String,
     pub capabilities: Vec<String>,
 }
-
-
 
 impl Config {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
@@ -292,7 +290,7 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
         }
 
         // Validate api_key exists in metadata
-        let api_key = config.metadata.get("api_key").map(|s| s.clone());
+        let api_key = config.metadata.get("api_key").cloned();
         if api_key.is_none() {
             return Err(ConfigConversionError::MissingField("api_key"));
         }
@@ -320,16 +318,17 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
             .metadata
             .get("temperature")
             .map(|v| {
-                v.parse::<f32>().map_err(|_| ConfigConversionError::InvalidValue {
-                    field: "temperature",
-                    value: v.clone(),
-                    reason: "must be a valid float".to_string(),
-                })
+                v.parse::<f32>()
+                    .map_err(|_| ConfigConversionError::InvalidValue {
+                        field: "temperature",
+                        value: v.clone(),
+                        reason: "must be a valid float".to_string(),
+                    })
             })
             .transpose()?;
 
         if let Some(temp) = temperature {
-            if temp < 0.0 || temp > 2.0 {
+            if !(0.0..=2.0).contains(&temp) {
                 return Err(ConfigConversionError::InvalidValue {
                     field: "temperature",
                     value: temp.to_string(),
@@ -343,16 +342,17 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
             .metadata
             .get("max_tokens")
             .map(|v| {
-                v.parse::<u32>().map_err(|_| ConfigConversionError::InvalidValue {
-                    field: "max_tokens",
-                    value: v.clone(),
-                    reason: "must be a valid integer".to_string(),
-                })
+                v.parse::<u32>()
+                    .map_err(|_| ConfigConversionError::InvalidValue {
+                        field: "max_tokens",
+                        value: v.clone(),
+                        reason: "must be a valid integer".to_string(),
+                    })
             })
             .transpose()?;
 
         if let Some(tokens) = max_tokens {
-            if tokens < 1 || tokens > 4096 {
+            if !(1..=4096).contains(&tokens) {
                 return Err(ConfigConversionError::InvalidValue {
                     field: "max_tokens",
                     value: tokens.to_string(),
@@ -463,7 +463,10 @@ mod tests {
         let result: Result<A2AAgentConfig, _> = agent_config.try_into();
         assert!(matches!(
             result,
-            Err(ConfigConversionError::InvalidValue { field: "timeout_seconds", .. })
+            Err(ConfigConversionError::InvalidValue {
+                field: "timeout_seconds",
+                ..
+            })
         ));
     }
 
@@ -483,7 +486,10 @@ mod tests {
         let result: Result<A2AAgentConfig, _> = agent_config.try_into();
         assert!(matches!(
             result,
-            Err(ConfigConversionError::InvalidValue { field: "max_retries", .. })
+            Err(ConfigConversionError::InvalidValue {
+                field: "max_retries",
+                ..
+            })
         ));
     }
 
@@ -623,7 +629,10 @@ mod tests {
         let result: Result<OpenAIAgentConfig, _> = agent_config.try_into();
         assert!(matches!(
             result,
-            Err(ConfigConversionError::InvalidValue { field: "temperature", .. })
+            Err(ConfigConversionError::InvalidValue {
+                field: "temperature",
+                ..
+            })
         ));
     }
 
@@ -670,7 +679,10 @@ mod tests {
         let result: Result<OpenAIAgentConfig, _> = agent_config.try_into();
         assert!(matches!(
             result,
-            Err(ConfigConversionError::InvalidValue { field: "max_tokens", .. })
+            Err(ConfigConversionError::InvalidValue {
+                field: "max_tokens",
+                ..
+            })
         ));
     }
 }

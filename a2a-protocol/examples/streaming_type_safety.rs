@@ -5,9 +5,9 @@
 
 #![cfg(feature = "streaming")]
 
-use a2a_protocol::prelude::*;
-use a2a_protocol::client::{A2aClient, A2aStreamingClient};
 use a2a_protocol::client::transport::JsonRpcTransport;
+use a2a_protocol::client::{A2aClient, A2aStreamingClient};
+use a2a_protocol::prelude::*;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -30,11 +30,20 @@ async fn main() -> A2aResult<()> {
     println!("  - ALSO supports base methods via Deref:\n");
 
     // Access base client methods directly via Deref (no .base() needed!)
-    println!("    streaming_client.transport_type() = {:?}", streaming_client.transport_type());
-    println!("    streaming_client.agent_id() = {:?}", streaming_client.agent_id());
-    
+    println!(
+        "    streaming_client.transport_type() = {:?}",
+        streaming_client.transport_type()
+    );
+    println!(
+        "    streaming_client.agent_id() = {:?}",
+        streaming_client.agent_id()
+    );
+
     // You can still use .base() explicitly if you prefer
-    println!("    streaming_client.base().transport_type() = {:?}\n", streaming_client.base().transport_type());
+    println!(
+        "    streaming_client.base().transport_type() = {:?}\n",
+        streaming_client.base().transport_type()
+    );
 
     // Streaming operations - compile-time verified
     let message = Message::user_text("Hello, streaming world!");

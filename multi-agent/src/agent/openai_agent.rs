@@ -147,8 +147,7 @@ impl OpenAIAgent {
     /// Send a message to the OpenAI API
     async fn send_message(&self, message: &Message) -> MultiAgentResult<OpenAIResponse> {
         // Extract text content from message
-        let content = crate::adapters::extract_text(message)
-            .unwrap_or_else(|| "".to_string());
+        let content = crate::adapters::extract_text(message).unwrap_or_default();
 
         let openai_messages = vec![OpenAIMessage {
             role: "user".to_string(),
@@ -162,8 +161,9 @@ impl OpenAIAgent {
             max_tokens: self.config.max_tokens,
         };
 
-        let mut req_builder = self.client
-            .post(&format!("{}/chat/completions", self.base_url))
+        let mut req_builder = self
+            .client
+            .post(format!("{}/chat/completions", self.base_url))
             .header("Content-Type", "application/json")
             .json(&request)
             .timeout(Duration::from_secs(self.config.timeout_seconds));
@@ -173,29 +173,29 @@ impl OpenAIAgent {
             req_builder = req_builder.header("Authorization", format!("Bearer {}", api_key));
         }
 
-        let response = req_builder
-            .send()
-            .await?;
+        let response = req_builder.send().await?;
 
         if !response.status().is_success() {
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(MultiAgentError::agent(format!("OpenAI API error: {}", error_text)));
+            return Err(MultiAgentError::agent(format!(
+                "OpenAI API error: {}",
+                error_text
+            )));
         }
 
-        let openai_response: OpenAIResponse = response
-            .json()
-            .await?;
+        let openai_response: OpenAIResponse = response.json().await?;
 
         Ok(openai_response)
     }
 
     /// Perform health check on the OpenAI API
     async fn health_check_api(&self) -> bool {
-        let mut req_builder = self.client
-            .get(&format!("{}/models", self.base_url))
+        let mut req_builder = self
+            .client
+            .get(format!("{}/models", self.base_url))
             .timeout(Duration::from_secs(5));
 
         if let Some(ref api_key) = self.config.api_key {
@@ -217,12 +217,15 @@ impl super::Agent for OpenAIAgent {
     }
 
     async fn process(&self, message: Message) -> A2aResult<Message> {
-        let openai_response = self.send_message(&message).await
+        let openai_response = self
+            .send_message(&message)
+            .await
             .map_err(|e| A2aError::Internal(format!("OpenAI agent error: {}", e)))?;
 
-        let choice = openai_response.choices.first().ok_or_else(|| {
-            A2aError::Internal("No choices in OpenAI response".to_string())
-        })?;
+        let choice = openai_response
+            .choices
+            .first()
+            .ok_or_else(|| A2aError::Internal("No choices in OpenAI response".to_string()))?;
 
         let response_content = choice.message.content.clone();
 

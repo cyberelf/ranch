@@ -96,9 +96,11 @@ impl AgentManager {
         for agent in agents.values() {
             if let Ok(info) = agent.info().await {
                 // Check if any capability contains the search string
-                if info.capabilities.iter().any(|cap| {
-                    cap.to_lowercase().contains(&capability.to_lowercase())
-                }) {
+                if info
+                    .capabilities
+                    .iter()
+                    .any(|cap| cap.to_lowercase().contains(&capability.to_lowercase()))
+                {
                     matching.push(agent.clone());
                 }
             }

@@ -271,8 +271,8 @@ mod tests {
         let agent_id = AgentId::new("test-agent".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
 
-        let profile = AgentProfile::new(agent_id, "Test Agent", url)
-            .with_description("A test agent");
+        let profile =
+            AgentProfile::new(agent_id, "Test Agent", url).with_description("A test agent");
 
         let caps = TransportCapabilities::new()
             .with_protocol_version("0.3.0")

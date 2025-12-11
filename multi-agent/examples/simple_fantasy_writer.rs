@@ -3,11 +3,11 @@
 //! This is a simplified version that uses only OpenAI agents to demonstrate
 //! the multi-agent workflow without requiring an A2A server setup.
 
+use multi_agent::team::{TeamAgentConfig, TeamMode, WorkflowSchedulerConfig, WorkflowStepConfig};
 use multi_agent::*;
-use multi_agent::team::{TeamMode, WorkflowSchedulerConfig, WorkflowStepConfig, TeamAgentConfig};
-use std::sync::Arc;
 use std::env;
 use std::io::Write;
+use std::sync::Arc;
 use std::time::Instant;
 
 #[tokio::main]
@@ -26,14 +26,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Get OpenAI base URL from environment variable or use default
-    let openai_base_url = env::var("OPENAI_BASE_URL")
-        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+    let openai_base_url =
+        env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
 
     // Get model configurations from environment variables or use defaults
-    let orchestrator_model = env::var("ORCHESTRATOR_MODEL")
-        .unwrap_or_else(|_| "gpt-4".to_string());
-    let composer_model = env::var("COMPOSER_MODEL")
-        .unwrap_or_else(|_| "gpt-4".to_string());
+    let orchestrator_model = env::var("ORCHESTRATOR_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
+    let composer_model = env::var("COMPOSER_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
 
     // Get timeout configurations from environment variables or use defaults
     let orchestrator_timeout = env::var("ORCHESTRATOR_TIMEOUT")
@@ -46,8 +44,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(120);
 
     println!("🔗 Using OpenAI endpoint: {}", openai_base_url);
-    println!("🎯 Orchestrator model: {} (timeout: {}s)", orchestrator_model, orchestrator_timeout);
-    println!("✍️ Composer model: {} (timeout: {}s)", composer_model, composer_timeout);
+    println!(
+        "🎯 Orchestrator model: {} (timeout: {}s)",
+        orchestrator_model, orchestrator_timeout
+    );
+    println!(
+        "✍️ Composer model: {} (timeout: {}s)",
+        composer_model, composer_timeout
+    );
 
     // Initialize agent manager
     let agent_manager: Arc<AgentManager> = Arc::new(AgentManager::new());
@@ -80,10 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_tokens: Some(2000),
     };
 
-    let composer = Arc::new(OpenAIAgent::new(
-        openai_base_url.clone(),
-        composer_config,
-    ));
+    let composer = Arc::new(OpenAIAgent::new(openai_base_url.clone(), composer_config));
 
     let composer_id = agent_manager.register(composer).await?;
     println!("✅ Registered Story Composer: {}", composer_id);
@@ -157,7 +158,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut all_healthy = true;
 
             for (id, healthy) in &health_results {
-                let status = if *healthy { "✅ Healthy" } else { "❌ Unhealthy" };
+                let status = if *healthy {
+                    "✅ Healthy"
+                } else {
+                    "❌ Unhealthy"
+                };
                 println!("   {}: {}", id, status);
                 if !healthy {
                     all_healthy = false;
@@ -186,7 +191,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Check if it's a story request
         if input.starts_with("story ") {
-            let topic = input.strip_prefix("story ").unwrap_or("a magical adventure");
+            let topic = input
+                .strip_prefix("story ")
+                .unwrap_or("a magical adventure");
             write_fantasy_story_with_team(&team, topic).await?;
             continue;
         }
@@ -198,9 +205,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn write_fantasy_story_with_team(team: &Arc<Team>, topic: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn write_fantasy_story_with_team(
+    team: &Arc<Team>,
+    topic: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📖 Writing Fantasy Story About: '{}'", topic);
-    println!("================================{}", "=".repeat(topic.len()));
+    println!(
+        "================================{}",
+        "=".repeat(topic.len())
+    );
 
     let start_time = Instant::now();
 
@@ -228,8 +241,8 @@ async fn write_fantasy_story_with_team(team: &Arc<Team>, topic: &str) -> Result<
 
             println!("\n📋 Final Story Generation:");
             println!("=========================");
-            let story_text = extract_text(&response)
-                .unwrap_or_else(|| "No story content received".to_string());
+            let story_text =
+                extract_text(&response).unwrap_or_else(|| "No story content received".to_string());
 
             if story_text.is_empty() {
                 eprintln!("❌ Team returned empty response");
@@ -239,7 +252,10 @@ async fn write_fantasy_story_with_team(team: &Arc<Team>, topic: &str) -> Result<
             println!("{}", story_text);
 
             let elapsed = start_time.elapsed();
-            println!("\n⏱️  Story completed in {:.2} seconds", elapsed.as_secs_f64());
+            println!(
+                "\n⏱️  Story completed in {:.2} seconds",
+                elapsed.as_secs_f64()
+            );
         }
         Err(e) => {
             eprintln!("❌ Error creating fantasy story: {}", e);

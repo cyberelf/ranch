@@ -7,14 +7,14 @@
 //! Run with: cargo run --example multi_agent --features streaming
 
 use a2a_protocol::{
-    prelude::*,
     client::ClientBuilder,
+    prelude::*,
     server::{Agent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
-use url::Url;
 use tokio::time::{sleep, Duration};
+use url::Url;
 
 // ============================================================================
 // CALCULATOR AGENT
@@ -54,20 +54,30 @@ impl Agent for CalculatorAgent {
 
         // Simple math parser - supports "add X Y", "multiply X Y", etc.
         let parts: Vec<&str> = text.split_whitespace().collect();
-        
+
         let result = if parts.len() >= 3 {
             let operation = parts[0].to_lowercase();
-            
+
             // Parse numbers with error handling
             let a: f64 = match parts[1].parse() {
                 Ok(n) => n,
-                Err(_) => return Ok(Message::agent_text(format!("Error: '{}' is not a valid number", parts[1]))),
+                Err(_) => {
+                    return Ok(Message::agent_text(format!(
+                        "Error: '{}' is not a valid number",
+                        parts[1]
+                    )))
+                }
             };
             let b: f64 = match parts[2].parse() {
                 Ok(n) => n,
-                Err(_) => return Ok(Message::agent_text(format!("Error: '{}' is not a valid number", parts[2]))),
+                Err(_) => {
+                    return Ok(Message::agent_text(format!(
+                        "Error: '{}' is not a valid number",
+                        parts[2]
+                    )))
+                }
             };
-            
+
             match operation.as_str() {
                 "add" => format!("Result: {} + {} = {}", a, b, a + b),
                 "subtract" => format!("Result: {} - {} = {}", a, b, a - b),
@@ -105,12 +115,12 @@ impl ReporterAgent {
         .with_description("Generates reports using the Calculator agent");
 
         let transport = std::sync::Arc::new(
-            a2a_protocol::client::transport::JsonRpcTransport::new(calculator_url)?
+            a2a_protocol::client::transport::JsonRpcTransport::new(calculator_url)?,
         );
         let calculator_client = ClientBuilder::new()
             .with_custom_transport(transport)
             .build()?;
-        
+
         Ok(Self {
             profile,
             calculator_client,
@@ -142,7 +152,7 @@ impl Agent for ReporterAgent {
 
         for (label, operation) in calculations {
             let calc_message = Message::user_text(operation);
-            
+
             match self.calculator_client.send_message(calc_message).await {
                 Ok(SendResponse::Message(response)) => {
                     if let Some(result) = response.text_content() {
@@ -188,9 +198,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let calculator_task = tokio::spawn(async {
         let agent = Arc::new(CalculatorAgent::new());
         let handler = TaskAwareHandler::new(agent);
-        
+
         println!("🔢 Starting Calculator Agent on port 3003");
-        
+
         ServerBuilder::new(handler)
             .with_port(3003)
             .run()
@@ -205,10 +215,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reporter_task = tokio::spawn(async {
         let agent = Arc::new(ReporterAgent::new("http://localhost:3003/rpc").unwrap());
         let handler = TaskAwareHandler::new(agent);
-        
+
         println!("📊 Starting Reporter Agent on port 3004");
         println!("   Connected to Calculator at http://localhost:3003\n");
-        
+
         ServerBuilder::new(handler)
             .with_port(3004)
             .run()

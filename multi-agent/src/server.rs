@@ -3,7 +3,7 @@
 //! This module provides TeamServer which wraps a Team and exposes it
 //! as an A2A-compliant service using JSON-RPC 2.0 over HTTP.
 
-use crate::{Agent as MultiAgentAgent, AgentInfo, team::Team};
+use crate::{team::Team, Agent as MultiAgentAgent, AgentInfo};
 use a2a_protocol::{
     server::{Agent as A2aServerAgent, AgentProfile, JsonRpcRouter, TaskAwareHandler},
     A2aResult, Message,
@@ -21,7 +21,7 @@ impl TeamAgentAdapter {
     fn new(team: Arc<Team>) -> Self {
         Self { team }
     }
-    
+
     /// Convert AgentInfo to AgentProfile
     fn info_to_profile(info: AgentInfo) -> A2aResult<AgentProfile> {
         // Use a dummy URL since teams don't have their own endpoint
@@ -29,33 +29,37 @@ impl TeamAgentAdapter {
         let url = url::Url::parse("http://localhost/team").map_err(|e| {
             a2a_protocol::A2aError::Internal(format!("Failed to create URL: {}", e))
         })?;
-        
+
         // Use AgentProfile::new() constructor and configure capabilities
         let mut profile = AgentProfile::new(
             info.id.into(), // Convert String to AgentId
             info.name,
             url,
         );
-        
+
         profile.description = Some(info.description);
         profile.default_input_modes = vec!["text".to_string()];
         profile.default_output_modes = vec!["text".to_string()];
-        
+
         // Convert capabilities to AgentCapability with proper fields
-        profile.capabilities = info.capabilities.into_iter().map(|cap| {
-            a2a_protocol::core::agent_card::AgentCapability {
+        profile.capabilities = info
+            .capabilities
+            .into_iter()
+            .map(|cap| a2a_protocol::core::agent_card::AgentCapability {
                 name: cap,
                 description: None,
                 category: Some("team-capability".to_string()),
                 input_schema: None,
                 output_schema: None,
-            }
-        }).collect();
-        
-        profile.metadata = info.metadata.into_iter().map(|(k, v)| {
-            (k, serde_json::Value::String(v))
-        }).collect();
-        
+            })
+            .collect();
+
+        profile.metadata = info
+            .metadata
+            .into_iter()
+            .map(|(k, v)| (k, serde_json::Value::String(v)))
+            .collect();
+
         Ok(profile)
     }
 }
@@ -66,7 +70,7 @@ impl A2aServerAgent for TeamAgentAdapter {
         let info = self.team.info().await?;
         Self::info_to_profile(info)
     }
-    
+
     async fn process_message(&self, msg: Message) -> A2aResult<Message> {
         self.team.process(msg).await
     }
@@ -126,33 +130,36 @@ impl TeamServer {
     /// - Failed to bind to the address
     /// - Server runtime error occurs
     pub async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🚀 Starting TeamServer for team: {}", self.team.get_config().name);
+        println!(
+            "🚀 Starting TeamServer for team: {}",
+            self.team.get_config().name
+        );
         println!("   ID: {}", self.team.get_config().id);
         println!("   Mode: {:?}", self.team.get_config().mode);
         println!("   Members: {}", self.team.get_config().agents.len());
-        
+
         // Wrap team with adapter to bridge multi-agent Agent trait to a2a-protocol Agent trait
         let adapter = TeamAgentAdapter::new(self.team.clone());
-        
+
         // Wrap with TaskAwareHandler for A2A protocol support
         let handler = TaskAwareHandler::new(Arc::new(adapter));
-        
+
         // Create JSON-RPC router - must convert to router
         let json_rpc_router = JsonRpcRouter::new(handler);
         let rpc_router = json_rpc_router.into_router();
-        
+
         // Setup CORS to allow cross-origin requests
         let cors = CorsLayer::new()
             .allow_origin(Any)
             .allow_methods(Any)
             .allow_headers(Any);
-        
+
         // Create Axum router
         let app = rpc_router.layer(cors);
-        
+
         let addr = format!("0.0.0.0:{}", self.port);
         let listener = tokio::net::TcpListener::bind(&addr).await?;
-        
+
         println!("📡 TeamServer listening on http://{}", addr);
         println!("   JSON-RPC endpoint: http://{}/rpc", addr);
         println!("   ");
@@ -163,9 +170,9 @@ impl TeamServer {
         println!("     - task/cancel     : Cancel a task");
         println!("     - agent/card      : Get team capabilities");
         println!();
-        
+
         axum::serve(listener, app.into_make_service()).await?;
-        
+
         Ok(())
     }
 }
@@ -177,8 +184,8 @@ mod tests {
     #[test]
     fn test_team_server_creation() {
         use crate::manager::AgentManager;
-        use crate::team::{TeamConfig, TeamMode, SchedulerConfig, SupervisorSchedulerConfig};
-        
+        use crate::team::{SchedulerConfig, SupervisorSchedulerConfig, TeamConfig, TeamMode};
+
         let manager = Arc::new(AgentManager::new());
         let config = TeamConfig {
             id: "test-team".to_string(),
@@ -190,10 +197,10 @@ mod tests {
                 supervisor_agent_id: "supervisor".to_string(),
             }),
         };
-        
+
         let team = Arc::new(Team::new(config, manager));
         let server = TeamServer::new(team, 8080);
-        
+
         assert_eq!(server.port, 8080);
     }
 }

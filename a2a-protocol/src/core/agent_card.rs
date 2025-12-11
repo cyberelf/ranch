@@ -658,10 +658,7 @@ impl StreamingCapabilities {
     pub fn new() -> Self {
         Self {
             enabled: true,
-            methods: vec![
-                "message/stream".to_string(),
-                "task/resubscribe".to_string(),
-            ],
+            methods: vec!["message/stream".to_string(), "task/resubscribe".to_string()],
             buffer_size: Some(100),
             timeout_seconds: Some(300), // 5 minutes
             keepalive_seconds: Some(30),
@@ -814,7 +811,7 @@ mod tests {
             .with_buffer_size(200)
             .with_timeout(600)
             .with_keepalive(60);
-        
+
         assert!(caps.supports_method("custom/stream"));
         assert_eq!(caps.buffer_size, Some(200));
         assert_eq!(caps.timeout_seconds, Some(600));
@@ -854,7 +851,7 @@ mod tests {
         let caps = TransportCapabilities::new()
             .with_push_notifications(true)
             .with_streaming(true);
-        
+
         assert!(caps.push_notifications);
         assert!(caps.streaming);
     }
@@ -863,10 +860,9 @@ mod tests {
     fn test_agent_card_with_transport_capabilities() {
         let id = AgentId::new("agent1".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
-        
+
         let caps = TransportCapabilities::all_enabled();
-        let card = AgentCard::new(id, "Test Agent", url)
-            .with_transport_capabilities(caps.clone());
+        let card = AgentCard::new(id, "Test Agent", url).with_transport_capabilities(caps.clone());
 
         let retrieved_caps = card.transport_capabilities().unwrap();
         assert_eq!(retrieved_caps, caps);
@@ -878,22 +874,21 @@ mod tests {
     fn test_agent_card_transport_capabilities_serialization() {
         let id = AgentId::new("agent1".to_string()).unwrap();
         let url = Url::parse("https://agent.example.com").unwrap();
-        
+
         let caps = TransportCapabilities::push_notifications_enabled();
-        let card = AgentCard::new(id, "Test Agent", url)
-            .with_transport_capabilities(caps);
+        let card = AgentCard::new(id, "Test Agent", url).with_transport_capabilities(caps);
 
         // Serialize to JSON
         let json = serde_json::to_value(&card).unwrap();
-        
+
         // Check that transportCapabilities is in metadata
         let metadata = json["metadata"].as_object().unwrap();
         assert!(metadata.contains_key("transportCapabilities"));
-        
+
         let transport_caps = &metadata["transportCapabilities"];
         assert_eq!(transport_caps["pushNotifications"], true);
         assert_eq!(transport_caps["streaming"], false);
-        
+
         // Deserialize back
         let deserialized: AgentCard = serde_json::from_value(json).unwrap();
         let retrieved_caps = deserialized.transport_capabilities().unwrap();

@@ -13,11 +13,7 @@
 //!   cargo run --example webhook_server --features streaming
 
 use a2a_protocol::prelude::*;
-use axum::{
-    extract::Json,
-    routing::post,
-    Router,
-};
+use axum::{extract::Json, routing::post, Router};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -36,8 +32,11 @@ impl WebhookReceiver {
 
     async fn handle_webhook(&self, payload: Value) {
         println!("\n🔔 Webhook received!");
-        println!("📦 Payload: {}", serde_json::to_string_pretty(&payload).unwrap());
-        
+        println!(
+            "📦 Payload: {}",
+            serde_json::to_string_pretty(&payload).unwrap()
+        );
+
         // Store the event
         let mut events = self.received_events.lock().await;
         events.push(payload);
@@ -58,9 +57,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let receiver_clone = receiver.clone();
 
     println!("1️⃣  Starting webhook receiver on port 8080...");
-    
-    let app = Router::new()
-        .route("/webhook", post({
+
+    let app = Router::new().route(
+        "/webhook",
+        post({
             let receiver = receiver_clone;
             move |Json(payload): Json<Value>| {
                 let receiver = receiver.clone();
@@ -69,7 +69,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "OK"
                 }
             }
-        }));
+        }),
+    );
 
     // Start the webhook receiver in the background
     tokio::spawn(async move {

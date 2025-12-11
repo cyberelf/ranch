@@ -19,10 +19,10 @@ use super::task::TaskState;
 pub struct PushNotificationConfig {
     /// Webhook endpoint URL - must be HTTPS for security
     pub url: Url,
-    
+
     /// Events that trigger webhook notifications
     pub events: Vec<TaskEvent>,
-    
+
     /// Authentication configuration for webhook requests
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authentication: Option<PushNotificationAuth>,
@@ -87,13 +87,12 @@ pub enum PushNotificationAuth {
         /// The bearer token to include in Authorization header
         token: String,
     },
-    
+
     /// Custom HTTP headers
     CustomHeaders {
         /// Map of header name to header value
         headers: HashMap<String, String>,
     },
-    
     // OAuth2 support can be added in future versions
 }
 
@@ -103,16 +102,16 @@ pub enum PushNotificationAuth {
 pub enum TaskEvent {
     /// Task status changed (includes state transitions)
     StatusChanged,
-    
+
     /// New artifact was added to the task
     ArtifactAdded,
-    
+
     /// Task completed successfully
     Completed,
-    
+
     /// Task failed
     Failed,
-    
+
     /// Task was cancelled
     Cancelled,
 }
@@ -152,12 +151,8 @@ mod tests {
     #[test]
     fn test_push_notification_config_validation_https() {
         let http_url = Url::parse("http://example.com/webhook").unwrap();
-        let config = PushNotificationConfig::new(
-            http_url,
-            vec![TaskEvent::Completed],
-            None,
-        );
-        
+        let config = PushNotificationConfig::new(http_url, vec![TaskEvent::Completed], None);
+
         assert!(config.validate().is_err());
         assert!(config.validate().unwrap_err().contains("HTTPS"));
     }
@@ -166,7 +161,7 @@ mod tests {
     fn test_push_notification_config_validation_empty_events() {
         let url = Url::parse("https://example.com/webhook").unwrap();
         let config = PushNotificationConfig::new(url, vec![], None);
-        
+
         assert!(config.validate().is_err());
         assert!(config.validate().unwrap_err().contains("event"));
     }
@@ -174,12 +169,8 @@ mod tests {
     #[test]
     fn test_push_notification_config_validation_success() {
         let url = Url::parse("https://example.com/webhook").unwrap();
-        let config = PushNotificationConfig::new(
-            url,
-            vec![TaskEvent::Completed],
-            None,
-        );
-        
+        let config = PushNotificationConfig::new(url, vec![TaskEvent::Completed], None);
+
         assert!(config.validate().is_ok());
     }
 
@@ -188,7 +179,7 @@ mod tests {
         let auth = PushNotificationAuth::Bearer {
             token: "secret-token".to_string(),
         };
-        
+
         match auth {
             PushNotificationAuth::Bearer { token } => {
                 assert_eq!(token, "secret-token");
@@ -201,9 +192,11 @@ mod tests {
     fn test_custom_headers_auth() {
         let mut headers = HashMap::new();
         headers.insert("X-API-Key".to_string(), "my-key".to_string());
-        
-        let auth = PushNotificationAuth::CustomHeaders { headers: headers.clone() };
-        
+
+        let auth = PushNotificationAuth::CustomHeaders {
+            headers: headers.clone(),
+        };
+
         match auth {
             PushNotificationAuth::CustomHeaders { headers: h } => {
                 assert_eq!(h, headers);
@@ -215,40 +208,23 @@ mod tests {
     #[test]
     fn test_task_event_matches_transition() {
         // Completed event
-        assert!(TaskEvent::Completed.matches_transition(
-            &TaskState::Working,
-            &TaskState::Completed
-        ));
-        assert!(!TaskEvent::Completed.matches_transition(
-            &TaskState::Working,
-            &TaskState::Failed
-        ));
+        assert!(TaskEvent::Completed.matches_transition(&TaskState::Working, &TaskState::Completed));
+        assert!(!TaskEvent::Completed.matches_transition(&TaskState::Working, &TaskState::Failed));
 
         // Failed event
-        assert!(TaskEvent::Failed.matches_transition(
-            &TaskState::Working,
-            &TaskState::Failed
-        ));
-        assert!(!TaskEvent::Failed.matches_transition(
-            &TaskState::Working,
-            &TaskState::Completed
-        ));
+        assert!(TaskEvent::Failed.matches_transition(&TaskState::Working, &TaskState::Failed));
+        assert!(!TaskEvent::Failed.matches_transition(&TaskState::Working, &TaskState::Completed));
 
         // Cancelled event
-        assert!(TaskEvent::Cancelled.matches_transition(
-            &TaskState::Working,
-            &TaskState::Cancelled
-        ));
+        assert!(TaskEvent::Cancelled.matches_transition(&TaskState::Working, &TaskState::Cancelled));
 
         // StatusChanged event
-        assert!(TaskEvent::StatusChanged.matches_transition(
-            &TaskState::Pending,
-            &TaskState::Working
-        ));
-        assert!(!TaskEvent::StatusChanged.matches_transition(
-            &TaskState::Working,
-            &TaskState::Working
-        ));
+        assert!(
+            TaskEvent::StatusChanged.matches_transition(&TaskState::Pending, &TaskState::Working)
+        );
+        assert!(
+            !TaskEvent::StatusChanged.matches_transition(&TaskState::Working, &TaskState::Working)
+        );
     }
 
     #[test]

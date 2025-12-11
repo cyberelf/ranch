@@ -113,8 +113,7 @@ impl A2AAgent {
             TaskHandling::PollUntilComplete => self.poll_task_to_completion(task).await,
             TaskHandling::ReturnTaskInfo => Ok(Message::agent_text(format!(
                 "Task created: {} ({:?})",
-                task.id,
-                task.status.state
+                task.id, task.status.state
             ))),
             TaskHandling::RejectTasks => Err(A2aError::Internal(
                 "Async tasks not supported by this agent".to_string(),
@@ -191,7 +190,11 @@ impl crate::agent::Agent for A2AAgent {
                     name: card.name.clone(),
                     description: card.description.clone().unwrap_or_default(),
                     capabilities: card.capabilities.iter().map(|c| c.name.clone()).collect(),
-                    metadata: card.metadata.iter().map(|(k, v)| (k.clone(), v.to_string())).collect(),
+                    metadata: card
+                        .metadata
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.to_string()))
+                        .collect(),
                 });
             }
         }
@@ -203,7 +206,11 @@ impl crate::agent::Agent for A2AAgent {
             name: card.name.clone(),
             description: card.description.clone().unwrap_or_default(),
             capabilities: card.capabilities.iter().map(|c| c.name.clone()).collect(),
-            metadata: card.metadata.iter().map(|(k, v)| (k.clone(), v.to_string())).collect(),
+            metadata: card
+                .metadata
+                .iter()
+                .map(|(k, v)| (k.clone(), v.to_string()))
+                .collect(),
         };
 
         Ok(info)

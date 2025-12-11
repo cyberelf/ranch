@@ -1,10 +1,11 @@
 //! A2A protocol request handler trait
 
 use crate::{
-    A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part, SendResponse,
+    A2aResult, AgentCard, AgentCardGetRequest, Message, MessageSendRequest, Part,
     PushNotificationConfig, PushNotificationDeleteRequest, PushNotificationGetRequest,
     PushNotificationListRequest, PushNotificationListResponse, PushNotificationSetRequest,
-    Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskStatus, TaskStatusRequest,
+    SendResponse, Task, TaskCancelRequest, TaskGetRequest, TaskResubscribeRequest, TaskStatus,
+    TaskStatusRequest,
 };
 use async_trait::async_trait;
 
@@ -275,7 +276,10 @@ impl A2aHandler for BasicA2aHandler {
     }
 
     async fn get_agent_card(&self) -> A2aResult<AgentCard> {
-        Ok(self.transport_caps.clone().assemble_card(self.profile.clone()))
+        Ok(self
+            .transport_caps
+            .clone()
+            .assemble_card(self.profile.clone()))
     }
 
     async fn health_check(&self) -> A2aResult<HealthStatus> {
@@ -311,7 +315,7 @@ impl A2aHandler for BasicA2aHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AgentId, server::AgentProfile};
+    use crate::{server::AgentProfile, AgentId};
     use url::Url;
 
     #[tokio::test]

@@ -15,11 +15,13 @@
 //! cargo run --example simple_team
 //! ```
 
-use multi_agent::*;
-use multi_agent::team::{TeamAgentConfig, TeamConfig, TeamMode, SupervisorSchedulerConfig, SchedulerConfig};
 use a2a_protocol::prelude::Message;
-use multi_agent::Agent;
 use async_trait::async_trait;
+use multi_agent::team::{
+    SchedulerConfig, SupervisorSchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode,
+};
+use multi_agent::Agent;
+use multi_agent::*;
 use std::sync::Arc;
 
 /// A simple mock agent for demonstration
@@ -52,12 +54,11 @@ impl Agent for SimpleAgent {
     }
 
     async fn process(&self, message: Message) -> A2aResult<Message> {
-        let input = extract_text(&message)
-            .unwrap_or_default();
-        
+        let input = extract_text(&message).unwrap_or_default();
+
         println!("  [{}] Received: {}", self.name, input);
         println!("  [{}] Responding: {}", self.name, self.response);
-        
+
         Ok(Message::agent_text(&self.response))
     }
 }
@@ -70,28 +71,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create agent manager
     println!("📋 Creating agent manager...");
     let manager = Arc::new(AgentManager::new());
-    
+
     // Create two simple agents
     println!("🔧 Creating agents...");
     let agent1 = Arc::new(SimpleAgent::new(
         "agent-1",
         "Agent One",
-        "Hello! I'm Agent One, nice to meet you!"
+        "Hello! I'm Agent One, nice to meet you!",
     ));
-    
+
     let agent2 = Arc::new(SimpleAgent::new(
         "agent-2",
         "Agent Two",
-        "Greetings! I'm Agent Two, here to help!"
+        "Greetings! I'm Agent Two, here to help!",
     ));
-    
+
     // Register agents
     println!("📝 Registering agents...");
     let agent1_id = manager.register(agent1 as Arc<dyn Agent>).await?;
     let agent2_id = manager.register(agent2 as Arc<dyn Agent>).await?;
     println!("  ✓ Registered: {}", agent1_id);
     println!("  ✓ Registered: {}", agent2_id);
-    
+
     // Create team configuration
     println!("\n🏢 Creating team...");
     let team_config = TeamConfig {
@@ -115,9 +116,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             supervisor_agent_id: agent1_id,
         }),
     };
-    
+
     let team = Arc::new(Team::new(team_config, manager));
-    
+
     // Display team information
     println!("\n📊 Team Information:");
     let team_info = team.info().await?;
@@ -125,23 +126,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Name: {}", team_info.name);
     println!("  Description: {}", team_info.description);
     println!("  Capabilities: {}", team_info.capabilities.join(", "));
-    println!("  Team Type: {}", team_info.metadata.get("type").unwrap_or(&"unknown".to_string()));
-    println!("  Team Mode: {}", team_info.metadata.get("mode").unwrap_or(&"unknown".to_string()));
-    println!("  Members: {}", team_info.metadata.get("member_count").unwrap_or(&"0".to_string()));
-    
+    println!(
+        "  Team Type: {}",
+        team_info
+            .metadata
+            .get("type")
+            .unwrap_or(&"unknown".to_string())
+    );
+    println!(
+        "  Team Mode: {}",
+        team_info
+            .metadata
+            .get("mode")
+            .unwrap_or(&"unknown".to_string())
+    );
+    println!(
+        "  Members: {}",
+        team_info
+            .metadata
+            .get("member_count")
+            .unwrap_or(&"0".to_string())
+    );
+
     // Process a message through the team
     println!("\n💬 Processing message through team...");
     let message = Message::user_text("Hello team!");
     println!("  User: Hello team!");
-    
+
     let response = team.process(message).await?;
-    let response_text = extract_text(&response)
-        .unwrap_or_default();
-    
+    let response_text = extract_text(&response).unwrap_or_default();
+
     println!("\n✨ Final Response:");
     println!("  {}", response_text);
-    
+
     println!("\n✅ Example complete!");
-    
+
     Ok(())
 }

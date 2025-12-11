@@ -182,10 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n🚀 Server starting...\n");
 
-    ServerBuilder::new(handler)
-        .with_port(3003)
-        .run()
-        .await?;
+    ServerBuilder::new(handler).with_port(3003).run().await?;
 
     Ok(())
 }

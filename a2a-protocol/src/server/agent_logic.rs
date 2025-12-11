@@ -16,7 +16,7 @@
 //!   - You want to implement custom streaming behavior
 //!   - You need to handle all RPC methods directly
 
-use crate::{A2aResult, server::AgentProfile, Message};
+use crate::{server::AgentProfile, A2aResult, Message};
 use async_trait::async_trait;
 
 /// Defines the core logic for an agent to process messages
@@ -50,7 +50,6 @@ pub trait Agent: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     struct TestAgent {
         prefix: String,

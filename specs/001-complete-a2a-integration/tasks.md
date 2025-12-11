@@ -196,18 +196,18 @@
 
 **Note**: Most implementation is already complete from User Story 1 (Team implements Agent trait). This phase adds validation and examples.
 
-- [ ] T027 [P] [US4] Add unit test for cycle detection in multi-agent/tests/integration.rs
+- [X] T027 [P] [US4] Add unit test for cycle detection in multi-agent/tests/integration.rs
   - Create Team A, Team B
   - Register Team B in Team A's manager
   - Register Team A in Team B's manager (should fail with cycle error)
   - Test 3-level nesting works without cycles
-- [ ] T028 [P] [US4] Add integration test for nested team delegation in multi-agent/tests/integration.rs
+- [X] T028 [P] [US4] Add integration test for nested team delegation in multi-agent/tests/integration.rs
   - Create parent team with 2 child teams as members
   - Send message to parent team
   - Verify parent's scheduler selects appropriate child team
   - Verify child team processes message
   - Verify result propagates back to parent
-- [ ] T029 [US4] Update multi-agent/AGENT.md with nested team patterns section
+- [X] T029 [US4] Update multi-agent/AGENT.md with nested team patterns section
   - How to register teams as agents in other teams
   - Best practices for nested team design
   - Performance considerations for deep nesting

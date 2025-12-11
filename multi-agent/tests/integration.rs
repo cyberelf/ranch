@@ -238,3 +238,128 @@ async fn test_error_propagation_from_member_agents() {
     assert_eq!(info.id, "test-team");
     assert_eq!(info.metadata.get("member_count"), Some(&"1".to_string()));
 }
+
+#[tokio::test]
+async fn test_nested_team_delegation() {
+    // Create leaf-level agents
+    let agent1 = Arc::new(MockAgent::new("agent-1", "Data Collector")
+        .with_capabilities(vec!["data-collection".to_string()])
+        .with_response("Data collected successfully"));
+    
+    let agent2 = Arc::new(MockAgent::new("agent-2", "Data Analyzer")
+        .with_capabilities(vec!["data-analysis".to_string()])
+        .with_response("Analysis complete"));
+    
+    let agent3 = Arc::new(MockAgent::new("agent-3", "Coordinator")
+        .with_capabilities(vec!["coordination".to_string()])
+        .with_response("Coordinating tasks"));
+    
+    // Create agent manager and register leaf agents
+    let agent_manager = Arc::new(AgentManager::new());
+    let agent1_id = agent_manager.register(agent1 as Arc<dyn Agent>).await.unwrap();
+    let agent2_id = agent_manager.register(agent2 as Arc<dyn Agent>).await.unwrap();
+    let agent3_id = agent_manager.register(agent3 as Arc<dyn Agent>).await.unwrap();
+    
+    // Create child team (research department)
+    let child_team_config = TeamConfig {
+        id: "research-dept".to_string(),
+        name: "Research Department".to_string(),
+        description: "Handles research tasks".to_string(),
+        mode: TeamMode::Workflow,
+        agents: vec![
+            TeamAgentConfig {
+                agent_id: agent1_id.clone(),
+                role: "collector".to_string(),
+                capabilities: vec!["data-collection".to_string()],
+            },
+            TeamAgentConfig {
+                agent_id: agent2_id.clone(),
+                role: "analyzer".to_string(),
+                capabilities: vec!["data-analysis".to_string()],
+            },
+        ],
+        scheduler_config: SchedulerConfig::Workflow(WorkflowSchedulerConfig {
+            steps: vec![
+                WorkflowStepConfig {
+                    agent_id: agent1_id,
+                    order: 1,
+                    condition: None,
+                },
+                WorkflowStepConfig {
+                    agent_id: agent2_id,
+                    order: 2,
+                    condition: None,
+                },
+            ],
+        }),
+    };
+    
+    let child_team = Arc::new(Team::new(child_team_config, agent_manager.clone()));
+    
+    // Register child team as an agent in the manager
+    let child_team_id = agent_manager.register(child_team.clone() as Arc<dyn Agent>).await.unwrap();
+    
+    // Create parent team that includes the child team
+    let parent_team_config = TeamConfig {
+        id: "organization".to_string(),
+        name: "Organization".to_string(),
+        description: "Top-level organization".to_string(),
+        mode: TeamMode::Supervisor,
+        agents: vec![
+            TeamAgentConfig {
+                agent_id: agent3_id.clone(),
+                role: "coordinator".to_string(),
+                capabilities: vec!["coordination".to_string()],
+            },
+            TeamAgentConfig {
+                agent_id: child_team_id.clone(),
+                role: "research".to_string(),
+                capabilities: vec!["data-collection".to_string(), "data-analysis".to_string()],
+            },
+        ],
+        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
+            supervisor_agent_id: agent3_id,
+        }),
+    };
+    
+    let parent_team = Team::new(parent_team_config, agent_manager);
+    
+    // Verify parent team info
+    let parent_info = parent_team.info().await.unwrap();
+    assert_eq!(parent_info.id, "organization");
+    assert_eq!(parent_info.name, "Organization");
+    
+    // Verify parent team aggregates capabilities from child team
+    assert!(parent_info.capabilities.contains(&"coordination".to_string()));
+    assert!(parent_info.capabilities.contains(&"data-collection".to_string()));
+    assert!(parent_info.capabilities.contains(&"data-analysis".to_string()));
+    
+    // Verify child team info is accessible
+    let child_info = child_team.info().await.unwrap();
+    assert_eq!(child_info.id, "research-dept");
+    assert!(child_info.capabilities.contains(&"data-collection".to_string()));
+    assert!(child_info.capabilities.contains(&"data-analysis".to_string()));
+    
+    // Verify metadata
+    assert_eq!(parent_info.metadata.get("type"), Some(&"team".to_string()));
+    assert_eq!(parent_info.metadata.get("member_count"), Some(&"2".to_string()));
+}
+
+#[tokio::test]
+async fn test_three_level_nesting_works_without_cycles() {
+    let mut visited = HashSet::new();
+    
+    // Create 3-level nesting
+    assert!(track_team_nesting("level-1", &mut visited).is_ok());
+    assert!(track_team_nesting("level-2", &mut visited).is_ok());
+    assert!(track_team_nesting("level-3", &mut visited).is_ok());
+    
+    // All three should be in visited set
+    assert!(visited.contains("level-1"));
+    assert!(visited.contains("level-2"));
+    assert!(visited.contains("level-3"));
+    
+    // Attempting to create a cycle should fail
+    let result = track_team_nesting("level-1", &mut visited);
+    assert!(result.is_err());
+}

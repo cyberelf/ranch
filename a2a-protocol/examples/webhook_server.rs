@@ -100,7 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"process this task\"}}]");
+    println!("           \"parts\": [{{\"text\":\"process this task\"}}]");
     println!("         }},");
     println!("         \"immediate\": false");
     println!("       }}");

@@ -30,14 +30,15 @@ impl std::fmt::Display for MessageRole {
 }
 
 /// Part union type - represents different content types in a message
+/// Uses untagged serialization - the type is inferred from the structure
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
+#[serde(untagged)]
 pub enum Part {
-    /// Text content part
+    /// Text content part - identified by presence of "text" field
     Text(TextPart),
-    /// File content part
+    /// File content part - identified by presence of file-related fields
     File(FilePart),
-    /// Structured data part
+    /// Structured data part - identified by presence of "data" field
     Data(DataPart),
 }
 

@@ -49,7 +49,7 @@ curl -X POST http://localhost:3000/rpc \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind":"text","text":"hello"}]
+        "parts": [{"text":"hello"}]
       },
       "immediate": true
     }
@@ -462,7 +462,7 @@ Example JSON-RPC request:
   "params": {
     "message": {
       "role": "user",
-      "parts": [{"kind": "text", "text": "Hello!"}]
+      "parts": [{"text": "Hello!"}]
     },
     "immediate": true
   }

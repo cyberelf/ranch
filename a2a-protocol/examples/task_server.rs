@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"quick question\"}}]");
+    println!("           \"parts\": [{{\"text\":\"quick question\"}}]");
     println!("         }},");
     println!("         \"immediate\": true");
     println!("       }}");
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"analyze this long text\"}}]");
+    println!("           \"parts\": [{{\"text\":\"analyze this long text\"}}]");
     println!("         }}");
     println!("       }}");
     println!("     }}'");

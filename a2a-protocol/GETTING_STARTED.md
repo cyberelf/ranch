@@ -128,7 +128,7 @@ curl -X POST http://localhost:3000/rpc \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind":"text","text":"Hello, Agent!"}]
+        "parts": [{"text":"Hello, Agent!"}]
       },
       "immediate": true
     }
@@ -144,7 +144,6 @@ Expected response:
     "role": "agent",
     "parts": [
       {
-        "kind": "text",
         "text": "You said: Hello, Agent!"
       }
     ]

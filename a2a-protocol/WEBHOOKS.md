@@ -127,7 +127,7 @@ When your task completes (or fails), you'll receive a POST request:
     },
     "result": {
       "role": "agent",
-      "parts": [{"kind": "text", "text": "Task result here"}]
+      "parts": [{"text": "Task result here"}]
     }
   },
   "timestamp": "2025-11-11T10:30:00Z",

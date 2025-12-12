@@ -33,7 +33,7 @@ curl -X POST http://localhost:3000/rpc \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind":"text","text":"hello world"}]
+        "parts": [{"text":"hello world"}]
       },
       "immediate": true
     }
@@ -180,7 +180,7 @@ curl -X POST http://localhost:3003/rpc \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind":"text","text":"add 10 20"}]
+        "parts": [{"text":"add 10 20"}]
       },
       "immediate": true
     }
@@ -198,7 +198,7 @@ curl -X POST http://localhost:3004/rpc \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind":"text","text":"generate report"}]
+        "parts": [{"text":"generate report"}]
       },
       "immediate": true
     }
@@ -225,7 +225,7 @@ Send a message to the agent. Returns either an immediate `Message` or a `Task`.
   "params": {
     "message": {
       "role": "user",
-      "parts": [{"kind":"text","text":"hello"}]
+      "parts": [{"text":"hello"}]
     },
     "immediate": true
   }

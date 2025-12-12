@@ -213,7 +213,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    \"params\": {{");
     println!("      \"message\": {{");
     println!("        \"role\": \"user\",");
-    println!("        \"parts\": [{{\"kind\":\"text\",\"text\":\"Research AI agents\"}}]");
+    println!("        \"parts\": [{{\"text\":\"Research AI agents\"}}]");
     println!("      }}");
     println!("    }}");
     println!("  }}'\n");

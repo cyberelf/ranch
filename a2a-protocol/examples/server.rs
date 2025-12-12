@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       "params": {{
         "message": {{
           "role": "user",
-          "parts": [{{"kind":"text","text":"Hello, agent!"}}]
+          "parts": [{{"text":"Hello, agent!"}}]
         }},
         "immediate": true
       }}

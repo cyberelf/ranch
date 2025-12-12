@@ -129,7 +129,7 @@ mod tests {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "message/send",
-            "params": {"message": {"role": "user", "parts": [{"kind":"text","text":"hello"}]}, "immediate": true}
+            "params": {"message": {"role": "user", "parts": [{"text":"hello"}]}, "immediate": true}
         });
 
         let bytes = serde_json::to_vec(&req).unwrap();

@@ -86,7 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"hello streaming world\"}}]");
+    println!("           \"parts\": [{{\"text\":\"hello streaming world\"}}]");
     println!("         }},");
     println!("         \"immediate\": true");
     println!("       }}");
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
     println!(
-        "           \"parts\": [{{\"kind\":\"text\",\"text\":\"process this with streaming\"}}]"
+        "           \"parts\": [{{\"text\":\"process this with streaming\"}}]"
     );
     println!("         }}");
     println!("       }}");

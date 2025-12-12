@@ -3,7 +3,7 @@
 //! This demonstrates how easy it is to create an agent using the AgentLogic trait
 //! instead of implementing the full A2aHandler.
 //!
-//! Run with: cargo run --example basic_echo_server --features streaming
+//! Run with: cargo run --example basic_echo_server --features streaming -- --port 4000
 
 use a2a_protocol::{
     prelude::*,
@@ -54,6 +54,32 @@ impl Agent for UppercaseEchoAgent {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🤖 UppercaseEchoAgent initializing...");
 
+    // parse optional CLI args: --port <PORT>
+    let mut port: u16 = 3000;
+    let mut args_iter = std::env::args().skip(1);
+    while let Some(arg) = args_iter.next() {
+        match arg.as_str() {
+            "--port" => {
+                let val = args_iter.next().unwrap_or_else(|| {
+                    eprintln!("--port requires a value");
+                    std::process::exit(1);
+                });
+                match val.parse::<u16>() {
+                    Ok(p) => port = p,
+                    Err(_) => {
+                        eprintln!("Invalid port: {}", val);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            "-h" | "--help" => {
+                println!("Usage: cargo run --example basic_echo_server -- --port <PORT>");
+                return Ok(());
+            }
+            _ => eprintln!("Unknown argument: {}", arg),
+        }
+    }
+
     // 1. Create our agent
     let agent = Arc::new(UppercaseEchoAgent::new());
 
@@ -61,9 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let handler = TaskAwareHandler::with_immediate_responses(agent);
 
     // 3. Build and run server
-    println!("\n🚀 Starting Uppercase Echo Server");
+    println!("\n🚀 Starting Uppercase Echo Server on port {}", port);
     println!("   Try sending a message:");
-    println!("   curl -X POST http://localhost:3000/rpc \\");
+    println!("   curl -X POST http://localhost:{}/rpc \\", port);
     println!("     -H 'Content-Type: application/json' \\");
     println!("     -d '{{");
     println!("       \"jsonrpc\": \"2.0\",");
@@ -72,12 +98,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("       \"params\": {{");
     println!("         \"message\": {{");
     println!("           \"role\": \"user\",");
-    println!("           \"parts\": [{{\"kind\":\"text\",\"text\":\"hello world\"}}]");
+    println!("           \"parts\": [{{\"text\":\"hello world\"}}]");
     println!("         }}");
     println!("       }}");
     println!("     }}'\n");
 
-    ServerBuilder::new(handler).with_port(3000).run().await?;
+    ServerBuilder::new(handler).with_port(port).run().await?;
 
     Ok(())
 }

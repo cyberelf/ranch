@@ -198,7 +198,7 @@ curl -X POST http://localhost:8080/rpc \
     "params": {
       "message": {
         "role": "user",
-        "content": [{"type": "text", "text": "Hello team!"}]
+        "parts": [{"text": "Hello team!"}]
       }
     },
     "id": 2

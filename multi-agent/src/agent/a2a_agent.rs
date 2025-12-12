@@ -12,6 +12,12 @@ use tokio::sync::RwLock;
 /// Configuration for A2A agent runtime behavior
 #[derive(Debug, Clone, PartialEq)]
 pub struct A2AAgentConfig {
+    /// Local agent ID for team coordination (overrides remote agent ID if provided)
+    pub local_id: Option<String>,
+
+    /// Local agent name for display (overrides remote agent name if provided)
+    pub local_name: Option<String>,
+
     /// Maximum retry attempts for transient failures
     pub max_retries: u32,
 
@@ -22,6 +28,8 @@ pub struct A2AAgentConfig {
 impl Default for A2AAgentConfig {
     fn default() -> Self {
         Self {
+            local_id: None,
+            local_name: None,
             max_retries: 3,
             task_handling: TaskHandling::PollUntilComplete,
         }
@@ -186,29 +194,14 @@ impl A2AAgent {
 #[async_trait]
 impl crate::agent::Agent for A2AAgent {
     async fn info(&self) -> A2aResult<AgentInfo> {
-        // Check cache
-        {
-            let cache = self.card_cache.read().await;
-            if let Some(card) = &*cache {
-                return Ok(AgentInfo {
-                    id: card.id.to_string(),
-                    name: card.name.clone(),
-                    description: card.description.clone().unwrap_or_default(),
-                    capabilities: card.capabilities.iter().map(|c| c.name.clone()).collect(),
-                    metadata: card
-                        .metadata
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.to_string()))
-                        .collect(),
-                });
-            }
-        }
-
-        // Fetch card and extract info
+        // Fetch card from cache or remote
         let card = self.fetch_card().await?;
+        
+        // Build AgentInfo with local ID/name for team coordination,
+        // but use remote capabilities and description
         let info = AgentInfo {
-            id: card.id.to_string(),
-            name: card.name.clone(),
+            id: self.config.local_id.clone().unwrap_or_else(|| card.id.to_string()),
+            name: self.config.local_name.clone().unwrap_or_else(|| card.name.clone()),
             description: card.description.clone().unwrap_or_default(),
             capabilities: card.capabilities.iter().map(|c| c.name.clone()).collect(),
             metadata: card
@@ -254,6 +247,8 @@ mod tests {
         let client = A2aClient::new(Arc::new(transport));
 
         let config = A2AAgentConfig {
+            local_id: None,
+            local_name: None,
             max_retries: 5,
             task_handling: TaskHandling::ReturnTaskInfo,
         };

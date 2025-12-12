@@ -25,6 +25,73 @@ impl AgentManager {
         }
     }
 
+    /// Register all agents from configuration
+    ///
+    /// This is a convenience method that creates and registers all agents
+    /// defined in a Config struct.
+    ///
+    /// # Arguments
+    /// * `config` - Configuration containing agent definitions
+    ///
+    /// # Returns
+    /// Vector of registered agent IDs
+    ///
+    /// # Example
+    /// ```no_run
+    /// use multi_agent::*;
+    /// use std::sync::Arc;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let config = Config::from_file("config.toml")?;
+    /// let agent_manager = Arc::new(AgentManager::new());
+    /// 
+    /// let agent_ids = agent_manager.register_from_config(&config).await?;
+    /// println!("Registered {} agents", agent_ids.len());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn register_from_config(
+        &self,
+        config: &crate::Config,
+    ) -> A2aResult<Vec<String>> {
+        use std::env;
+        
+        let mut registered_ids = Vec::new();
+
+        for agent_config in config.to_agent_configs() {
+            let agent: Arc<dyn crate::Agent> = match agent_config.protocol {
+                crate::ProtocolType::A2A => {
+                    let transport = Arc::new(crate::JsonRpcTransport::new(&agent_config.endpoint)?);
+                    let client = crate::A2aClient::new(transport);
+                    let a2a_config: crate::A2AAgentConfig = agent_config.try_into()
+                        .map_err(|e| A2aError::Internal(format!("Config conversion error: {}", e)))?;
+                    Arc::new(crate::A2AAgent::with_config(client, a2a_config))
+                }
+                crate::ProtocolType::OpenAI => {
+                    let mut openai_config: crate::OpenAIAgentConfig = agent_config.clone().try_into()
+                        .map_err(|e| A2aError::Internal(format!("Config conversion error: {}", e)))?;
+                    
+                    // Override api_key from environment if available and not set
+                    if openai_config.api_key.is_none() {
+                        if let Ok(api_key) = env::var("OPENAI_API_KEY") {
+                            openai_config.api_key = Some(api_key);
+                        }
+                    }
+                    
+                    Arc::new(crate::OpenAIAgent::with_config(
+                        agent_config.endpoint,
+                        openai_config,
+                    ))
+                }
+            };
+
+            let agent_id = self.register(agent).await?;
+            registered_ids.push(agent_id);
+        }
+
+        Ok(registered_ids)
+    }
+
     /// Register an agent
     ///
     /// The agent's ID is extracted from its info and used as the registry key.
@@ -39,6 +106,23 @@ impl AgentManager {
         agents.insert(id.clone(), agent);
 
         Ok(id)
+    }
+
+    /// Register an agent with a specific ID
+    ///
+    /// This allows explicit control over the registration ID, useful when
+    /// you want to use a local ID that differs from the agent's reported ID.
+    ///
+    /// # Arguments
+    /// * `agent_id` - The ID to use for registration
+    /// * `agent` - The agent to register
+    ///
+    /// # Returns
+    /// The agent ID used for registration (same as input)
+    pub async fn register_with_id(&self, agent_id: String, agent: Arc<dyn Agent>) -> A2aResult<String> {
+        let mut agents = self.agents.write().await;
+        agents.insert(agent_id.clone(), agent);
+        Ok(agent_id)
     }
 
     /// Get an agent by ID

@@ -33,6 +33,22 @@
 
 [Gates determined based on constitution file]
 
+### Architecture & API Design Review
+
+**SDK/API Usability** (if this feature exposes public APIs):
+- [ ] APIs minimize boilerplate - provide convenience functions for common operations
+- [ ] Sensible defaults reduce required configuration
+- [ ] Method names follow principle of least surprise
+- [ ] Interface design makes incorrect usage difficult
+- [ ] Both low-level control and high-level convenience provided
+
+**Separation of Concerns**:
+- [ ] Data structures remain pure (no runtime dependencies)
+- [ ] Configuration types only handle parsing/validation
+- [ ] Runtime instantiation at module boundaries or associated functions
+- [ ] No conceptual cycles (data → runtime, not bidirectional)
+- [ ] Clear dependency graph maintained
+
 ## Project Structure
 
 ### Documentation (this feature)

@@ -227,6 +227,14 @@ curl -X POST http://localhost:8080/rpc \
 - Story generation workflow
 - OpenAI integration example
 
+**Prerequisites:**
+This example requires one remote A2A agent as story advisor to be running. For testing:
+
+```bash
+# Start first agent
+cargo run --example basic_echo_server -- --port 8081
+```
+
 **Run it:**
 ```bash
 cargo run --example fantasy_story_writer

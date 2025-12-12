@@ -14,6 +14,18 @@ use std::time::Duration;
 /// Configuration for OpenAI agent runtime behavior
 #[derive(Debug, Clone, PartialEq)]
 pub struct OpenAIAgentConfig {
+    /// Agent ID (used for registration in multi-agent systems)
+    pub id: String,
+
+    /// Agent name
+    pub name: String,
+
+    /// Agent description
+    pub description: String,
+
+    /// Agent capabilities
+    pub capabilities: Vec<String>,
+
     /// API key for authentication
     pub api_key: Option<String>,
 
@@ -36,6 +48,14 @@ pub struct OpenAIAgentConfig {
 impl Default for OpenAIAgentConfig {
     fn default() -> Self {
         Self {
+            id: format!("openai-{}", uuid::Uuid::new_v4()),
+            name: "OpenAI Agent".to_string(),
+            description: "OpenAI-compatible language model agent".to_string(),
+            capabilities: vec![
+                "text-generation".to_string(),
+                "conversation".to_string(),
+                "question-answering".to_string(),
+            ],
             api_key: None,
             max_retries: 3,
             timeout_seconds: 30,
@@ -109,14 +129,10 @@ impl OpenAIAgent {
     /// Create a new OpenAI agent with the given endpoint and configuration
     pub fn with_config(base_url: String, config: OpenAIAgentConfig) -> Self {
         let agent_info = AgentInfo {
-            id: format!("openai-{}", uuid::Uuid::new_v4()),
-            name: "OpenAI Agent".to_string(),
-            description: "OpenAI-compatible language model agent".to_string(),
-            capabilities: vec![
-                "text-generation".to_string(),
-                "conversation".to_string(),
-                "question-answering".to_string(),
-            ],
+            id: config.id.clone(),
+            name: config.name.clone(),
+            description: config.description.clone(),
+            capabilities: config.capabilities.clone(),
             metadata: {
                 let mut meta = HashMap::new();
                 meta.insert("model".to_string(), config.model.clone());

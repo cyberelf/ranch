@@ -98,6 +98,26 @@
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]
+
+### API Design Considerations *(include if feature exposes public APIs)*
+
+**Developer Experience**:
+- How will developers use this API? What does typical usage look like?
+- What boilerplate can be eliminated? Can we provide convenience functions?
+- What are sensible defaults? What should be optional vs required?
+- Does the API follow the principle of least surprise?
+
+**Architecture**:
+- Are data structures kept pure (separated from runtime logic)?
+- Is there a clear dependency direction (no cycles)?
+- Where does runtime instantiation logic live?
+- Can this API be used incorrectly? How can we prevent that?
+
+**Example Usage** (show ideal developer experience):
+```[language]
+// Show 2-3 lines of how a developer would use this feature
+// This should look simple and intuitive
+```
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
 ## Success Criteria *(mandatory)*

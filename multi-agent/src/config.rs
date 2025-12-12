@@ -223,6 +223,8 @@ impl TryFrom<AgentConfig> for A2AAgentConfig {
             .unwrap_or(TaskHandling::PollUntilComplete);
 
         Ok(A2AAgentConfig {
+            local_id: Some(config.id),
+            local_name: Some(config.name),
             max_retries: config.max_retries,
             task_handling,
         })
@@ -289,15 +291,9 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
             return Err(ConfigConversionError::MissingField("endpoint"));
         }
 
-        // Validate api_key exists in metadata
-        let mut api_key = config.metadata.get("api_key").cloned();
-        if api_key.is_none() {
-            if let Ok(key) = env::var("OPENAI_API_KEY") {
-                api_key = Some(key);
-            } else {
-                return Err(ConfigConversionError::MissingField("api_key"));
-            }
-        }
+        // Get api_key from metadata or environment (not required at config time)
+        let api_key = config.metadata.get("api_key").cloned()
+            .or_else(|| env::var("OPENAI_API_KEY").ok());
 
         // Validate timeout_seconds
         if config.timeout_seconds < 1 || config.timeout_seconds > 300 {
@@ -373,6 +369,10 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
             .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
 
         Ok(OpenAIAgentConfig {
+            id: config.id,
+            name: config.name,
+            description: config.metadata.get("system_prompt").cloned().unwrap_or_else(|| "OpenAI-compatible agent".to_string()),
+            capabilities: config.capabilities,
             api_key,
             max_retries: config.max_retries,
             timeout_seconds: config.timeout_seconds,
@@ -583,11 +583,11 @@ mod tests {
             max_retries: 3,
         };
 
+        // API key is now optional - can come from environment or be set later
         let result: Result<OpenAIAgentConfig, _> = agent_config.try_into();
-        assert!(matches!(
-            result,
-            Err(ConfigConversionError::MissingField("api_key"))
-        ));
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.api_key, None); // No API key set
     }
 
     #[test]

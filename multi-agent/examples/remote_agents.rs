@@ -115,6 +115,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let transport1 = Arc::new(JsonRpcTransport::new(agent1_endpoint)?);
     let client1 = A2aClient::new(transport1);
     let config1 = A2AAgentConfig {
+        local_id: None,
+        local_name: None,
         max_retries: 3,
         task_handling: TaskHandling::PollUntilComplete,
     };
@@ -127,6 +129,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let transport2 = Arc::new(JsonRpcTransport::new(agent2_endpoint)?);
     let client2 = A2aClient::new(transport2);
     let config2 = A2AAgentConfig {
+        local_id: None,
+        local_name: None,
         max_retries: 3,
         task_handling: TaskHandling::PollUntilComplete,
     };

@@ -1,19 +1,16 @@
 <!--
 SYNC IMPACT REPORT
-Version: 0.0.0 -> 1.0.0
+Version: 1.1.0 -> 1.2.0
 Modified Principles:
-- Added: I. Rust-First & Type Safety
-- Added: II. Protocol Compliance
-- Added: III. Async-Native
-- Added: IV. Testing & Quality
-- Added: V. Documentation & Standards
-Added Sections:
-- Security & Performance
-- Development Workflow
+- Enhanced: I. Rust-First & Type Safety (added Separation of Concerns)
+- Added: VI. SDK Design & Developer Experience
+Added Sections: None
+Removed Sections: None
 Templates requiring updates:
-- .specify/templates/plan-template.md (✅ updated - implicitly via Constitution Check)
-- .specify/templates/spec-template.md (✅ updated - implicitly via Constitution Check)
-- .specify/templates/tasks-template.md (✅ updated - implicitly via Constitution Check)
+- .specify/templates/plan-template.md (✅ updated - added Architecture & API Design Review checklist)
+- .specify/templates/spec-template.md (✅ updated - added API Design Considerations section)
+- .specify/templates/tasks-template.md (✅ updated - added Phase 1.5 for refactoring tasks)
+Follow-up TODOs: None
 -->
 # RANCH Constitution
 
@@ -23,6 +20,8 @@ Templates requiring updates:
 All code MUST be written in Rust (Edition 2021) unless explicitly required otherwise. We leverage Rust's strong type system to prevent runtime errors. Use `thiserror` for library errors and `anyhow` for application errors. Shared state MUST use `Arc` and `RwLock` (from `tokio::sync`) for thread safety.
 
 **Trait Infallibility**: Infallible traits (`From`, `Into`) MUST NOT panic or use assertions. For fallible conversions, use `TryFrom` and `TryInto` with explicit error types. This ensures composability and testability.
+
+**Separation of Concerns**: Data structures MUST remain pure and not depend on runtime constructs. Configuration types SHOULD only handle parsing and validation. Runtime instantiation logic MUST live at module boundaries (lib.rs, standalone functions) or as associated functions on runtime types. This prevents conceptual cycles and maintains a clear dependency graph: data → runtime, not runtime ↔ data.
 
 ### II. Protocol Compliance
 The system MUST strictly adhere to the A2A Protocol v0.3.0 specification. All transport MUST use JSON-RPC 2.0. Error codes MUST follow the spec (-32001 through -32007 for A2A errors). Message formats and RPC methods (`message/send`, `task/get`, etc.) MUST be validated against the spec.
@@ -36,6 +35,17 @@ Public APIs MUST have unit tests. Cross-module functionality MUST be verified wi
 ### V. Documentation & Standards
 All public items MUST have rustdoc comments. Complex APIs MUST include examples. `README.md` and `CHANGELOG.md` MUST be updated for major features. Semantic versioning MUST be followed.
 
+### VI. SDK Design & Developer Experience
+When designing SDK interfaces, ALWAYS consider the code that will use them. APIs MUST:
+- **Minimize boilerplate**: Provide convenience functions that compose common operations
+- **Use sensible defaults**: Optional parameters should have reasonable defaults
+- **Follow the principle of least surprise**: Method names and behavior should match developer expectations
+- **Reduce error-proneness**: Design interfaces that make incorrect usage difficult (e.g., builder patterns, type states)
+- **Provide ergonomic helpers**: Offer both low-level control and high-level convenience
+- **Maintain consistency**: Similar operations should have similar APIs
+
+**Example**: Instead of requiring users to manually register agents and then create teams, provide `create_team_from_config()` that does both atomically.
+
 ## Security & Performance
 
 Input from external sources MUST be validated. Authentication (API Key, Bearer, OAuth2) is REQUIRED for agent communications. Sensitive credentials MUST NEVER be logged. Rate limiting SHOULD be implemented in servers. Connection pooling and timeouts MUST be used for network operations.
@@ -48,11 +58,15 @@ Development follows a workspace-based approach. Use `cargo build` to build the e
 
 This Constitution supersedes all other development practices. Amendments require documentation, approval, and a migration plan. All PRs must verify compliance with these principles.
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-11
+**Version**: 1.2.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-12
 
 ## Amendment History
 
-### v1.1.0 (2025-12-11)
+### v1.2.0 (2025-12-12)
+- **Enhanced**: Section I (Rust-First & Type Safety) - Added Separation of Concerns principle
+- **Added**: Section VI (SDK Design & Developer Experience)
+- **Rationale**: Codify architectural lessons learned from agent registration refactoring: keep data structures pure, avoid conceptual cycles, prioritize developer ergonomics
+- **Impact**: Future API designs must consider usability and minimize boilerplate; configuration types must not depend on runtime constructs
 - **Added**: Trait Infallibility principle to Section I (Rust-First & Type Safety)
 - **Rationale**: Prevent panic/assert in From/Into implementations; mandate TryFrom/TryInto for fallible conversions
 - **Impact**: Config conversion implementations must use TryFrom with explicit error types

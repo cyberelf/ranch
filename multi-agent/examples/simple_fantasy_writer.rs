@@ -58,6 +58,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create Story Orchestrator
     let orchestrator_config = OpenAIAgentConfig {
+        id: "orchestrator".to_string(),
+        name: "Story Orchestrator".to_string(),
+        description: "Master storyteller and creative director".to_string(),
+        capabilities: vec!["story_planning".to_string(), "creative_direction".to_string()],
         api_key: Some(env::var("OPENAI_API_KEY")?),
         max_retries: 3,
         timeout_seconds: orchestrator_timeout,
@@ -76,6 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create Story Composer
     let composer_config = OpenAIAgentConfig {
+        id: "composer".to_string(),
+        name: "Story Composer".to_string(),
+        description: "Master prose writer and storyteller".to_string(),
+        capabilities: vec!["prose_writing".to_string(), "scene_composition".to_string()],
         api_key: Some(env::var("OPENAI_API_KEY")?),
         max_retries: 3,
         timeout_seconds: composer_timeout,

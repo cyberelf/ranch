@@ -4,7 +4,7 @@
 //! Per A2A protocol spec, message/stream returns a stream of JSON-RPC responses where
 //! result can be: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
 
-use super::{message::Message, TaskState, TaskStatus};
+use super::{TaskState, TaskStatus};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +139,7 @@ impl TaskArtifactUpdateEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::Message;
 
     #[test]
     fn test_task_status_update_event() {

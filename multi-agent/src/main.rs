@@ -12,60 +12,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent_manager = Arc::new(AgentManager::new());
 
-    // Register agents from config with proper protocol support
-    for agent_config in config.to_agent_configs() {
-        let agent: Arc<dyn Agent> = match agent_config.protocol {
-            ProtocolType::A2A => {
-                // Create A2A client for the agent endpoint
-                let transport = Arc::new(JsonRpcTransport::new(&agent_config.endpoint)?);
-                let client = A2aClient::new(transport);
-
-                // Create A2A agent with config
-                let a2a_config = A2AAgentConfig {
-                    max_retries: agent_config.max_retries,
-                    task_handling: TaskHandling::PollUntilComplete,
-                };
-
-                Arc::new(A2AAgent::with_config(client, a2a_config))
-            }
-            ProtocolType::OpenAI => {
-                // Create OpenAI agent
-                let openai_config = OpenAIAgentConfig {
-                    api_key: env::var("OPENAI_API_KEY").ok(),
-                    max_retries: agent_config.max_retries,
-                    timeout_seconds: agent_config.timeout_seconds,
-                    model: agent_config
-                        .metadata
-                        .get("model")
-                        .cloned()
-                        .unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
-                    temperature: agent_config
-                        .metadata
-                        .get("temperature")
-                        .and_then(|v| v.parse().ok()),
-                    max_tokens: agent_config
-                        .metadata
-                        .get("max_tokens")
-                        .and_then(|v| v.parse().ok()),
-                };
-
-                Arc::new(OpenAIAgent::with_config(agent_config.endpoint, openai_config))
-            }
-        };
-
-        // Register with agent manager
-        let _id = agent_manager.register(agent).await?;
-        println!("Registered agent: {}", _id);
+    // Register all agents from config
+    let agent_ids = agent_manager.register_from_config(&config).await?;
+    
+    for id in &agent_ids {
+        println!("Registered agent: {}", id);
     }
 
     // Check if any agents were registered
-    let agent_count = agent_manager.count().await;
-    if agent_count == 0 {
+    if agent_ids.is_empty() {
         eprintln!("No agents configured. Please check your config.toml file.");
         return Ok(());
     }
 
-    println!("{} agent(s) registered successfully!", agent_count);
+    println!("{} agent(s) registered successfully!", agent_ids.len());
 
     // Interactive CLI loop
     loop {

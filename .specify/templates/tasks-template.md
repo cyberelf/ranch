@@ -54,6 +54,28 @@ description: "Task list template for feature implementation"
 
 ---
 
+## Phase 1.5: Architecture & Refactoring (If Needed)
+
+**Purpose**: Address architectural issues, improve code quality, reduce technical debt
+
+**When to include this phase**:
+- Refactoring existing code for better separation of concerns
+- Removing conceptual cycles or circular dependencies
+- Improving API ergonomics and reducing boilerplate
+- Extracting reusable components or utilities
+
+**Example refactoring tasks**:
+
+- [ ] T004 [REFACTOR] Extract pure data structures from runtime logic
+- [ ] T005 [REFACTOR] Move config instantiation from Config to module-level function
+- [ ] T006 [REFACTOR] Add convenience wrapper for common multi-step operations
+- [ ] T007 [REFACTOR] Break circular dependency between [Module A] and [Module B]
+- [ ] T008 [REFACTOR] Simplify [API] by adding builder pattern/sensible defaults
+
+**Note**: Refactoring tasks should have tests that verify behavior doesn't change
+
+---
+
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented

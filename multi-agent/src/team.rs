@@ -120,6 +120,7 @@ pub struct Team {
 }
 
 impl Team {
+    /// Create a new team from configuration
     pub fn new(config: TeamConfig, agent_manager: Arc<AgentManager>) -> Self {
         let scheduler: Arc<dyn Scheduler> = match &config.scheduler_config {
             SchedulerConfig::Supervisor(supervisor_config) => {
@@ -135,6 +136,49 @@ impl Team {
             agent_manager,
             scheduler,
         }
+    }
+
+    /// Create a team from a team ID in the config, using pre-registered agents
+    ///
+    /// # Arguments
+    /// * `config` - The full configuration containing team definitions
+    /// * `team_id` - The ID of the team to create
+    /// * `agent_manager` - Agent manager with pre-registered agents
+    ///
+    /// # Returns
+    /// * `Ok(Team)` if team found in config
+    /// * `Err` if team not found
+    ///
+    /// # Example
+    /// ```no_run
+    /// use multi_agent::*;
+    /// use std::sync::Arc;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let config = Config::from_file("config.toml")?;
+    /// let agent_manager = Arc::new(AgentManager::new());
+    /// 
+    /// // Register agents...
+    /// 
+    /// let team = Team::from_config(&config, "my-team-id", agent_manager)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_config(
+        config: &crate::Config,
+        team_id: &str,
+        agent_manager: Arc<AgentManager>,
+    ) -> Result<Self, TeamError> {
+        let team_configs = config.to_team_configs();
+        let team_config = team_configs
+            .iter()
+            .find(|team| team.id == team_id)
+            .ok_or_else(|| {
+                TeamError::Configuration(format!("Team '{}' not found in configuration", team_id))
+            })?
+            .clone();
+
+        Ok(Self::new(team_config, agent_manager))
     }
 
     pub async fn process_message(&self, message: Message) -> Result<Message, TeamError> {

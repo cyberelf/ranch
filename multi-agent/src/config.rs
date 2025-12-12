@@ -2,7 +2,7 @@ use crate::agent::{A2AAgentConfig, OpenAIAgentConfig, TaskHandling};
 use crate::team::{SchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs;
+use std::{env, fs};
 use std::path::Path;
 use thiserror::Error;
 
@@ -290,9 +290,13 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
         }
 
         // Validate api_key exists in metadata
-        let api_key = config.metadata.get("api_key").cloned();
+        let mut api_key = config.metadata.get("api_key").cloned();
         if api_key.is_none() {
-            return Err(ConfigConversionError::MissingField("api_key"));
+            if let Ok(key) = env::var("OPENAI_API_KEY") {
+                api_key = Some(key);
+            } else {
+                return Err(ConfigConversionError::MissingField("api_key"));
+            }
         }
 
         // Validate timeout_seconds

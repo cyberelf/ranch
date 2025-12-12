@@ -32,17 +32,13 @@ pub struct TaskStatus {
     /// Current state of the task
     pub state: TaskState,
 
-    /// Optional human-readable reason for the current state
+    /// Optional message associated with this status (e.g., for input-required state)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub message: Option<Message>,
 
     /// Optional timestamp when the status was set (ISO 8601)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<String>,
-
-    /// Optional metadata about the status
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
 impl TaskStatus {
@@ -50,15 +46,14 @@ impl TaskStatus {
     pub fn new(state: TaskState) -> Self {
         Self {
             state,
-            reason: None,
+            message: None,
             timestamp: Some(chrono::Utc::now().to_rfc3339()),
-            metadata: None,
         }
     }
 
-    /// Create a new task status with a reason
-    pub fn with_reason<S: Into<String>>(mut self, reason: S) -> Self {
-        self.reason = Some(reason.into());
+    /// Create a new task status with a message
+    pub fn with_message(mut self, message: Message) -> Self {
+        self.message = Some(message);
         self
     }
 }
@@ -67,23 +62,19 @@ impl TaskStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Artifact {
     /// Unique identifier for the artifact
-    pub id: String,
-
-    /// Type/category of the artifact
-    #[serde(rename = "type")]
-    pub artifact_type: String,
+    #[serde(rename = "artifactId")]
+    pub artifact_id: String,
 
     /// Optional name/title of the artifact
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 
-    /// Optional URI to access the artifact
+    /// Optional description of the artifact
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<String>,
+    pub description: Option<String>,
 
-    /// Optional inline data for the artifact
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<serde_json::Value>,
+    /// Content parts of the artifact
+    pub parts: Vec<crate::Part>,
 
     /// Optional metadata about the artifact
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -107,9 +98,9 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifacts: Option<Vec<Artifact>>,
 
-    /// Optional status change history
+    /// Optional conversation history (list of messages)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub history: Option<Vec<TaskStatus>>,
+    pub history: Option<Vec<Message>>,
 
     /// Optional task metadata
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -140,14 +131,10 @@ impl Task {
         self
     }
 
-    /// Update task status (adds to history)
-    pub fn update_status(&mut self, status: TaskStatus) {
-        // Add current status to history
+    /// Add a message to the conversation history
+    pub fn add_message(&mut self, message: Message) {
         let history = self.history.get_or_insert_with(Vec::new);
-        history.push(self.status.clone());
-
-        // Set new status
-        self.status = status;
+        history.push(message);
     }
 
     /// Add an artifact to the task
@@ -217,28 +204,32 @@ mod tests {
     }
 
     #[test]
-    fn test_task_status_update() {
+    fn test_task_message_history() {
         let mut task = Task::new("task-123");
-        task.update_status(TaskStatus::new(TaskState::Working));
+        let msg1 = Message::user_text("Hello");
+        let msg2 = Message::agent_text("Hi there");
+        
+        task.add_message(msg1);
+        task.add_message(msg2);
 
-        assert_eq!(task.status.state, TaskState::Working);
-        assert_eq!(task.history.as_ref().unwrap().len(), 1);
-        assert_eq!(task.history.as_ref().unwrap()[0].state, TaskState::Pending);
+        assert_eq!(task.history.as_ref().unwrap().len(), 2);
+        assert_eq!(task.history.as_ref().unwrap()[0].role, crate::MessageRole::User);
+        assert_eq!(task.history.as_ref().unwrap()[1].role, crate::MessageRole::Agent);
     }
 
     #[test]
     fn test_task_artifacts() {
         let mut task = Task::new("task-123");
         task.add_artifact(Artifact {
-            id: "art-1".to_string(),
-            artifact_type: "document".to_string(),
+            artifact_id: "art-1".to_string(),
             name: Some("Result.txt".to_string()),
-            uri: Some("https://example.com/result.txt".to_string()),
-            data: None,
+            description: Some("A text file result".to_string()),
+            parts: vec![crate::Part::Text(crate::TextPart::new("Result content"))],
             metadata: None,
         });
 
         assert_eq!(task.artifacts.as_ref().unwrap().len(), 1);
+        assert_eq!(task.artifacts.as_ref().unwrap()[0].artifact_id, "art-1");
     }
 
     #[test]

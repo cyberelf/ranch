@@ -132,8 +132,11 @@ impl A2AAgent {
                     // Extract result from artifacts if available
                     if let Some(artifacts) = &task.artifacts {
                         if let Some(artifact) = artifacts.first() {
-                            if let Some(data) = &artifact.data {
-                                return Ok(Message::agent_text(data.to_string()));
+                            // Get the first text part from the artifact
+                            for part in &artifact.parts {
+                                if let a2a_protocol::Part::Text(text_part) = part {
+                                    return Ok(Message::agent_text(&text_part.text));
+                                }
                             }
                         }
                     }
@@ -142,8 +145,10 @@ impl A2AAgent {
                 TaskState::Failed => {
                     let reason = task
                         .status
-                        .reason
-                        .unwrap_or_else(|| "Unknown error".to_string());
+                        .message
+                        .as_ref()
+                        .and_then(|m| m.text_content())
+                        .unwrap_or("Unknown error");
                     return Err(A2aError::Internal(format!(
                         "Task {} failed: {}",
                         task.id, reason

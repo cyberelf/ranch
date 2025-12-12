@@ -546,8 +546,6 @@ mod tests {
         let status = handler.rpc_task_status(request).await.unwrap();
 
         assert_eq!(status.state, TaskState::Working);
-        let task = handler.task_store().get(&task.id).await.unwrap();
-        assert!(task.history.is_some());
     }
 
     #[tokio::test]
@@ -568,7 +566,6 @@ mod tests {
         let status = handler.rpc_task_cancel(request).await.unwrap();
 
         assert_eq!(status.state, TaskState::Cancelled);
-        assert!(status.reason.is_some());
 
         // Verify task is cancelled
         let task = handler.task_store().get(&task_id).await.unwrap();

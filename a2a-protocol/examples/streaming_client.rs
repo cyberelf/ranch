@@ -85,8 +85,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("📥 Event #{}: Task Status Update", event_count);
                             println!("   Task ID: {}", update.task_id);
                             println!("   Status: {:?}", update.status.state);
-                            if let Some(reason) = update.status.reason {
-                                println!("   Reason: {}", reason);
+                            if let Some(msg) = &update.status.message {
+                                if let Some(text) = msg.text_content() {
+                                    println!("      Message: {}", text);
+                                }
                             }
                             println!();
                         }

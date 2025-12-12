@@ -1,6 +1,6 @@
 //! Task storage and management
 
-use crate::{A2aError, A2aResult, Task, TaskState, TaskStatus};
+use crate::{A2aError, A2aResult, Message, Task, TaskState, TaskStatus};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -73,13 +73,6 @@ impl TaskStore {
         // Create new status
         let new_status = TaskStatus::new(new_state.clone());
 
-        // Add current status to history
-        if task.history.is_none() {
-            task.history = Some(vec![task.status.clone()]);
-        } else {
-            task.history.as_mut().unwrap().push(task.status.clone());
-        }
-
         // Update to new status
         task.status = new_status.clone();
 
@@ -109,17 +102,11 @@ impl TaskStore {
 
         // Create new cancelled status
         let new_status = if let Some(reason_text) = reason {
-            TaskStatus::new(TaskState::Cancelled).with_reason(reason_text)
+            TaskStatus::new(TaskState::Cancelled)
+                .with_message(Message::agent_text(format!("Task cancelled: {}", reason_text)))
         } else {
             TaskStatus::new(TaskState::Cancelled)
         };
-
-        // Add current status to history
-        if task.history.is_none() {
-            task.history = Some(vec![task.status.clone()]);
-        } else {
-            task.history.as_mut().unwrap().push(task.status.clone());
-        }
 
         // Update to cancelled status
         task.status = new_status.clone();
@@ -270,7 +257,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(status.state, TaskState::Working);
-        assert!(store.get(&task_id).await.unwrap().history.is_some());
 
         // Verify task was updated
         let task = store.get(&task_id).await.unwrap();
@@ -295,8 +281,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(status.state, TaskState::Cancelled);
-        assert!(status.reason.is_some());
-        assert_eq!(status.reason.as_ref().unwrap(), "User requested");
+        assert!(status.message.is_some());
+        let msg_text = status.message.as_ref().unwrap().text_content().unwrap();
+        assert!(msg_text.contains("User requested"));
     }
 
     #[tokio::test]

@@ -4,7 +4,7 @@
 //! Per A2A protocol spec, message/stream returns a stream of JSON-RPC responses where
 //! result can be: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
 
-use super::{TaskState, TaskStatus};
+use super::{message::Message, TaskState, TaskStatus};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -142,7 +142,8 @@ mod tests {
 
     #[test]
     fn test_task_status_update_event() {
-        let status = TaskStatus::new(TaskState::Working).with_reason("Processing".to_string());
+        let status = TaskStatus::new(TaskState::Working)
+            .with_message(Message::agent_text("Processing"));
 
         let event = TaskStatusUpdateEvent::new("task_123", status)
             .with_previous_state(TaskState::Pending)

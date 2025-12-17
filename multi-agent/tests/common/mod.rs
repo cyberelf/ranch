@@ -42,6 +42,7 @@ impl MockAgent {
     }
 
     /// Get the number of times process was called
+    #[allow(dead_code)] // Used in some tests but not all
     pub fn call_count(&self) -> u32 {
         self.call_count.load(Ordering::SeqCst)
     }
@@ -70,6 +71,7 @@ impl Agent for MockAgent {
 }
 
 /// Helper to create a test message
+#[allow(dead_code)] // Used in some tests but not all
 pub fn create_test_message(text: &str) -> Message {
     Message::user_text(text)
 }

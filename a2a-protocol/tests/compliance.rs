@@ -1,12 +1,12 @@
 //! Unified Protocol Compliance Test Suite
-//! 
+//!
 //! This comprehensive test suite validates that our Rust data structures match
 //! the official A2A protocol specification by testing serialization format,
 //! field names, structure, and behavior.
 
+use a2a_protocol::core::agent_card::{AgentCardSignature, TransportInterface, TransportType};
 use a2a_protocol::prelude::*;
 use a2a_protocol::Artifact;
-use a2a_protocol::core::agent_card::{AgentCardSignature, TransportInterface, TransportType};
 use serde_json::Value;
 
 /// Helper to serialize and return JSON for inspection
@@ -28,14 +28,14 @@ fn test_task_status_structure() {
     // Required field: state
     assert!(json.get("state").is_some(), "state field is required");
     assert!(json["state"].is_string(), "state should be a string");
-    
+
     // Optional fields: message, timestamp
     if let Some(msg) = json.get("message") {
         assert!(msg.is_object(), "message should be an object");
         assert!(msg.get("role").is_some(), "message.role is required");
         assert!(msg.get("parts").is_some(), "message.parts is required");
     }
-    
+
     // No extra fields allowed
     let obj = json.as_object().unwrap();
     for key in obj.keys() {
@@ -68,18 +68,30 @@ fn test_task_structure() {
 
     // camelCase field naming
     if json.get("contextId").is_some() {
-        assert!(json["contextId"].is_string(), "contextId should be a string");
+        assert!(
+            json["contextId"].is_string(),
+            "contextId should be a string"
+        );
     }
 
     // History should be array of messages, not TaskStatus
     if let Some(history) = json.get("history") {
         assert!(history.is_array(), "history should be an array");
         for item in history.as_array().unwrap() {
-            assert!(item.is_object(), "history items should be objects (Messages)");
+            assert!(
+                item.is_object(),
+                "history items should be objects (Messages)"
+            );
             assert!(item.get("role").is_some(), "history message must have role");
-            assert!(item.get("parts").is_some(), "history message must have parts");
+            assert!(
+                item.get("parts").is_some(),
+                "history message must have parts"
+            );
             // Should NOT have TaskStatus fields
-            assert!(item.get("state").is_none(), "history items should be Messages, not TaskStatus");
+            assert!(
+                item.get("state").is_none(),
+                "history items should be Messages, not TaskStatus"
+            );
         }
     }
 
@@ -87,15 +99,36 @@ fn test_task_structure() {
     if let Some(artifacts) = json.get("artifacts") {
         assert!(artifacts.is_array(), "artifacts should be an array");
         for artifact in artifacts.as_array().unwrap() {
-            assert!(artifact.get("artifactId").is_some(), "artifact must have artifactId (not 'id')");
-            assert!(artifact.get("parts").is_some(), "artifact must have parts array");
-            
+            assert!(
+                artifact.get("artifactId").is_some(),
+                "artifact must have artifactId (not 'id')"
+            );
+            assert!(
+                artifact.get("parts").is_some(),
+                "artifact must have parts array"
+            );
+
             // Should NOT have old field names
-            assert!(artifact.get("id").is_none(), "artifact should use 'artifactId', not 'id'");
-            assert!(artifact.get("type").is_none(), "artifact should not have 'type' field");
-            assert!(artifact.get("artifact_type").is_none(), "artifact should not have 'artifact_type' field");
-            assert!(artifact.get("uri").is_none(), "artifact should not have standalone 'uri' field");
-            assert!(artifact.get("data").is_none(), "artifact should not have standalone 'data' field");
+            assert!(
+                artifact.get("id").is_none(),
+                "artifact should use 'artifactId', not 'id'"
+            );
+            assert!(
+                artifact.get("type").is_none(),
+                "artifact should not have 'type' field"
+            );
+            assert!(
+                artifact.get("artifact_type").is_none(),
+                "artifact should not have 'artifact_type' field"
+            );
+            assert!(
+                artifact.get("uri").is_none(),
+                "artifact should not have standalone 'uri' field"
+            );
+            assert!(
+                artifact.get("data").is_none(),
+                "artifact should not have standalone 'data' field"
+            );
         }
     }
 
@@ -103,7 +136,12 @@ fn test_task_structure() {
     let obj = json.as_object().unwrap();
     for key in obj.keys() {
         assert!(
-            key == "id" || key == "contextId" || key == "status" || key == "artifacts" || key == "history" || key == "metadata",
+            key == "id"
+                || key == "contextId"
+                || key == "status"
+                || key == "artifacts"
+                || key == "history"
+                || key == "metadata",
             "Task has unexpected field: {}",
             key
         );
@@ -128,17 +166,34 @@ fn test_artifact_structure() {
     assert!(json["parts"].is_array(), "parts should be an array");
 
     // No old field names
-    assert!(json.get("id").is_none(), "should use 'artifactId', not 'id'");
+    assert!(
+        json.get("id").is_none(),
+        "should use 'artifactId', not 'id'"
+    );
     assert!(json.get("type").is_none(), "should not have 'type' field");
-    assert!(json.get("artifact_type").is_none(), "should not have 'artifact_type' field");
-    assert!(json.get("uri").is_none(), "should not have standalone 'uri' field");
-    assert!(json.get("data").is_none(), "should not have standalone 'data' field");
+    assert!(
+        json.get("artifact_type").is_none(),
+        "should not have 'artifact_type' field"
+    );
+    assert!(
+        json.get("uri").is_none(),
+        "should not have standalone 'uri' field"
+    );
+    assert!(
+        json.get("data").is_none(),
+        "should not have standalone 'data' field"
+    );
 
     // Only allowed fields
     let obj = json.as_object().unwrap();
     for key in obj.keys() {
         assert!(
-            key == "artifactId" || key == "name" || key == "description" || key == "parts" || key == "metadata" || key == "extensions",
+            key == "artifactId"
+                || key == "name"
+                || key == "description"
+                || key == "parts"
+                || key == "metadata"
+                || key == "extensions",
             "Artifact has unexpected field: {}",
             key
         );
@@ -152,19 +207,19 @@ fn test_message_part_untagged_serialization() {
 
     let parts = json.get("parts").expect("parts should exist");
     let parts_arr = parts.as_array().expect("parts should be an array");
-    
+
     for part in parts_arr {
         let part_obj = part.as_object().expect("part should be an object");
-        
+
         // Parts should NOT have a "kind" field (untagged serialization)
         assert!(
             part_obj.get("kind").is_none(),
             "Part should not have 'kind' field. Protocol uses untagged serialization."
         );
-        
+
         // Should have content field (text, file, or data)
-        let has_content = part_obj.contains_key("text") 
-            || part_obj.contains_key("file") 
+        let has_content = part_obj.contains_key("text")
+            || part_obj.contains_key("file")
             || part_obj.contains_key("data");
         assert!(has_content, "Part should have text, file, or data field");
     }
@@ -184,21 +239,33 @@ fn test_message_structure() {
 
     // Optional fields with correct casing
     if json.get("messageId").is_some() {
-        assert!(json["messageId"].is_string(), "messageId should be a string");
+        assert!(
+            json["messageId"].is_string(),
+            "messageId should be a string"
+        );
     }
     if json.get("taskId").is_some() {
         assert!(json["taskId"].is_string(), "taskId should be camelCase");
     }
     if json.get("contextId").is_some() {
-        assert!(json["contextId"].is_string(), "contextId should be camelCase");
+        assert!(
+            json["contextId"].is_string(),
+            "contextId should be camelCase"
+        );
     }
 
     // Only allowed fields
     let obj = json.as_object().unwrap();
     for key in obj.keys() {
         assert!(
-            key == "role" || key == "parts" || key == "messageId" || key == "taskId" 
-            || key == "contextId" || key == "metadata" || key == "referenceTaskIds" || key == "extensions",
+            key == "role"
+                || key == "parts"
+                || key == "messageId"
+                || key == "taskId"
+                || key == "contextId"
+                || key == "metadata"
+                || key == "referenceTaskIds"
+                || key == "extensions",
             "Message has unexpected field: {}",
             key
         );
@@ -236,10 +303,7 @@ fn test_agent_card_structure() {
             certificate_chain: vec!["cert-1".to_string()],
             extra: std::collections::HashMap::new(),
         }])
-        .add_transport_interface(TransportInterface::new(
-            TransportType::HttpJson,
-            http_url,
-        ));
+        .add_transport_interface(TransportInterface::new(TransportType::HttpJson, http_url));
 
     let json = to_json(&card);
 
@@ -247,13 +311,25 @@ fn test_agent_card_structure() {
     assert!(json.get("id").is_some(), "id is required");
     assert!(json.get("name").is_some(), "name is required");
     assert!(json.get("url").is_some(), "url is required");
-    assert!(json.get("protocolVersion").is_some(), "protocolVersion is required");
-    assert!(json.get("preferredTransport").is_some(), "preferredTransport is required");
+    assert!(
+        json.get("protocolVersion").is_some(),
+        "protocolVersion is required"
+    );
+    assert!(
+        json.get("preferredTransport").is_some(),
+        "preferredTransport is required"
+    );
 
     // Verify field values
     assert_eq!(json["preferredTransport"], "GRPC");
-    assert_eq!(json["defaultInputModes"], serde_json::json!(["application/json"]));
-    assert_eq!(json["defaultOutputModes"], serde_json::json!(["application/json"]));
+    assert_eq!(
+        json["defaultInputModes"],
+        serde_json::json!(["application/json"])
+    );
+    assert_eq!(
+        json["defaultOutputModes"],
+        serde_json::json!(["application/json"])
+    );
     assert_eq!(json["supportsAuthenticatedExtendedCard"], true);
     assert_eq!(json["protocolVersion"], "0.3.0");
 }
@@ -266,14 +342,26 @@ fn test_agent_card_structure() {
 fn test_camel_case_field_naming() {
     let mut task = Task::new("task-123");
     task.context_id = Some("ctx-abc".to_string());
-    
+
     let json_str = serde_json::to_string(&to_json(&task)).unwrap();
-    
+
     // These snake_case fields should NOT appear (should be camelCase)
-    assert!(!json_str.contains("\"context_id\""), "Should use 'contextId', not 'context_id'");
-    assert!(!json_str.contains("\"task_id\""), "Should use 'taskId', not 'task_id'");
-    assert!(!json_str.contains("\"message_id\""), "Should use 'messageId', not 'message_id'");
-    assert!(!json_str.contains("\"artifact_id\""), "Should use 'artifactId', not 'artifact_id'");
+    assert!(
+        !json_str.contains("\"context_id\""),
+        "Should use 'contextId', not 'context_id'"
+    );
+    assert!(
+        !json_str.contains("\"task_id\""),
+        "Should use 'taskId', not 'task_id'"
+    );
+    assert!(
+        !json_str.contains("\"message_id\""),
+        "Should use 'messageId', not 'message_id'"
+    );
+    assert!(
+        !json_str.contains("\"artifact_id\""),
+        "Should use 'artifactId', not 'artifact_id'"
+    );
 }
 
 // ============================================================================
@@ -293,12 +381,12 @@ fn test_task_round_trip() {
         parts: vec![Part::Text(TextPart::new("Output"))],
         metadata: None,
     });
-    original_task.status = TaskStatus::new(TaskState::Completed)
-        .with_message(Message::agent_text("All done"));
+    original_task.status =
+        TaskStatus::new(TaskState::Completed).with_message(Message::agent_text("All done"));
 
     // Serialize
     let json_str = serde_json::to_string(&original_task).unwrap();
-    
+
     // Deserialize
     let deserialized_task: Task = serde_json::from_str(&json_str).unwrap();
 
@@ -337,7 +425,10 @@ fn test_error_code_mapping() {
         (A2aError::Authentication("test".to_string()), 401),
         (A2aError::Validation("test".to_string()), 400),
         (A2aError::ProtocolViolation("test".to_string()), 422),
-        (A2aError::RateLimited(std::time::Duration::from_secs(60)), 429),
+        (
+            A2aError::RateLimited(std::time::Duration::from_secs(60)),
+            429,
+        ),
     ];
 
     for (error, expected_code) in test_cases {
@@ -364,7 +455,11 @@ fn test_retryable_errors() {
     ];
 
     for error in non_retryable {
-        assert!(!error.is_retryable(), "Should not be retryable: {:?}", error);
+        assert!(
+            !error.is_retryable(),
+            "Should not be retryable: {:?}",
+            error
+        );
     }
 }
 
@@ -375,15 +470,28 @@ fn test_retryable_errors() {
 #[test]
 fn test_agent_id_validation() {
     // Valid
-    let valid = vec!["https://agent.example.com", "agent-123", "my_agent", "agent.example.com"];
+    let valid = vec![
+        "https://agent.example.com",
+        "agent-123",
+        "my_agent",
+        "agent.example.com",
+    ];
     for id in valid {
-        assert!(AgentId::new(id.to_string()).is_ok(), "Should be valid: {}", id);
+        assert!(
+            AgentId::new(id.to_string()).is_ok(),
+            "Should be valid: {}",
+            id
+        );
     }
 
     // Invalid
     let invalid = vec!["", "   ", "ht tp://bad-url"];
     for id in invalid {
-        assert!(AgentId::new(id.to_string()).is_err(), "Should be invalid: {}", id);
+        assert!(
+            AgentId::new(id.to_string()).is_err(),
+            "Should be invalid: {}",
+            id
+        );
     }
 }
 
@@ -395,11 +503,11 @@ fn test_agent_id_validation() {
 fn test_serialization_performance() {
     let message = Message::user_text("Test message");
     let start = std::time::Instant::now();
-    
+
     for _ in 0..1000 {
         let _ = serde_json::to_string(&message).unwrap();
     }
-    
+
     let duration = start.elapsed();
     assert!(
         duration.as_millis() < 100,

@@ -113,6 +113,12 @@
 - Where does runtime instantiation logic live?
 - Can this API be used incorrectly? How can we prevent that?
 
+**Testing Strategy**:
+- Unit tests: Will be co-located in source files (`#[cfg(test)] mod tests`)
+- Integration tests: Will be in `tests/` directory testing cross-module interactions
+- What mocks are needed? (Simple in source, comprehensive in `tests/common/`)
+- What are the key test scenarios? (Unit: single module behavior, Integration: workflows)
+
 **Example Usage** (show ideal developer experience):
 ```[language]
 // Show 2-3 lines of how a developer would use this feature

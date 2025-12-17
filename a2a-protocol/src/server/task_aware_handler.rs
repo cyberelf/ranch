@@ -313,6 +313,7 @@ impl A2aHandler for TaskAwareHandler {
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
             // Update to completed
+            #[allow(clippy::redundant_pattern_matching)] // Intentional for drop order
             if let Ok(_) = task_store
                 .update_state(&task_id_clone, TaskState::Completed)
                 .await

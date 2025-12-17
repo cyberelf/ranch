@@ -170,13 +170,12 @@ impl Agent for ReporterAgent {
 
         // Calculate profit by calling calculator again
         let profit_message = Message::user_text("subtract 150000 50000");
-        match self.calculator_client.send_message(profit_message).await {
-            Ok(SendResponse::Message(response)) => {
-                if let Some(result) = response.text_content() {
-                    report.push_str(&format!("\nProfit: {}\n", result));
-                }
+        if let Ok(SendResponse::Message(response)) =
+            self.calculator_client.send_message(profit_message).await
+        {
+            if let Some(result) = response.text_content() {
+                report.push_str(&format!("\nProfit: {}\n", result));
             }
-            _ => {}
         }
 
         report.push_str("\n✓ Report generated using Calculator agent");

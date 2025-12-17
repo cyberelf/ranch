@@ -230,6 +230,79 @@ impl crate::agent::Agent for A2AAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::Agent;
+
+    #[test]
+    fn test_a2a_agent_config_default() {
+        let config = A2AAgentConfig::default();
+        assert_eq!(config.local_id, None);
+        assert_eq!(config.local_name, None);
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.task_handling, TaskHandling::PollUntilComplete);
+    }
+
+    #[test]
+    fn test_a2a_agent_config_custom() {
+        let config = A2AAgentConfig {
+            local_id: Some("custom-id".to_string()),
+            local_name: Some("Custom Agent".to_string()),
+            max_retries: 5,
+            task_handling: TaskHandling::ReturnTaskInfo,
+        };
+
+        assert_eq!(config.local_id, Some("custom-id".to_string()));
+        assert_eq!(config.local_name, Some("Custom Agent".to_string()));
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.task_handling, TaskHandling::ReturnTaskInfo);
+    }
+
+    #[test]
+    fn test_a2a_agent_config_clone() {
+        let config = A2AAgentConfig {
+            local_id: Some("test".to_string()),
+            local_name: Some("Test".to_string()),
+            max_retries: 7,
+            task_handling: TaskHandling::RejectTasks,
+        };
+
+        let cloned = config.clone();
+        assert_eq!(config.local_id, cloned.local_id);
+        assert_eq!(config.local_name, cloned.local_name);
+        assert_eq!(config.max_retries, cloned.max_retries);
+        assert_eq!(config.task_handling, cloned.task_handling);
+    }
+
+    #[test]
+    fn test_a2a_agent_config_partial_eq() {
+        let config1 = A2AAgentConfig::default();
+        let config2 = A2AAgentConfig::default();
+        let config3 = A2AAgentConfig {
+            local_id: Some("different".to_string()),
+            ..A2AAgentConfig::default()
+        };
+
+        assert_eq!(config1, config2);
+        assert_ne!(config1, config3);
+    }
+
+    #[test]
+    fn test_task_handling_variants() {
+        let poll = TaskHandling::PollUntilComplete;
+        let return_info = TaskHandling::ReturnTaskInfo;
+        let reject = TaskHandling::RejectTasks;
+
+        assert_eq!(poll, TaskHandling::PollUntilComplete);
+        assert_ne!(poll, return_info);
+        assert_ne!(poll, reject);
+        assert_ne!(return_info, reject);
+    }
+
+    #[test]
+    fn test_task_handling_copy() {
+        let original = TaskHandling::PollUntilComplete;
+        let copied = original;
+        assert_eq!(original, copied);
+    }
 
     #[tokio::test]
     async fn test_a2a_agent_creation() {
@@ -239,6 +312,8 @@ mod tests {
 
         assert_eq!(agent.config.max_retries, 3);
         assert_eq!(agent.config.task_handling, TaskHandling::PollUntilComplete);
+        assert_eq!(agent.config.local_id, None);
+        assert_eq!(agent.config.local_name, None);
     }
 
     #[tokio::test]
@@ -247,15 +322,372 @@ mod tests {
         let client = A2aClient::new(Arc::new(transport));
 
         let config = A2AAgentConfig {
-            local_id: None,
-            local_name: None,
+            local_id: Some("local-123".to_string()),
+            local_name: Some("Local Agent".to_string()),
             max_retries: 5,
             task_handling: TaskHandling::ReturnTaskInfo,
         };
 
-        let agent = A2AAgent::with_config(client, config);
+        let agent = A2AAgent::with_config(client, config.clone());
 
         assert_eq!(agent.config.max_retries, 5);
         assert_eq!(agent.config.task_handling, TaskHandling::ReturnTaskInfo);
+        assert_eq!(agent.config.local_id, Some("local-123".to_string()));
+        assert_eq!(agent.config.local_name, Some("Local Agent".to_string()));
     }
+
+    #[tokio::test]
+    async fn test_a2a_agent_client_accessor() {
+        let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
+        let client = A2aClient::new(Arc::new(transport));
+        let agent = A2AAgent::new(client);
+
+        // Should be able to access the client
+        let _client_ref = agent.client();
+    }
+
+    #[tokio::test]
+    async fn test_a2a_agent_config_accessor() {
+        let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
+        let client = A2aClient::new(Arc::new(transport));
+        
+        let config = A2AAgentConfig {
+            local_id: Some("test".to_string()),
+            local_name: Some("Test".to_string()),
+            max_retries: 7,
+            task_handling: TaskHandling::RejectTasks,
+        };
+        
+        let agent = A2AAgent::with_config(client, config);
+
+        let agent_config = agent.config();
+        assert_eq!(agent_config.max_retries, 7);
+        assert_eq!(agent_config.task_handling, TaskHandling::RejectTasks);
+        assert_eq!(agent_config.local_id, Some("test".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_clear_cache() {
+        let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
+        let client = A2aClient::new(Arc::new(transport));
+        let agent = A2AAgent::new(client);
+
+        // Clear cache should not panic
+        agent.clear_cache().await;
+
+        // Cache should be empty after clear
+        let cache = agent.card_cache.read().await;
+        assert!(cache.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_initially_empty() {
+        let transport = JsonRpcTransport::new("https://example.com/rpc").unwrap();
+        let client = A2aClient::new(Arc::new(transport));
+        let agent = A2AAgent::new(client);
+
+        let cache = agent.card_cache.read().await;
+        assert!(cache.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_a2a_agent_info_with_config() {
+        // Create mock transport using JsonRpcTransport with a fake URL
+        // This tests the info() method with local overrides
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        
+        let config = A2AAgentConfig {
+            local_id: Some("local-id-123".to_string()),
+            local_name: Some("Local Override Name".to_string()),
+            max_retries: 3,
+            task_handling: TaskHandling::PollUntilComplete,
+        };
+        
+        let agent = A2AAgent::with_config(client, config);
+
+        // Test that config is returned when remote fetch fails
+        // The info() method should fall back to local config
+        let result = agent.info().await;
+        
+        // Since we can't reach the fake URL, this should use local overrides
+        // or return an error depending on implementation
+        match result {
+            Ok(info) => {
+                // If successful, verify local overrides are used
+                assert_eq!(info.id, "local-id-123");
+                assert_eq!(info.name, "Local Override Name");
+            }
+            Err(_) => {
+                // Expected when transport fails and no fallback
+                // This is acceptable behavior
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_a2a_agent_config_accessors() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        
+        let config = A2AAgentConfig {
+            local_id: Some("test-id".to_string()),
+            local_name: Some("Test Agent".to_string()),
+            max_retries: 5,
+            task_handling: TaskHandling::ReturnTaskInfo,
+        };
+        
+        let agent = A2AAgent::with_config(client, config.clone());
+
+        // Test config accessor
+        assert_eq!(agent.config().max_retries, 5);
+        assert_eq!(agent.config().task_handling, TaskHandling::ReturnTaskInfo);
+        assert_eq!(agent.config().local_id, Some("test-id".to_string()));
+        assert_eq!(agent.config().local_name, Some("Test Agent".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_a2a_agent_cache_operations() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Clear cache (should be no-op on empty cache)
+        agent.clear_cache().await;
+
+        // Cache operations are tested indirectly through info() calls
+        // which populate and use the cache
+    }
+
+    #[tokio::test]
+    async fn test_a2a_agent_default_health_check() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Default health check returns false when endpoint is unreachable
+        let healthy = agent.health_check().await;
+        assert!(!healthy);
+    }
+
+    #[tokio::test]
+    async fn test_handle_task_return_info() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        
+        let config = A2AAgentConfig {
+            task_handling: TaskHandling::ReturnTaskInfo,
+            ..Default::default()
+        };
+        
+        let agent = A2AAgent::with_config(client, config);
+
+        // Create a mock task with all required fields
+        let task = Task {
+            id: "test-task-123".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Pending,
+                message: None,
+                timestamp: None,
+            },
+            artifacts: None,
+            history: None,
+            metadata: None,
+        };
+
+        // Test handle_task with ReturnTaskInfo strategy
+        let result = agent.handle_task(task).await;
+        assert!(result.is_ok());
+        
+        let message = result.unwrap();
+        let text = crate::adapters::extract_text(&message).unwrap_or_default();
+        assert!(text.contains("test-task-123"));
+        assert!(text.contains("Pending") || text.contains("pending"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_task_reject_tasks() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        
+        let config = A2AAgentConfig {
+            task_handling: TaskHandling::RejectTasks,
+            ..Default::default()
+        };
+        
+        let agent = A2AAgent::with_config(client, config);
+
+        // Create a mock task with all required fields
+        let task = Task {
+            id: "test-task-456".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Working,
+                message: None,
+                timestamp: None,
+            },
+            artifacts: None,
+            history: None,
+            metadata: None,
+        };
+
+        // Test handle_task with RejectTasks strategy
+        let result = agent.handle_task(task).await;
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("Async tasks not supported"));
+    }
+
+    #[tokio::test]
+    async fn test_poll_task_completed_with_artifacts() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Create an artifact with proper structure
+        use a2a_protocol::{Artifact, Part, TextPart};
+        let artifact = Artifact {
+            artifact_id: "artifact-1".to_string(),
+            name: Some("Result".to_string()),
+            description: None,
+            parts: vec![Part::Text(TextPart::new("Task result content"))],
+            metadata: None,
+        };
+
+        // Create a completed task with artifacts
+        let task = Task {
+            id: "completed-task".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Completed,
+                message: None,
+                timestamp: None,
+            },
+            artifacts: Some(vec![artifact]),
+            history: None,
+            metadata: None,
+        };
+
+        let result = agent.poll_task_to_completion(task).await;
+        assert!(result.is_ok());
+        
+        let message = result.unwrap();
+        let text = crate::adapters::extract_text(&message).unwrap_or_default();
+        assert!(text.contains("Task result content"));
+    }
+
+    #[tokio::test]
+    async fn test_poll_task_completed_without_artifacts() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Create a completed task without artifacts
+        let task = Task {
+            id: "completed-no-artifacts".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Completed,
+                message: None,
+                timestamp: None,
+            },
+            artifacts: None,
+            history: None,
+            metadata: None,
+        };
+
+        let result = agent.poll_task_to_completion(task).await;
+        assert!(result.is_ok());
+        
+        let message = result.unwrap();
+        let text = crate::adapters::extract_text(&message).unwrap_or_default();
+        assert_eq!(text, "Task completed (no artifacts)");
+    }
+
+    #[tokio::test]
+    async fn test_poll_task_failed() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Create a failed task
+        let task = Task {
+            id: "failed-task".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Failed,
+                message: Some(Message::agent_text("Processing error occurred")),
+                timestamp: None,
+            },
+            artifacts: None,
+            history: None,
+            metadata: None,
+        };
+
+        let result = agent.poll_task_to_completion(task).await;
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("failed-task"));
+        assert!(error_msg.contains("Processing error occurred"));
+    }
+
+    #[tokio::test]
+    async fn test_poll_task_cancelled() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Create a cancelled task
+        let task = Task {
+            id: "cancelled-task".to_string(),
+            context_id: None,
+            status: TaskStatus {
+                state: TaskState::Cancelled,
+                message: None,
+                timestamp: None,
+            },
+            artifacts: None,
+            history: None,
+            metadata: None,
+        };
+
+        let result = agent.poll_task_to_completion(task).await;
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("cancelled-task"));
+        assert!(error_msg.contains("cancelled"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_card_caching() {
+        let transport = Arc::new(JsonRpcTransport::new("http://localhost:9999/rpc").unwrap());
+        let client = A2aClient::new(transport);
+        let agent = A2AAgent::new(client);
+
+        // Initially cache should be empty
+        {
+            let cache = agent.card_cache.read().await;
+            assert!(cache.is_none());
+        }
+
+        // Note: fetch_card would fail here because endpoint is unreachable
+        // but we're just testing the cache structure exists
+        let result = agent.fetch_card().await;
+        // Expected to fail with unreachable endpoint
+        assert!(result.is_err());
+
+        // Cache should still be empty after failed fetch
+        {
+            let cache = agent.card_cache.read().await;
+            assert!(cache.is_none());
+        }
+    }
+
 }

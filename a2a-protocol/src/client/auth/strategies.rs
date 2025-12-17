@@ -126,6 +126,7 @@ impl Authenticator for BearerAuth {
 }
 
 /// OAuth2 client credentials authentication
+#[allow(dead_code)] // OAuth2 support is planned but not yet fully implemented
 pub struct OAuth2ClientCredentials {
     token_url: String,
     client_id: String,
@@ -163,6 +164,7 @@ impl OAuth2ClientCredentials {
     }
 
     /// Request a new access token
+    #[allow(dead_code)] // OAuth2 support is planned but not yet fully implemented
     async fn request_token(&self) -> Result<String, crate::A2aError> {
         use reqwest::Client;
 
@@ -182,7 +184,7 @@ impl OAuth2ClientCredentials {
             .form(&form)
             .send()
             .await
-            .map_err(|e| crate::A2aError::Network(e))?;
+            .map_err(crate::A2aError::Network)?;
 
         if !response.status().is_success() {
             let error_text = response
@@ -195,10 +197,8 @@ impl OAuth2ClientCredentials {
             )));
         }
 
-        let token_response: OAuth2TokenResponse = response
-            .json()
-            .await
-            .map_err(|e| crate::A2aError::Network(e))?;
+        let token_response: OAuth2TokenResponse =
+            response.json().await.map_err(crate::A2aError::Network)?;
 
         Ok(token_response.access_token)
     }
@@ -233,6 +233,7 @@ impl Authenticator for OAuth2ClientCredentials {
 }
 
 /// OAuth2 token response
+#[allow(dead_code)] // Used for future OAuth2 implementation
 #[derive(serde::Deserialize)]
 struct OAuth2TokenResponse {
     access_token: String,

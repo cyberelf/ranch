@@ -208,13 +208,19 @@ mod tests {
         let mut task = Task::new("task-123");
         let msg1 = Message::user_text("Hello");
         let msg2 = Message::agent_text("Hi there");
-        
+
         task.add_message(msg1);
         task.add_message(msg2);
 
         assert_eq!(task.history.as_ref().unwrap().len(), 2);
-        assert_eq!(task.history.as_ref().unwrap()[0].role, crate::MessageRole::User);
-        assert_eq!(task.history.as_ref().unwrap()[1].role, crate::MessageRole::Agent);
+        assert_eq!(
+            task.history.as_ref().unwrap()[0].role,
+            crate::MessageRole::User
+        );
+        assert_eq!(
+            task.history.as_ref().unwrap()[1].role,
+            crate::MessageRole::Agent
+        );
     }
 
     #[test]

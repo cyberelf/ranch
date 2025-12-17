@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Register all agents from config
     let agent_ids = agent_manager.register_from_config(&config).await?;
-    
+
     for id in &agent_ids {
         println!("Registered agent: {}", id);
     }

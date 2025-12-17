@@ -61,7 +61,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id: "orchestrator".to_string(),
         name: "Story Orchestrator".to_string(),
         description: "Master storyteller and creative director".to_string(),
-        capabilities: vec!["story_planning".to_string(), "creative_direction".to_string()],
+        capabilities: vec![
+            "story_planning".to_string(),
+            "creative_direction".to_string(),
+        ],
         api_key: Some(env::var("OPENAI_API_KEY")?),
         max_retries: 3,
         timeout_seconds: orchestrator_timeout,
@@ -92,7 +95,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_tokens: Some(2000),
     };
 
-    let composer = Arc::new(OpenAIAgent::with_config(openai_base_url.clone(), composer_config));
+    let composer = Arc::new(OpenAIAgent::with_config(
+        openai_base_url.clone(),
+        composer_config,
+    ));
 
     let composer_id = agent_manager.register(composer).await?;
     println!("✅ Registered Story Composer: {}", composer_id);
@@ -226,7 +232,7 @@ async fn write_fantasy_story_with_team(
     let start_time = Instant::now();
 
     // Create the story request message for the team
-    let story_request = Message::user_text(&format!(
+    let story_request = Message::user_text(format!(
         "You are a team of AI assistants creating a fantasy story about '{}'.
 
         Please work together to create a compelling fantasy story.

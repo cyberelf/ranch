@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{create_test_message, MockAgent};
+use common::MockAgent;
 use multi_agent::team::{
     SupervisorSchedulerConfig, TeamAgentConfig, TeamMode, WorkflowSchedulerConfig,
     WorkflowStepConfig,

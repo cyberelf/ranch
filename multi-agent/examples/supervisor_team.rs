@@ -75,7 +75,7 @@ impl Agent for SupervisorAgent {
 
         // Return a message indicating the routing decision
         // In a real implementation, this would trigger the actual routing
-        Ok(Message::agent_text(&format!(
+        Ok(Message::agent_text(format!(
             "Supervisor: Routing to {} (This is the supervisor's routing decision)",
             specialist
         )))

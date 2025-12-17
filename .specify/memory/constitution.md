@@ -1,15 +1,14 @@
 <!--
 SYNC IMPACT REPORT
-Version: 1.1.0 -> 1.2.0
+Version: 1.2.0 -> 1.3.0
 Modified Principles:
-- Enhanced: I. Rust-First & Type Safety (added Separation of Concerns)
-- Added: VI. SDK Design & Developer Experience
+- Enhanced: IV. Testing & Quality (added Test Organization & Co-location principle)
 Added Sections: None
 Removed Sections: None
 Templates requiring updates:
-- .specify/templates/plan-template.md (✅ updated - added Architecture & API Design Review checklist)
-- .specify/templates/spec-template.md (✅ updated - added API Design Considerations section)
-- .specify/templates/tasks-template.md (✅ updated - added Phase 1.5 for refactoring tasks)
+- .specify/templates/plan-template.md (✅ updated - added Test Organization checklist and updated structure)
+- .specify/templates/spec-template.md (✅ updated - added Testing Strategy section to API Design Considerations)
+- .specify/templates/tasks-template.md (✅ no changes needed - tasks naturally flow from this principle)
 Follow-up TODOs: None
 -->
 # RANCH Constitution
@@ -31,6 +30,14 @@ All I/O-bound operations MUST be asynchronous using the Tokio runtime. Blocking 
 
 ### IV. Testing & Quality
 Public APIs MUST have unit tests. Cross-module functionality MUST be verified with integration tests. External dependencies SHOULD be mocked using traits. `cargo test` MUST pass before any merge. Code MUST be linted with `cargo clippy` and formatted with `cargo fmt`.
+
+**Test Organization & Co-location**: Unit tests MUST be co-located with source code in `#[cfg(test)] mod tests` blocks within the same file. Integration tests MUST reside in the `tests/` directory as separate files. This separation ensures:
+- **Proximity**: Tests live next to implementation for easier maintenance
+- **Visibility**: Developers see tests when working on code
+- **Fast CI**: Unit tests compile with the library
+- **Clear Boundaries**: Unit tests verify single modules; integration tests verify component interactions
+
+NEVER create standalone unit test files in `tests/` directory. Use simple mocks within source modules for unit tests; use comprehensive shared mocks in `tests/common/` for integration tests. Detailed guidelines at `.github/TESTING_GUIDELINES.md`.
 
 ### V. Documentation & Standards
 All public items MUST have rustdoc comments. Complex APIs MUST include examples. `README.md` and `CHANGELOG.md` MUST be updated for major features. Semantic versioning MUST be followed.
@@ -58,9 +65,15 @@ Development follows a workspace-based approach. Use `cargo build` to build the e
 
 This Constitution supersedes all other development practices. Amendments require documentation, approval, and a migration plan. All PRs must verify compliance with these principles.
 
-**Version**: 1.2.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-12
+**Version**: 1.3.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-17
 
 ## Amendment History
+
+### v1.3.0 (2025-12-17)
+- **Enhanced**: Section IV (Testing & Quality) - Added Test Organization & Co-location principle
+- **Rationale**: Codify Rust best practices for test placement; unit tests belong in source modules with implementation, not in separate test files
+- **Impact**: All future unit tests must be co-located in `#[cfg(test)] mod tests` blocks; `tests/` directory reserved exclusively for integration tests
+- **Reference**: Comprehensive guidelines documented in `.github/TESTING_GUIDELINES.md`
 
 ### v1.2.0 (2025-12-12)
 - **Enhanced**: Section I (Rust-First & Type Safety) - Added Separation of Concerns principle

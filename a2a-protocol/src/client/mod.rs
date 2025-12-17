@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod builder;
+#[allow(clippy::module_inception)] // client module contains A2aClient type - this is intentional
 pub mod client;
 pub mod transport;
 

@@ -49,7 +49,7 @@ impl JsonRpcTransport {
             )
             .await?;
 
-        let response_data: Value = response.json().await.map_err(|e| A2aError::Network(e))?;
+        let response_data: Value = response.json().await.map_err(A2aError::Network)?;
 
         // Parse JSON-RPC response
         if let Some(error) = response_data.get("error") {
@@ -93,7 +93,7 @@ impl Transport for JsonRpcTransport {
         // A2A spec-compliant method name: "message/send"
         let result = self.send_json_rpc_request("message/send", params).await?;
 
-        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(A2aError::Json)
     }
 
     async fn get_agent_card(&self, agent_id: &crate::AgentId) -> A2aResult<AgentCard> {
@@ -104,42 +104,39 @@ impl Transport for JsonRpcTransport {
         // A2A spec-compliant method name: "agent/card"
         let result = self.send_json_rpc_request("agent/card", params).await?;
 
-        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(A2aError::Json)
     }
 
     async fn get_task(&self, request: crate::TaskGetRequest) -> A2aResult<Task> {
-        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+        let params = serde_json::to_value(&request).map_err(A2aError::Json)?;
 
         // A2A spec-compliant method name: "task/get"
         let result = self.send_json_rpc_request("task/get", params).await?;
 
-        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(A2aError::Json)
     }
 
     async fn get_task_status(&self, request: crate::TaskStatusRequest) -> A2aResult<TaskStatus> {
-        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+        let params = serde_json::to_value(&request).map_err(A2aError::Json)?;
 
         // A2A spec-compliant method name: "task/status"
         let result = self.send_json_rpc_request("task/status", params).await?;
 
-        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(A2aError::Json)
     }
 
     async fn cancel_task(&self, request: crate::TaskCancelRequest) -> A2aResult<TaskStatus> {
-        let params = serde_json::to_value(&request).map_err(|e| A2aError::Json(e))?;
+        let params = serde_json::to_value(&request).map_err(A2aError::Json)?;
 
         // A2A spec-compliant method name: "task/cancel"
         let result = self.send_json_rpc_request("task/cancel", params).await?;
 
-        serde_json::from_value(result).map_err(|e| A2aError::Json(e))
+        serde_json::from_value(result).map_err(A2aError::Json)
     }
 
     async fn is_available(&self) -> bool {
         // Try to get agent card as a health check (A2A spec doesn't define a ping method)
-        match self.send_json_rpc_request("agent/card", json!({})).await {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        (self.send_json_rpc_request("agent/card", json!({})).await).is_ok()
     }
 
     fn config(&self) -> &TransportConfig {
@@ -201,7 +198,7 @@ impl StreamingTransport for JsonRpcTransport {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| A2aError::Network(e))?;
+            .map_err(A2aError::Network)?;
 
         if !response.status().is_success() {
             return Err(A2aError::Server(format!(
@@ -299,7 +296,7 @@ impl StreamingTransport for JsonRpcTransport {
             }
         }
 
-        let response = req_builder.send().await.map_err(|e| A2aError::Network(e))?;
+        let response = req_builder.send().await.map_err(A2aError::Network)?;
 
         if !response.status().is_success() {
             return Err(A2aError::Server(format!(
@@ -364,20 +361,20 @@ impl JsonRpcTransport {
         let result = match event_type {
             "message" => serde_json::from_value::<Message>(data.clone())
                 .map(StreamingResult::Message)
-                .map_err(|e| A2aError::Json(e)),
+                .map_err(A2aError::Json),
             "task" => serde_json::from_value::<Task>(data.clone())
                 .map(StreamingResult::Task)
-                .map_err(|e| A2aError::Json(e)),
+                .map_err(A2aError::Json),
             "task-status-update" => serde_json::from_value::<
                 crate::core::streaming_events::TaskStatusUpdateEvent,
             >(data.clone())
             .map(StreamingResult::TaskStatusUpdate)
-            .map_err(|e| A2aError::Json(e)),
+            .map_err(A2aError::Json),
             "task-artifact-update" => serde_json::from_value::<
                 crate::core::streaming_events::TaskArtifactUpdateEvent,
             >(data.clone())
             .map(StreamingResult::TaskArtifactUpdate)
-            .map_err(|e| A2aError::Json(e)),
+            .map_err(A2aError::Json),
             _ => {
                 return Some(Err(A2aError::ProtocolViolation(format!(
                     "Unknown SSE event type: {}",

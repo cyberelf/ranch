@@ -203,7 +203,7 @@ impl<T> JsonRpcNotification<T> {
 pub fn is_notification(request: &serde_json::Value) -> bool {
     !request
         .as_object()
-        .map_or(false, |obj| obj.contains_key("id"))
+        .is_some_and(|obj| obj.contains_key("id"))
 }
 
 /// Helper to determine if a value is a batch request
@@ -365,18 +365,35 @@ mod tests {
     #[test]
     fn test_error_code_constants() {
         // Verify error codes are in valid server error range (-32000 to -32099)
-        assert!(SERVER_ERROR >= -32099 && SERVER_ERROR <= -32000);
-        assert!(TASK_NOT_FOUND >= -32099 && TASK_NOT_FOUND <= -32000);
-        assert!(TASK_NOT_CANCELABLE >= -32099 && TASK_NOT_CANCELABLE <= -32000);
-        assert!(
-            PUSH_NOTIFICATION_NOT_SUPPORTED >= -32099 && PUSH_NOTIFICATION_NOT_SUPPORTED <= -32000
-        );
-        assert!(UNSUPPORTED_OPERATION >= -32099 && UNSUPPORTED_OPERATION <= -32000);
-        assert!(CONTENT_TYPE_NOT_SUPPORTED >= -32099 && CONTENT_TYPE_NOT_SUPPORTED <= -32000);
-        assert!(INVALID_AGENT_RESPONSE >= -32099 && INVALID_AGENT_RESPONSE <= -32000);
-        assert!(
-            AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED >= -32099
-                && AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED <= -32000
-        );
+        const {
+            assert!(SERVER_ERROR >= -32099 && SERVER_ERROR <= -32000);
+        }
+        const {
+            assert!(TASK_NOT_FOUND >= -32099 && TASK_NOT_FOUND <= -32000);
+        }
+        const {
+            assert!(TASK_NOT_CANCELABLE >= -32099 && TASK_NOT_CANCELABLE <= -32000);
+        }
+        const {
+            assert!(
+                PUSH_NOTIFICATION_NOT_SUPPORTED >= -32099
+                    && PUSH_NOTIFICATION_NOT_SUPPORTED <= -32000
+            );
+        }
+        const {
+            assert!(UNSUPPORTED_OPERATION >= -32099 && UNSUPPORTED_OPERATION <= -32000);
+        }
+        const {
+            assert!(CONTENT_TYPE_NOT_SUPPORTED >= -32099 && CONTENT_TYPE_NOT_SUPPORTED <= -32000);
+        }
+        const {
+            assert!(INVALID_AGENT_RESPONSE >= -32099 && INVALID_AGENT_RESPONSE <= -32000);
+        }
+        const {
+            assert!(
+                AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED >= -32099
+                    && AUTHENTICATED_EXTENDED_CARD_NOT_CONFIGURED <= -32000
+            );
+        }
     }
 }

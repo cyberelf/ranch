@@ -277,11 +277,12 @@
 - [X] T037 [P] Run cargo fmt on entire workspace
 - [X] T038 [P] Update root README.md with links to new AGENT.md files
 - [X] T039 [P] Update IMPLEMENTATION_PLAN.md marking Phases 3-6 complete
-- [X] T040 Verify integration test coverage >80% for new components
+- [ ] T040 Verify integration test coverage >80% for new components
   - Run cargo tarpaulin or similar coverage tool
   - Focus on Team-as-Agent and TeamServer modules
+  - NOTE: Coverage improved from 55.66% to 64.39% (+8.73%). Added 24 new tests (team_unit.rs: 8 tests, manager_unit.rs: 8 tests, server.rs unit tests: 4, server.rs integration tests: 6). Still below 80% target - need more tests for agent implementations (a2a_agent.rs: 6/57 lines, openai_agent.rs: 14/58 lines).
 - [X] T041 Run all examples and verify output matches documentation
-- [X] T042 Follow quickstart.md validation steps
+- [ ] T042 Follow quickstart.md validation steps
 - [X] T043 Update CHANGELOG.md for v2.0.0 release
   - Document Team as Agent trait implementation
   - Document TeamServer for A2A protocol exposure

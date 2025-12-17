@@ -103,6 +103,7 @@ struct WebhookDeliveryRequest {
 /// Webhook delivery queue and worker
 pub struct WebhookQueue {
     sender: mpsc::Sender<WebhookDeliveryRequest>,
+    #[allow(dead_code)] // Reserved for future retry logic configuration
     retry_config: Arc<RetryConfig>,
 }
 

@@ -7,7 +7,7 @@ use std::fmt;
 use url::Url;
 
 /// Supported transport types defined by the A2A v0.3.0 specification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TransportType {
     /// JSON-RPC 2.0 transport over HTTP
     #[serde(
@@ -18,6 +18,7 @@ pub enum TransportType {
         alias = "json_rpc",
         alias = "jsonrpc"
     )]
+    #[default]
     JsonRpc,
     /// gRPC transport
     #[serde(rename = "GRPC", alias = "grpc")]
@@ -52,12 +53,6 @@ impl TransportType {
             "HTTP+JSON" | "HTTP_JSON" | "HTTP-JSON" | "HTTPJSON" => TransportType::HttpJson,
             _ => TransportType::JsonRpc,
         }
-    }
-}
-
-impl Default for TransportType {
-    fn default() -> Self {
-        TransportType::JsonRpc
     }
 }
 
@@ -318,7 +313,7 @@ pub enum AuthenticationRequirement {
     #[serde(rename = "oauth2")]
     OAuth2 {
         /// OAuth2 flows configuration
-        flows: OAuth2Flows,
+        flows: Box<OAuth2Flows>,
     },
 
     /// Custom authentication

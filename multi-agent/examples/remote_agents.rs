@@ -78,7 +78,7 @@ impl Agent for RemoteSupervisor {
 
         println!("  [Remote Supervisor] Routing to {}", target);
 
-        Ok(Message::agent_text(&format!(
+        Ok(Message::agent_text(format!(
             "Supervisor: Routing to remote {} for processing",
             target
         )))

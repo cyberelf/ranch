@@ -2,8 +2,8 @@ use crate::agent::{A2AAgentConfig, OpenAIAgentConfig, TaskHandling};
 use crate::team::{SchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::{env, fs};
 use std::path::Path;
+use std::{env, fs};
 use thiserror::Error;
 
 /// Errors that can occur during configuration conversion
@@ -292,7 +292,10 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
         }
 
         // Get api_key from metadata or environment (not required at config time)
-        let api_key = config.metadata.get("api_key").cloned()
+        let api_key = config
+            .metadata
+            .get("api_key")
+            .cloned()
             .or_else(|| env::var("OPENAI_API_KEY").ok());
 
         // Validate timeout_seconds
@@ -371,7 +374,11 @@ impl TryFrom<AgentConfig> for OpenAIAgentConfig {
         Ok(OpenAIAgentConfig {
             id: config.id,
             name: config.name,
-            description: config.metadata.get("system_prompt").cloned().unwrap_or_else(|| "OpenAI-compatible agent".to_string()),
+            description: config
+                .metadata
+                .get("system_prompt")
+                .cloned()
+                .unwrap_or_else(|| "OpenAI-compatible agent".to_string()),
             capabilities: config.capabilities,
             api_key,
             max_retries: config.max_retries,
@@ -689,4 +696,68 @@ mod tests {
             })
         ));
     }
-}
+    
+    
+    #[test]
+    fn test_protocol_type_equality() {
+        assert_eq!(ProtocolType::OpenAI, ProtocolType::OpenAI);
+        assert_eq!(ProtocolType::A2A, ProtocolType::A2A);
+        assert_ne!(ProtocolType::OpenAI, ProtocolType::A2A);
+    }
+
+    #[test]
+    fn test_config_conversion_error_display() {
+        let err = ConfigConversionError::WrongProtocol {
+            expected: ProtocolType::A2A,
+            found: ProtocolType::OpenAI,
+        };
+        let msg = format!("{}", err);
+        assert!(msg.contains("Wrong protocol type"));
+        assert!(msg.contains("A2A"));
+        assert!(msg.contains("OpenAI"));
+
+        let err2 = ConfigConversionError::MissingField("endpoint");
+        let msg2 = format!("{}", err2);
+        assert!(msg2.contains("Missing required field"));
+        assert!(msg2.contains("endpoint"));
+
+        let err3 = ConfigConversionError::InvalidValue {
+            field: "timeout",
+            value: "0".to_string(),
+            reason: "must be positive".to_string(),
+        };
+        let msg3 = format!("{}", err3);
+        assert!(msg3.contains("Invalid field value"));
+        assert!(msg3.contains("timeout"));
+        assert!(msg3.contains("must be positive"));
+    }
+
+    #[test]
+    fn test_agent_config_clone() {
+        let config = AgentConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            endpoint: "https://example.com".to_string(),
+            protocol: ProtocolType::OpenAI,
+            capabilities: vec!["test".to_string()],
+            metadata: HashMap::new(),
+            timeout_seconds: 30,
+            max_retries: 3,
+        };
+
+        let cloned = config.clone();
+        assert_eq!(config.id, cloned.id);
+        assert_eq!(config.protocol, cloned.protocol);
+    }
+
+    #[test]
+    fn test_protocol_type_debug() {
+        let openai = ProtocolType::OpenAI;
+        let a2a = ProtocolType::A2A;
+
+        let openai_debug = format!("{:?}", openai);
+        let a2a_debug = format!("{:?}", a2a);
+
+        assert!(openai_debug.contains("OpenAI"));
+        assert!(a2a_debug.contains("A2A"));
+    }}

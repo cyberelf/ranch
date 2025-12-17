@@ -12,7 +12,6 @@
 //! Run the webhook_server example first:
 //!   cargo run --example webhook_server --features streaming
 
-use a2a_protocol::prelude::*;
 use axum::{extract::Json, routing::post, Router};
 use serde_json::Value;
 use std::sync::Arc;

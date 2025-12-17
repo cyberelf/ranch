@@ -110,7 +110,7 @@ impl A2aClient {
                     }
 
                     // Exponential backoff
-                    let backoff = tokio::time::Duration::from_secs(2u64.pow(retry_count as u32));
+                    let backoff = tokio::time::Duration::from_secs(2u64.pow(retry_count));
                     tokio::time::sleep(backoff).await;
                     retry_count += 1;
                 }

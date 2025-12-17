@@ -143,8 +143,8 @@ mod tests {
 
     #[test]
     fn test_task_status_update_event() {
-        let status = TaskStatus::new(TaskState::Working)
-            .with_message(Message::agent_text("Processing"));
+        let status =
+            TaskStatus::new(TaskState::Working).with_message(Message::agent_text("Processing"));
 
         let event = TaskStatusUpdateEvent::new("task_123", status)
             .with_previous_state(TaskState::Pending)

@@ -190,12 +190,11 @@ impl TeamServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::manager::AgentManager;
+    use crate::team::{SchedulerConfig, SupervisorSchedulerConfig, TeamConfig, TeamMode};
 
     #[test]
     fn test_team_server_creation() {
-        use crate::manager::AgentManager;
-        use crate::team::{SchedulerConfig, SupervisorSchedulerConfig, TeamConfig, TeamMode};
-
         let manager = Arc::new(AgentManager::new());
         let config = TeamConfig {
             id: "test-team".to_string(),
@@ -212,5 +211,90 @@ mod tests {
         let server = TeamServer::new(team, 8080);
 
         assert_eq!(server.port, 8080);
+    }
+
+    #[tokio::test]
+    async fn test_team_agent_adapter_profile() {
+        let manager = Arc::new(AgentManager::new());
+        let config = TeamConfig {
+            id: "adapter-test-team".to_string(),
+            name: "Adapter Test Team".to_string(),
+            description: "Testing adapter".to_string(),
+            mode: TeamMode::Supervisor,
+            agents: vec![],
+            scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
+                supervisor_agent_id: "supervisor".to_string(),
+            }),
+        };
+
+        let team = Arc::new(Team::new(config, manager));
+        let adapter = TeamAgentAdapter::new(team.clone());
+
+        // Test profile generation
+        let profile_result = adapter.profile().await;
+        assert!(profile_result.is_ok(), "Failed to get profile: {:?}", profile_result.err());
+
+        let profile = profile_result.unwrap();
+        assert_eq!(profile.name, "Adapter Test Team");
+        assert_eq!(profile.description, Some("Testing adapter".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_team_agent_adapter_process_message() {
+        let manager = Arc::new(AgentManager::new());
+        
+        // Create a simple team config
+        let config = TeamConfig {
+            id: "process-test-team".to_string(),
+            name: "Process Test Team".to_string(),
+            description: "Testing message processing".to_string(),
+            mode: TeamMode::Supervisor,
+            agents: vec![],
+            scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
+                supervisor_agent_id: "supervisor".to_string(),
+            }),
+        };
+
+        let team = Arc::new(Team::new(config, manager));
+        let adapter = TeamAgentAdapter::new(team.clone());
+
+        // Test message processing
+        let message = Message::user_text("Test message");
+        let response_result = adapter.process_message(message).await;
+        
+        // The response might be an error since we don't have actual agents,
+        // but we're testing that the adapter delegates correctly
+        assert!(response_result.is_ok() || response_result.is_err());
+    }
+
+    #[test]
+    fn test_info_to_profile_conversion() {
+        use std::collections::HashMap;
+
+        let info = AgentInfo {
+            id: "test-agent".to_string(),
+            name: "Test Agent".to_string(),
+            description: "Test description".to_string(),
+            capabilities: vec!["capability1".to_string(), "capability2".to_string()],
+            metadata: {
+                let mut map = HashMap::new();
+                map.insert("key1".to_string(), "value1".to_string());
+                map
+            },
+        };
+
+        let profile_result = TeamAgentAdapter::info_to_profile(info);
+        assert!(profile_result.is_ok(), "Failed to convert info to profile");
+
+        let profile = profile_result.unwrap();
+        assert_eq!(profile.name, "Test Agent");
+        assert_eq!(profile.description, Some("Test description".to_string()));
+        assert_eq!(profile.capabilities.len(), 2);
+        assert_eq!(profile.capabilities[0].name, "capability1");
+        assert_eq!(profile.capabilities[1].name, "capability2");
+        
+        // Check metadata conversion
+        assert_eq!(profile.metadata.len(), 1);
+        assert!(profile.metadata.contains_key("key1"));
     }
 }

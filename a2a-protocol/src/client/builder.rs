@@ -101,7 +101,7 @@ impl ClientBuilder {
             TransportType::Custom(transport) => transport,
         };
 
-        let agent_id = self.agent_id.unwrap_or_else(|| AgentId::generate());
+        let agent_id = self.agent_id.unwrap_or_else(AgentId::generate);
 
         Ok(A2aClient::with_agent_id(transport, agent_id))
     }

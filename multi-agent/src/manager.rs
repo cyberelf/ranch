@@ -44,18 +44,15 @@ impl AgentManager {
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::from_file("config.toml")?;
     /// let agent_manager = Arc::new(AgentManager::new());
-    /// 
+    ///
     /// let agent_ids = agent_manager.register_from_config(&config).await?;
     /// println!("Registered {} agents", agent_ids.len());
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn register_from_config(
-        &self,
-        config: &crate::Config,
-    ) -> A2aResult<Vec<String>> {
+    pub async fn register_from_config(&self, config: &crate::Config) -> A2aResult<Vec<String>> {
         use std::env;
-        
+
         let mut registered_ids = Vec::new();
 
         for agent_config in config.to_agent_configs() {
@@ -63,21 +60,25 @@ impl AgentManager {
                 crate::ProtocolType::A2A => {
                     let transport = Arc::new(crate::JsonRpcTransport::new(&agent_config.endpoint)?);
                     let client = crate::A2aClient::new(transport);
-                    let a2a_config: crate::A2AAgentConfig = agent_config.try_into()
-                        .map_err(|e| A2aError::Internal(format!("Config conversion error: {}", e)))?;
+                    let a2a_config: crate::A2AAgentConfig =
+                        agent_config.try_into().map_err(|e| {
+                            A2aError::Internal(format!("Config conversion error: {}", e))
+                        })?;
                     Arc::new(crate::A2AAgent::with_config(client, a2a_config))
                 }
                 crate::ProtocolType::OpenAI => {
-                    let mut openai_config: crate::OpenAIAgentConfig = agent_config.clone().try_into()
-                        .map_err(|e| A2aError::Internal(format!("Config conversion error: {}", e)))?;
-                    
+                    let mut openai_config: crate::OpenAIAgentConfig =
+                        agent_config.clone().try_into().map_err(|e| {
+                            A2aError::Internal(format!("Config conversion error: {}", e))
+                        })?;
+
                     // Override api_key from environment if available and not set
                     if openai_config.api_key.is_none() {
                         if let Ok(api_key) = env::var("OPENAI_API_KEY") {
                             openai_config.api_key = Some(api_key);
                         }
                     }
-                    
+
                     Arc::new(crate::OpenAIAgent::with_config(
                         agent_config.endpoint,
                         openai_config,
@@ -119,7 +120,11 @@ impl AgentManager {
     ///
     /// # Returns
     /// The agent ID used for registration (same as input)
-    pub async fn register_with_id(&self, agent_id: String, agent: Arc<dyn Agent>) -> A2aResult<String> {
+    pub async fn register_with_id(
+        &self,
+        agent_id: String,
+        agent: Arc<dyn Agent>,
+    ) -> A2aResult<String> {
         let mut agents = self.agents.write().await;
         agents.insert(agent_id.clone(), agent);
         Ok(agent_id)
@@ -242,7 +247,6 @@ impl Default for AgentManager {
 
 #[cfg(test)]
 mod tests {
-    // Import from manager module, but be specific about Agent trait
     use super::AgentManager;
     use crate::agent::{Agent, AgentInfo};
     use a2a_protocol::prelude::{A2aResult, Message};
@@ -254,6 +258,28 @@ mod tests {
         id: String,
         name: String,
         capabilities: Vec<String>,
+        response: String,
+    }
+
+    impl MockAgent {
+        fn new(id: &str, name: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                name: name.to_string(),
+                capabilities: vec![],
+                response: "Mock response".to_string(),
+            }
+        }
+
+        fn with_capabilities(mut self, capabilities: Vec<String>) -> Self {
+            self.capabilities = capabilities;
+            self
+        }
+
+        fn with_response(mut self, response: &str) -> Self {
+            self.response = response.to_string();
+            self
+        }
     }
 
     #[async_trait]
@@ -269,7 +295,7 @@ mod tests {
         }
 
         async fn process(&self, _message: Message) -> A2aResult<Message> {
-            Ok(Message::agent_text("Mock response"))
+            Ok(Message::agent_text(&self.response))
         }
 
         async fn health_check(&self) -> bool {
@@ -278,44 +304,361 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_agent_manager_register_and_get() {
+    async fn test_register_agent() {
         let manager = AgentManager::new();
-        let agent = Arc::new(MockAgent {
-            id: "test-agent".to_string(),
-            name: "Test Agent".to_string(),
-            capabilities: vec![],
-        });
+        let agent = Arc::new(
+            MockAgent::new("test-agent", "Test Agent")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response"),
+        );
 
-        let id = manager.register(agent.clone()).await.unwrap();
-        assert_eq!(id, "test-agent");
-
-        let retrieved = manager.get("test-agent").await;
-        assert!(retrieved.is_some());
+        let result = manager.register(agent).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test-agent");
     }
 
     #[tokio::test]
-    async fn test_agent_manager_find_by_capability() {
+    async fn test_register_duplicate_agent() {
+        let manager = AgentManager::new();
+        let agent1 = Arc::new(
+            MockAgent::new("test-agent", "Test Agent 1")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response 1"),
+        );
+        let agent2 = Arc::new(
+            MockAgent::new("test-agent", "Test Agent 2")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response 2"),
+        );
+
+        // First registration should succeed
+        assert!(manager.register(agent1).await.is_ok());
+
+        // Second registration with same ID should succeed (overwrite)
+        let result = manager.register(agent2).await;
+        assert!(result.is_ok());
+
+        // The second agent should now be registered
+        let retrieved = manager.get("test-agent").await.unwrap();
+        let info = retrieved.info().await.unwrap();
+        assert_eq!(info.name, "Test Agent 2");
+    }
+
+    #[tokio::test]
+    async fn test_get_existing_agent() {
+        let manager = AgentManager::new();
+        let agent = Arc::new(
+            MockAgent::new("test-agent", "Test Agent")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response"),
+        );
+
+        manager.register(agent).await.unwrap();
+
+        let retrieved = manager.get("test-agent").await;
+        assert!(retrieved.is_some());
+
+        let info = retrieved.unwrap().info().await.unwrap();
+        assert_eq!(info.id, "test-agent");
+        assert_eq!(info.name, "Test Agent");
+    }
+
+    #[tokio::test]
+    async fn test_get_nonexistent_agent() {
         let manager = AgentManager::new();
 
-        let agent1 = Arc::new(MockAgent {
-            id: "agent1".to_string(),
-            name: "Agent 1".to_string(),
-            capabilities: vec!["search".to_string()],
-        });
+        let retrieved = manager.get("nonexistent").await;
+        assert!(retrieved.is_none());
+    }
 
-        let agent2 = Arc::new(MockAgent {
-            id: "agent2".to_string(),
-            name: "Agent 2".to_string(),
-            capabilities: vec!["analyze".to_string()],
-        });
+    #[tokio::test]
+    async fn test_list_agents() {
+        let manager = AgentManager::new();
+
+        // Initially empty
+        let agent_ids = manager.list_ids().await;
+        assert!(agent_ids.is_empty());
+
+        // Register some agents
+        let agent1 = Arc::new(
+            MockAgent::new("agent-1", "Agent 1")
+                .with_capabilities(vec!["capability-a".to_string()])
+                .with_response("Response 1"),
+        );
+        let agent2 = Arc::new(
+            MockAgent::new("agent-2", "Agent 2")
+                .with_capabilities(vec!["capability-b".to_string()])
+                .with_response("Response 2"),
+        );
 
         manager.register(agent1).await.unwrap();
         manager.register(agent2).await.unwrap();
 
-        let search_agents = manager.find_by_capability("search").await;
-        assert_eq!(search_agents.len(), 1);
+        // Should have 2 agents
+        let agent_ids = manager.list_ids().await;
+        assert_eq!(agent_ids.len(), 2);
+        assert!(agent_ids.contains(&"agent-1".to_string()));
+        assert!(agent_ids.contains(&"agent-2".to_string()));
 
-        let analyze_agents = manager.find_by_capability("analyze").await;
-        assert_eq!(analyze_agents.len(), 1);
+        // Test list_info as well
+        let infos = manager.list_info().await;
+        assert_eq!(infos.len(), 2);
+
+        let ids: Vec<String> = infos.iter().map(|info| info.id.clone()).collect();
+        assert!(ids.contains(&"agent-1".to_string()));
+        assert!(ids.contains(&"agent-2".to_string()));
     }
-}
+
+    #[tokio::test]
+    async fn test_find_by_capability() {
+        let manager = AgentManager::new();
+
+        // Register agents with different capabilities
+        let agent1 = Arc::new(
+            MockAgent::new("agent-1", "Agent 1")
+                .with_capabilities(vec!["capability-a".to_string(), "capability-b".to_string()])
+                .with_response("Response 1"),
+        );
+        let agent2 = Arc::new(
+            MockAgent::new("agent-2", "Agent 2")
+                .with_capabilities(vec!["capability-b".to_string(), "capability-c".to_string()])
+                .with_response("Response 2"),
+        );
+        let agent3 = Arc::new(
+            MockAgent::new("agent-3", "Agent 3")
+                .with_capabilities(vec!["capability-d".to_string()])
+                .with_response("Response 3"),
+        );
+
+        manager.register(agent1).await.unwrap();
+        manager.register(agent2).await.unwrap();
+        manager.register(agent3).await.unwrap();
+
+        // Find agents with capability-a (should find agent1)
+        let found_a = manager.find_by_capability("capability-a").await;
+        assert_eq!(found_a.len(), 1);
+        let info_a = found_a[0].info().await.unwrap();
+        assert_eq!(info_a.id, "agent-1");
+
+        // Find agents with capability-b (should find agent1 and agent2)
+        let found_b = manager.find_by_capability("capability-b").await;
+        assert_eq!(found_b.len(), 2);
+
+        // Find agents with capability-d (should find agent3)
+        let found_d = manager.find_by_capability("capability-d").await;
+        assert_eq!(found_d.len(), 1);
+        let info_d = found_d[0].info().await.unwrap();
+        assert_eq!(info_d.id, "agent-3");
+
+        // Find agents with nonexistent capability
+        let found_none = manager.find_by_capability("nonexistent").await;
+        assert!(found_none.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_access() {
+        let manager = Arc::new(AgentManager::new());
+
+        // Register multiple agents concurrently
+        let mut handles = vec![];
+        for i in 0..10 {
+            let manager_clone = Arc::clone(&manager);
+            let handle = tokio::spawn(async move {
+                let agent = Arc::new(
+                    MockAgent::new(&format!("agent-{}", i), &format!("Agent {}", i))
+                        .with_capabilities(vec![format!("capability-{}", i)])
+                        .with_response(&format!("Response {}", i)),
+                );
+                manager_clone.register(agent).await
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all registrations
+        for handle in handles {
+            assert!(handle.await.unwrap().is_ok());
+        }
+
+        // Should have all 10 agents
+        let agent_ids = manager.list_ids().await;
+        assert_eq!(agent_ids.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_reads() {
+        let manager = Arc::new(AgentManager::new());
+
+        // Register some agents
+        for i in 0..5 {
+            let agent = Arc::new(
+                MockAgent::new(&format!("agent-{}", i), &format!("Agent {}", i))
+                    .with_capabilities(vec![format!("capability-{}", i)])
+                    .with_response(&format!("Response {}", i)),
+            );
+            manager.register(agent).await.unwrap();
+        }
+
+        // Read concurrently from multiple tasks
+        let mut handles = vec![];
+        for i in 0..20 {
+            let manager_clone = Arc::clone(&manager);
+            let handle = tokio::spawn(async move {
+                let agent_id = format!("agent-{}", i % 5);
+                manager_clone.get(&agent_id).await
+            });
+            handles.push(handle);
+        }
+
+        // All reads should succeed
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_some());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_register_with_id() {
+        let manager = AgentManager::new();
+        let agent = Arc::new(
+            MockAgent::new("agent-internal-id", "Agent Name")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response"),
+        );
+
+        // Register with custom ID
+        let result = manager
+            .register_with_id("custom-id".to_string(), agent)
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "custom-id");
+
+        // Should be able to get by custom ID
+        let fetched = manager.get("custom-id").await;
+        assert!(fetched.is_some());
+
+        // Original ID should not work
+        let not_found = manager.get("agent-internal-id").await;
+        assert!(not_found.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_remove_agent() {
+        let manager = AgentManager::new();
+        let agent = Arc::new(
+            MockAgent::new("agent-1", "Agent 1")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response"),
+        );
+
+        manager.register(agent).await.unwrap();
+
+        // Agent should exist
+        assert!(manager.get("agent-1").await.is_some());
+
+        // Remove the agent
+        let removed = manager.remove("agent-1").await;
+        assert!(removed.is_some());
+
+        // Agent should no longer exist
+        assert!(manager.get("agent-1").await.is_none());
+
+        // Removing again should return None
+        let removed_again = manager.remove("agent-1").await;
+        assert!(removed_again.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_count() {
+        let manager = AgentManager::new();
+
+        // Initially empty
+        assert_eq!(manager.count().await, 0);
+
+        // Add agents
+        for i in 0..5 {
+            let agent = Arc::new(
+                MockAgent::new(&format!("agent-{}", i), &format!("Agent {}", i))
+                    .with_capabilities(vec!["test".to_string()])
+                    .with_response("Response"),
+            );
+            manager.register(agent).await.unwrap();
+        }
+
+        assert_eq!(manager.count().await, 5);
+
+        // Remove one
+        manager.remove("agent-0").await;
+        assert_eq!(manager.count().await, 4);
+    }
+
+    #[tokio::test]
+    async fn test_clear() {
+        let manager = AgentManager::new();
+
+        // Add agents
+        for i in 0..5 {
+            let agent = Arc::new(
+                MockAgent::new(&format!("agent-{}", i), &format!("Agent {}", i))
+                    .with_capabilities(vec!["test".to_string()])
+                    .with_response("Response"),
+            );
+            manager.register(agent).await.unwrap();
+        }
+
+        assert_eq!(manager.count().await, 5);
+
+        // Clear all
+        manager.clear().await;
+        assert_eq!(manager.count().await, 0);
+        assert!(manager.list_ids().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_health_check_all() {
+        let manager = AgentManager::new();
+
+        // Add healthy agents
+        for i in 0..3 {
+            let agent = Arc::new(
+                MockAgent::new(&format!("agent-{}", i), &format!("Agent {}", i))
+                    .with_capabilities(vec!["test".to_string()])
+                    .with_response("Response"),
+            );
+            manager.register(agent).await.unwrap();
+        }
+
+        let health = manager.health_check_all().await;
+
+        // All agents should be healthy (MockAgent returns true)
+        assert_eq!(health.len(), 3);
+        for (_, healthy) in health {
+            assert!(healthy);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_agent_manager_default() {
+        let manager = AgentManager::default();
+        assert_eq!(manager.count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_info_with_failing_agent() {
+        // This test verifies that list_info() skips agents that fail to return info
+        // MockAgent always succeeds, so this is more of a structure test
+        let manager = AgentManager::new();
+
+        let agent = Arc::new(
+            MockAgent::new("agent-1", "Agent 1")
+                .with_capabilities(vec!["test".to_string()])
+                .with_response("Response"),
+        );
+
+        manager.register(agent).await.unwrap();
+
+        let infos = manager.list_info().await;
+        assert_eq!(infos.len(), 1);
+        assert_eq!(infos[0].id, "agent-1");
+        assert_eq!(infos[0].name, "Agent 1");
+    }}

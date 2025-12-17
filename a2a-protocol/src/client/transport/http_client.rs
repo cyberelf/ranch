@@ -28,6 +28,7 @@ pub(crate) struct HttpClient {
 
 impl HttpClient {
     /// Create a new HTTP client
+    #[allow(dead_code)] // Used internally but not exposed in public API
     pub(crate) fn new<S: Into<String>>(base_url: S) -> A2aResult<Self> {
         Self::with_config(base_url, TransportConfig::default())
     }
@@ -47,7 +48,7 @@ impl HttpClient {
                 .trim_end_matches('/')
                 .split("://")
                 .nth(1)
-                .map_or(false, |s| s.contains('/'));
+                .is_some_and(|s| s.contains('/'));
 
         if !url_has_path && !base_url.ends_with('/') {
             base_url.push('/');
@@ -99,7 +100,7 @@ impl HttpClient {
                         }
 
                         // Default exponential backoff
-                        let backoff = Duration::from_secs(2u64.pow(retry_count as u32));
+                        let backoff = Duration::from_secs(2u64.pow(retry_count));
                         tokio::time::sleep(backoff).await;
                         retry_count += 1;
                         continue;
@@ -116,7 +117,7 @@ impl HttpClient {
                     }
 
                     // Exponential backoff
-                    let backoff = Duration::from_secs(2u64.pow(retry_count as u32));
+                    let backoff = Duration::from_secs(2u64.pow(retry_count));
                     tokio::time::sleep(backoff).await;
                     retry_count += 1;
                 }

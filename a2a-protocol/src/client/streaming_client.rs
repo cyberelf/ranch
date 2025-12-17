@@ -1,7 +1,5 @@
 //! Type-safe streaming client for compile-time guarantees
 
-#![cfg(feature = "streaming")]
-
 use crate::{
     client::{
         transport::{StreamingResult, StreamingTransport},

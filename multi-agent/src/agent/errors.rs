@@ -213,23 +213,225 @@ mod tests {
     }
 
     #[test]
+    fn test_all_error_constructors() {
+        // Test all constructor methods
+        let net_err = MultiAgentError::network("net error");
+        assert!(matches!(net_err, MultiAgentError::Network(_)));
+        assert_eq!(net_err.to_string(), "Network error: net error");
+
+        let auth_err = MultiAgentError::auth("auth error");
+        assert!(matches!(auth_err, MultiAgentError::Authentication(_)));
+        assert_eq!(auth_err.to_string(), "Authentication error: auth error");
+
+        let config_err = MultiAgentError::config("config error");
+        assert!(matches!(config_err, MultiAgentError::Configuration(_)));
+        assert_eq!(config_err.to_string(), "Configuration error: config error");
+
+        let proto_err = MultiAgentError::protocol("proto error");
+        assert!(matches!(proto_err, MultiAgentError::Protocol(_)));
+        assert_eq!(proto_err.to_string(), "Protocol error: proto error");
+
+        let agent_err = MultiAgentError::agent("agent error");
+        assert!(matches!(agent_err, MultiAgentError::Agent(_)));
+        assert_eq!(agent_err.to_string(), "Agent error: agent error");
+
+        let task_err = MultiAgentError::task("task error");
+        assert!(matches!(task_err, MultiAgentError::Task(_)));
+        assert_eq!(task_err.to_string(), "Task error: task error");
+
+        let val_err = MultiAgentError::validation("val error");
+        assert!(matches!(val_err, MultiAgentError::Validation(_)));
+        assert_eq!(val_err.to_string(), "Validation error: val error");
+
+        let int_err = MultiAgentError::internal("int error");
+        assert!(matches!(int_err, MultiAgentError::Internal(_)));
+        assert_eq!(int_err.to_string(), "Internal error: int error");
+
+        let gen_err = MultiAgentError::generic("gen error");
+        assert!(matches!(gen_err, MultiAgentError::Generic(_)));
+        assert_eq!(gen_err.to_string(), "gen error");
+    }
+
+    #[test]
     fn test_retryable_errors() {
+        // Retryable errors
         assert!(MultiAgentError::Timeout.is_retryable());
         assert!(MultiAgentError::RateLimited(std::time::Duration::from_secs(60)).is_retryable());
         assert!(MultiAgentError::Network("Connection failed".to_string()).is_retryable());
+        
+        // Agent errors with timeout/unavailable keywords
+        assert!(MultiAgentError::Agent("timeout occurred".to_string()).is_retryable());
+        assert!(MultiAgentError::Agent("service unavailable".to_string()).is_retryable());
+        assert!(!MultiAgentError::Agent("invalid request".to_string()).is_retryable());
+        
+        // Task errors with timeout/retry keywords
+        assert!(MultiAgentError::Task("timeout waiting".to_string()).is_retryable());
+        assert!(MultiAgentError::Task("please retry".to_string()).is_retryable());
+        assert!(!MultiAgentError::Task("invalid task".to_string()).is_retryable());
 
+        // Non-retryable errors
         assert!(!MultiAgentError::Authentication("Invalid token".to_string()).is_retryable());
         assert!(!MultiAgentError::Configuration("Missing field".to_string()).is_retryable());
         assert!(!MultiAgentError::Validation("Invalid input".to_string()).is_retryable());
+        assert!(!MultiAgentError::Protocol("Version mismatch".to_string()).is_retryable());
+        assert!(!MultiAgentError::Internal("Panic".to_string()).is_retryable());
+        assert!(!MultiAgentError::Generic("Error".to_string()).is_retryable());
     }
 
     #[test]
     fn test_user_messages() {
+        let net_err = MultiAgentError::Network("connection reset".into());
+        assert_eq!(net_err.user_message(), "Connection failed: connection reset");
+
         let auth_err = MultiAgentError::Authentication("Invalid token".into());
-        assert!(auth_err.user_message().contains("Authentication failed"));
+        assert_eq!(auth_err.user_message(), "Authentication failed. Please check your credentials.");
 
         let config_err = MultiAgentError::Configuration("Missing API key".into());
-        assert!(config_err.user_message().contains("Configuration error"));
+        assert_eq!(config_err.user_message(), "Configuration error: Missing API key");
+
+        let proto_err = MultiAgentError::Protocol("Version 1.0".into());
+        assert_eq!(proto_err.user_message(), "Protocol error: Version 1.0");
+
+        let agent_err = MultiAgentError::Agent("not found".into());
+        assert_eq!(agent_err.user_message(), "Agent error: not found");
+
+        let task_err = MultiAgentError::Task("execution failed".into());
+        assert_eq!(task_err.user_message(), "Task failed: execution failed");
+
+        let val_err = MultiAgentError::Validation("invalid email".into());
+        assert_eq!(val_err.user_message(), "Invalid input: invalid email");
+
+        let timeout_err = MultiAgentError::Timeout;
+        assert_eq!(timeout_err.user_message(), "Operation timed out. Please try again.");
+
+        let rate_err = MultiAgentError::RateLimited(std::time::Duration::from_secs(120));
+        assert_eq!(rate_err.user_message(), "Rate limited. Please wait 120 seconds.");
+
+        let int_err = MultiAgentError::Internal("panic".into());
+        assert_eq!(int_err.user_message(), "An error occurred: panic");
+
+        let json_err = MultiAgentError::Json(serde_json::from_str::<i32>("invalid").unwrap_err());
+        assert_eq!(json_err.user_message(), "Data format error occurred.");
+
+        let io_err = MultiAgentError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"));
+        assert_eq!(io_err.user_message(), "File system error occurred.");
+
+        let gen_err = MultiAgentError::Generic("Custom message".into());
+        assert_eq!(gen_err.user_message(), "Custom message");
+    }
+
+    #[test]
+    fn test_error_display() {
+        // Test Display trait implementation (from thiserror)
+        assert_eq!(
+            format!("{}", MultiAgentError::Timeout),
+            "Operation timed out"
+        );
+        
+        assert_eq!(
+            format!("{}", MultiAgentError::RateLimited(std::time::Duration::from_secs(30))),
+            "Rate limited: retry after 30s seconds"
+        );
+    }
+
+    #[test]
+    fn test_json_error_conversion() {
+        let json_err = serde_json::from_str::<i32>("not a number").unwrap_err();
+        let multi_err: MultiAgentError = json_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Json(_)));
+        assert!(!multi_err.is_retryable());
+    }
+
+    #[test]
+    fn test_io_error_conversion() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let multi_err: MultiAgentError = io_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Io(_)));
+        assert!(!multi_err.is_retryable());
+    }
+
+    #[test]
+    fn test_a2a_error_conversions() {
+        use a2a_protocol::A2aError;
+
+        // Network error
+        let a2a_err = A2aError::Transport("connection failed".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Network(_)));
+        assert!(multi_err.is_retryable());
+
+        // Authentication error
+        let a2a_err = A2aError::Authentication("invalid token".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Authentication(_)));
+        assert!(!multi_err.is_retryable());
+
+        // Validation error
+        let a2a_err = A2aError::Validation("invalid format".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Validation(_)));
+        assert!(!multi_err.is_retryable());
+
+        // Configuration error
+        let a2a_err = A2aError::Configuration("missing config".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Configuration(_)));
+
+        // Internal error
+        let a2a_err = A2aError::Internal("internal error".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Internal(_)));
+
+        // Timeout
+        let a2a_err = A2aError::Timeout;
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Timeout));
+        assert!(multi_err.is_retryable());
+
+        // Rate limited
+        let a2a_err = A2aError::RateLimited(std::time::Duration::from_secs(60));
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::RateLimited(_)));
+        assert!(multi_err.is_retryable());
+
+        // AgentNotFound
+        let a2a_err = A2aError::AgentNotFound(a2a_protocol::AgentId::generate());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Agent(_)));
+        assert!(multi_err.to_string().contains("not found"));
+
+        // InvalidAgentId
+        let a2a_err = A2aError::InvalidAgentId("bad-id".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Validation(_)));
+
+        // TaskNotFound
+        let a2a_err = A2aError::TaskNotFound { task_id: "task-123".to_string() };
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Task(_)));
+
+        // Protocol violations
+        let a2a_err = A2aError::InvalidMessage("bad format".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Protocol(_)));
+
+        let a2a_err = A2aError::ProtocolViolation("version mismatch".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Protocol(_)));
+
+        let a2a_err = A2aError::UnsupportedOperation("unknown op".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Protocol(_)));
+
+        let a2a_err = A2aError::PushNotificationNotSupported;
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Protocol(_)));
+
+        // Server error
+        let a2a_err = A2aError::Server("server crashed".to_string());
+        let multi_err: MultiAgentError = a2a_err.into();
+        assert!(matches!(multi_err, MultiAgentError::Agent(_)));
+        assert!(multi_err.to_string().contains("server error"));
     }
 
     #[tokio::test]

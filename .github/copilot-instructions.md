@@ -171,11 +171,15 @@ mode = "supervisor" # or "workflow"
 
 ### Testing Guidelines
 
+- **Unit tests** MUST be co-located with source code in `#[cfg(test)] mod tests` blocks
+- **Integration tests** MUST be in the `tests/` directory
 - Write unit tests for all public APIs
 - Use integration tests for cross-module functionality
 - Mock external dependencies using traits
 - Test error conditions and edge cases
 - Aim for high code coverage on critical paths
+- **Never** create standalone unit test files in `tests/` directory
+
 
 ### Documentation Standards
 
@@ -217,13 +221,6 @@ When working with A2A protocol:
 - Never log sensitive credentials
 - Implement rate limiting in servers
 
-### Future Development
-
-Refer to these planning documents for roadmap and features:
-- `A2A_STANDALONE_PLAN.md`: Comprehensive A2A protocol development plan
-- `a2a-protocol/progress/IMPLEMENTATION_ROADMAP.md`: A2A implementation status
-- `a2a-protocol/progress/UNIMPLEMENTED_FEATURES.md`: Planned features
-- `a2a-protocol/progress/TODO_v0.7.0.md`: Version-specific tasks
 
 ### Common Commands
 

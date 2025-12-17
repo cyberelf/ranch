@@ -92,20 +92,19 @@ impl Agent for DraftAgent {
     }
 
     async fn process(&self, message: Message) -> A2aResult<Message> {
-        let research = extract_text(&message).unwrap_or_default();
+        let _research = extract_text(&message).unwrap_or_default();
 
         println!("  [Step 2: Draft] Received research findings");
         println!("  [Step 2: Draft] Creating initial draft...");
 
         // Create a draft based on research
-        let draft = format!(
-            "DRAFT CONTENT:\n\
+        let draft = "DRAFT CONTENT:\n\
             Based on the research, here's an initial draft:\n\n\
             This document covers the essential aspects identified during research. \
             The approach follows industry best practices and addresses common \
             challenges. Implementation should be iterative and well-planned.\n\n\
             [Note: This is a first draft and will be refined in the next step]"
-        );
+            .to_string();
 
         println!("  [Step 2: Draft] ✓ Draft created\n");
 
@@ -137,15 +136,14 @@ impl Agent for EditAgent {
     }
 
     async fn process(&self, message: Message) -> A2aResult<Message> {
-        let draft = extract_text(&message).unwrap_or_default();
+        let _draft = extract_text(&message).unwrap_or_default();
 
         println!("  [Step 3: Edit] Received draft");
         println!("  [Step 3: Edit] Refining content...");
         println!("  [Step 3: Edit] Checking grammar and style...");
 
         // Polish the draft into final content
-        let final_content = format!(
-            "FINAL POLISHED CONTENT:\n\n\
+        let final_content = "FINAL POLISHED CONTENT:\n\n\
             This comprehensive document addresses all key aspects identified \
             during research. The approach adheres to industry best practices \
             and effectively addresses common challenges.\n\n\
@@ -156,7 +154,7 @@ impl Agent for EditAgent {
             • Incorporate feedback continuously\n\n\
             This refined version is ready for publication and addresses all \
             requirements with clarity and precision."
-        );
+            .to_string();
 
         println!("  [Step 3: Edit] ✓ Final content ready\n");
 

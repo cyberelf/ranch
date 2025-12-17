@@ -49,6 +49,13 @@
 - [ ] No conceptual cycles (data → runtime, not bidirectional)
 - [ ] Clear dependency graph maintained
 
+**Test Organization** (per Constitution IV):
+- [ ] Unit tests planned to be co-located in source files (`#[cfg(test)] mod tests`)
+- [ ] Integration tests planned for `tests/` directory
+- [ ] No standalone unit test files in `tests/` directory
+- [ ] Mocking strategy defined (simple in source, comprehensive in `tests/common/`)
+- [ ] Clear boundary between unit (single module) and integration (cross-module) tests
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -80,9 +87,10 @@ src/
 └── lib/
 
 tests/
-├── contract/
-├── integration/
-└── unit/
+├── common/              # Shared test utilities and comprehensive mocks
+├── integration/         # Cross-module integration tests
+└── contract/            # Contract/compliance tests
+# NOTE: Unit tests live in src/ files as #[cfg(test)] mod tests
 
 # [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/

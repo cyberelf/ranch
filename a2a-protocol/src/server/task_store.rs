@@ -43,11 +43,13 @@ impl TaskStore {
         let task_id = task.id.clone();
         let mut tasks = self.tasks.write().await;
 
-        if tasks.contains_key(&task_id) {
-            tasks.insert(task_id, task);
-            Ok(())
-        } else {
-            Err(A2aError::TaskNotFound { task_id })
+        use std::collections::hash_map::Entry;
+        match tasks.entry(task_id.clone()) {
+            Entry::Occupied(mut entry) => {
+                entry.insert(task);
+                Ok(())
+            }
+            Entry::Vacant(_) => Err(A2aError::TaskNotFound { task_id }),
         }
     }
 
@@ -102,8 +104,10 @@ impl TaskStore {
 
         // Create new cancelled status
         let new_status = if let Some(reason_text) = reason {
-            TaskStatus::new(TaskState::Cancelled)
-                .with_message(Message::agent_text(format!("Task cancelled: {}", reason_text)))
+            TaskStatus::new(TaskState::Cancelled).with_message(Message::agent_text(format!(
+                "Task cancelled: {}",
+                reason_text
+            )))
         } else {
             TaskStatus::new(TaskState::Cancelled)
         };

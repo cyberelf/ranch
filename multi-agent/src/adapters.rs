@@ -73,4 +73,23 @@ mod tests {
         let msg = Message::user_text("Hello World");
         assert_eq!(join_text(&msg, " "), "Hello World");
     }
+
+    #[test]
+    fn test_user_message_string_type() {
+        // Test that Into<String> works with different types
+        let msg1 = user_message("static str");
+        let msg2 = user_message(String::from("String type"));
+        
+        assert_eq!(extract_text(&msg1), Some("static str".to_string()));
+        assert_eq!(extract_text(&msg2), Some("String type".to_string()));
+    }
+
+    #[test]
+    fn test_agent_message_string_type() {
+        let msg1 = agent_message("static str");
+        let msg2 = agent_message(String::from("String type"));
+        
+        assert_eq!(extract_text(&msg1), Some("static str".to_string()));
+        assert_eq!(extract_text(&msg2), Some("String type".to_string()));
+    }
 }

@@ -52,7 +52,7 @@ pub use team::{track_team_nesting, CycleError, SchedulerConfig, Team, TeamConfig
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Config::from_file("config.toml")?;
 /// let (agent_manager, team) = create_team_from_config(&config, "my-team").await?;
-/// 
+///
 /// // Use the team
 /// let response = team.process_message(Message::user_text("Hello!")).await?;
 /// # Ok(())
@@ -63,13 +63,13 @@ pub async fn create_team_from_config(
     team_id: &str,
 ) -> Result<(std::sync::Arc<AgentManager>, std::sync::Arc<Team>), Box<dyn std::error::Error>> {
     use std::sync::Arc;
-    
+
     // Create agent manager and register all agents
     let agent_manager = Arc::new(AgentManager::new());
     agent_manager.register_from_config(config).await?;
-    
+
     // Create the team
     let team = Arc::new(Team::from_config(config, team_id, agent_manager.clone())?);
-    
+
     Ok((agent_manager, team))
 }

@@ -31,14 +31,12 @@ pub async fn dispatch_bytes(handler: &dyn A2aHandler, body: &[u8]) -> A2aResult<
         }
         // If all were notifications, spec says return nothing; but servers may return empty array. We'll return []
         Ok(serde_json::to_vec(&responses).map_err(A2aError::Json)?)
+    } else if is_notification(&value) {
+        let _ = handle_single(handler, value).await; // no response
+        Ok(Vec::new())
     } else {
-        if is_notification(&value) {
-            let _ = handle_single(handler, value).await; // no response
-            Ok(Vec::new())
-        } else {
-            let resp = handle_single(handler, value).await?;
-            Ok(serde_json::to_vec(&resp).map_err(A2aError::Json)?)
-        }
+        let resp = handle_single(handler, value).await?;
+        Ok(serde_json::to_vec(&resp).map_err(A2aError::Json)?)
     }
 }
 
@@ -87,7 +85,7 @@ async fn handle_single(handler: &dyn A2aHandler, req: Value) -> A2aResult<Value>
         }
     };
 
-    Ok(serde_json::to_value(success_response(id, result_value)).map_err(A2aError::Json)?)
+    serde_json::to_value(success_response(id, result_value)).map_err(A2aError::Json)
 }
 
 fn success_response(id: Value, result: Value) -> JsonRpcResponse<Value> {

@@ -1,2 +1,109 @@
-/target
+# -----------------------------
+# Project: multi_agent
+# Purpose: Organized, comprehensive ignore rules for common OS,
+# tools, build artifacts, editors, and language-specific caches
+# -----------------------------
+
+
+# --- OS ---
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+
+
+# --- Environment / Secrets ---
+# dotenv local overrides
+.env.local
+.env.*.local
+# ignore any environment files
+.env
+
+
+# --- Rust / Cargo ---
+# Build output
+/target/
+**/target/
+
+# Rust artifacts
+*.rlib
+*.rmeta
+*.dSYM
+
+# native/shared libraries and executables produced by builds
+*.exe
+*.dll
+*.so
+*.dylib
+
+
+# --- Coverage / Profiling / Test Reports ---
+# Tarpaulin output (coverage tool)
+tarpaulin/
 tarpaulin-report.html
+tarpaulin-report.json
+coverage.json
+*.profraw
+
+# Python coverage
+.coverage
+coverage.xml
+
+
+# --- Python ---
+# Virtual environments and caches
+venv/
+.venv/
+env/
+ENV/
+pip-wheel-metadata/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+
+# --- Node / JS ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+
+
+# --- Editors / IDEs ---
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*.bak
+
+
+# --- CI / Containers / Packaging ---
+# Docker
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Packaging
+*.egg-info/
+dist/
+build/
+
+
+# --- Logs / Temp ---
+*.log
+debug.log
+tmp/
+temp/
+.cache/
+
+
+# --- Misc ---
+*.pem
+*.key
+.DS_Store

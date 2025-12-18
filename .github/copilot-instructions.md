@@ -1,5 +1,23 @@
 # GitHub Copilot Instructions for RANCH
 
+## Governance
+
+**All development MUST comply with the [RANCH Constitution](.specify/memory/constitution.md) v1.4.0.**
+
+The Constitution defines mandatory principles for:
+- Rust-First & Type Safety (including trait infallibility, separation of concerns)
+- Protocol Compliance (A2A Protocol v0.3.0)
+- Async-Native development patterns
+- Testing & Quality (unit test co-location, integration tests)
+- Documentation & Standards
+- SDK Design & Developer Experience
+- Feature Finalization & Status Tracking
+- Security & Performance requirements
+
+This document provides RANCH-specific technical guidance and conventions that complement the Constitution.
+
+---
+
 ## Project Overview
 
 **RANCH** (Rust Agent Networking & Coordination Hub) is a multi-agent system framework built in Rust for managing, coordinating, and facilitating communication between autonomous agents. The project implements the A2A (Agent-to-Agent) protocol and provides a robust runtime for multi-agent coordination.
@@ -41,6 +59,8 @@ cargo run --example basic_agent
 ```
 
 ### Code Style and Conventions
+
+**Note**: Core principles (error handling, async patterns, type safety, API design) are defined in the Constitution. Below are RANCH-specific implementation details.
 
 1. **Error Handling**
    - Use `thiserror` for custom error types
@@ -171,23 +191,12 @@ mode = "supervisor" # or "workflow"
 
 ### Testing Guidelines
 
-- **Unit tests** MUST be co-located with source code in `#[cfg(test)] mod tests` blocks
-- **Integration tests** MUST be in the `tests/` directory
-- Write unit tests for all public APIs
-- Use integration tests for cross-module functionality
-- Mock external dependencies using traits
-- Test error conditions and edge cases
-- Aim for high code coverage on critical paths
-- **Never** create standalone unit test files in `tests/` directory
+**Per Constitution Section IV**: Unit tests MUST be co-located with source code in `#[cfg(test)] mod tests` blocks. Integration tests MUST be in `tests/` directory. Detailed guidelines at `.github/TESTING_GUIDELINES.md`.
 
 
 ### Documentation Standards
 
-- All public items must have rustdoc comments
-- Include examples in rustdoc for complex APIs
-- Update README.md when adding major features
-- Maintain CHANGELOG.md for version tracking
-- Document breaking changes clearly
+**Per Constitution Section V**: All public items must have rustdoc comments. Complex APIs MUST include examples. `README.md` and `CHANGELOG.md` MUST be updated for major features. Semantic versioning MUST be followed.
 
 ### Dependencies Management
 
@@ -199,6 +208,8 @@ mode = "supervisor" # or "workflow"
 
 ### Protocol Compliance
 
+**Per Constitution Section II**: Strict adherence to A2A Protocol v0.3.0 specification. JSON-RPC 2.0 transport. Error codes -32001 through -32007 for A2A-specific errors.
+
 When working with A2A protocol:
 - Follow JSON-RPC 2.0 specification strictly
 - Use proper error codes (-32001 through -32007 for A2A-specific errors)
@@ -207,6 +218,8 @@ When working with A2A protocol:
 
 ### Performance Considerations
 
+**Per Constitution Section "Security & Performance"**: Connection pooling and timeouts MUST be used for network operations.
+
 - Use `Arc` for shared immutable data
 - Prefer `tokio::spawn` for concurrent tasks
 - Avoid blocking operations in async contexts
@@ -214,6 +227,8 @@ When working with A2A protocol:
 - Implement timeouts for all network operations
 
 ### Security Best Practices
+
+**Per Constitution Section "Security & Performance"**: Input MUST be validated. Authentication (API Key, Bearer, OAuth2) is REQUIRED. Credentials MUST NEVER be logged.
 
 - Validate all input from external sources
 - Use authentication for all agent communications

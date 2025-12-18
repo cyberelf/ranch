@@ -271,3 +271,66 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+
+---
+
+## Phase N: Feature Finalization (MANDATORY)
+
+**Purpose**: Formal feature completion and status documentation per Constitution Section VII
+
+**Constitutional Requirement**: This phase is MANDATORY per RANCH Constitution v1.4.0, Section VII (Feature Finalization & Status Tracking).
+
+### Finalization Tasks
+
+- [ ] FIN-01 Create FEATURE_COMPLETE.md in specs/[###-feature-name]/ folder
+  - Include executive summary of deliverables
+  - List all completed user stories with task counts
+  - Document test results (total tests, coverage %, pass rate)
+  - Provide validation evidence for acceptance criteria
+  - Document known limitations or scope reductions
+  - Include production readiness checklist
+  - Declare clear feature status (COMPLETE, BLOCKED, DEFERRED, etc.)
+  
+- [ ] FIN-02 Mark all tasks in tasks.md with completion status
+  - Use [X] for completed tasks
+  - Use [ ] for incomplete tasks with documented reasons
+  - Update task notes with final outcomes
+  
+- [ ] FIN-03 Update IMPLEMENTATION_PLAN.md or equivalent tracking document
+  - Mark feature phases as complete
+  - Update version/release information
+  - Reference FEATURE_COMPLETE.md for details
+  
+- [ ] FIN-04 Update CHANGELOG.md with feature entry
+  - Add to appropriate version section
+  - Summarize user-facing changes
+  - Note any breaking changes or migrations needed
+  
+- [ ] FIN-05 Verify traceability of all artifacts
+  - Specification files (spec.md, plan.md, etc.) → FEATURE_COMPLETE.md
+  - Implementation files (source code) → FEATURE_COMPLETE.md
+  - Test files (unit, integration) → FEATURE_COMPLETE.md
+  - Documentation (AGENT.md, README.md) → FEATURE_COMPLETE.md
+  
+- [ ] FIN-06 Run final validation checks
+  - All user story acceptance criteria met
+  - All integration tests passing
+  - Code quality checks (clippy, fmt) passing
+  - Documentation complete and accurate
+  - Examples compile and run successfully
+
+### Finalization Acceptance Criteria
+
+- ✅ FEATURE_COMPLETE.md exists in specs/[###-feature-name]/ folder
+- ✅ Document includes all required sections per constitution
+- ✅ All tasks marked with status ([X] or [ ] with reason)
+- ✅ IMPLEMENTATION_PLAN.md references feature completion
+- ✅ CHANGELOG.md includes feature entry
+- ✅ Traceability established for all key artifacts
+- ✅ Feature status is easily discoverable by team members
+
+**Notes**:
+- This phase MUST be completed before feature is considered production-ready
+- Feature cannot be marked COMPLETE without finalization document
+- Finalization enables easy status discovery for all stakeholders
+- Serves as institutional knowledge capture for future reference

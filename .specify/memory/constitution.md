@@ -1,14 +1,15 @@
 <!--
 SYNC IMPACT REPORT
-Version: 1.2.0 -> 1.3.0
-Modified Principles:
-- Enhanced: IV. Testing & Quality (added Test Organization & Co-location principle)
-Added Sections: None
+Version: 1.3.0 -> 1.4.0
+Modified Principles: None
+Added Sections:
+- Section VII: Feature Finalization & Status Tracking (mandates FEATURE_COMPLETE.md in specs folders)
 Removed Sections: None
 Templates requiring updates:
-- .specify/templates/plan-template.md (✅ updated - added Test Organization checklist and updated structure)
-- .specify/templates/spec-template.md (✅ updated - added Testing Strategy section to API Design Considerations)
-- .specify/templates/tasks-template.md (✅ no changes needed - tasks naturally flow from this principle)
+- .specify/templates/tasks-template.md (✅ updated - added Phase N: Feature Finalization with mandatory tasks)
+- .specify/templates/plan-template.md (✅ updated - added Feature Finalization Requirement section)
+- .specify/templates/spec-template.md (✅ no changes needed - acceptance criteria already covered)
+- .github/copilot-instructions.md (✅ updated - added Governance section with Constitution reference; deduplicated content)
 Follow-up TODOs: None
 -->
 # RANCH Constitution
@@ -53,6 +54,33 @@ When designing SDK interfaces, ALWAYS consider the code that will use them. APIs
 
 **Example**: Instead of requiring users to manually register agents and then create teams, provide `create_team_from_config()` that does both atomically.
 
+### VII. Feature Finalization & Status Tracking
+Every feature implementation MUST be properly finalized with clear status documentation. When a feature is complete, the following MUST be provided:
+
+**Finalization Document**: Create `FEATURE_COMPLETE.md` (or equivalent status document) in the feature's specification folder (`specs/<feature-id>/`). This document MUST include:
+- **Executive Summary**: Brief overview of what was delivered
+- **Deliverables**: List of all completed user stories and tasks
+- **Test Results**: Comprehensive test metrics (count, coverage, pass rate)
+- **Validation Results**: Evidence that acceptance criteria were met
+- **Known Limitations**: Any scope reductions or deferred work
+- **Release Readiness**: Production deployment checklist
+- **Status Declaration**: Clear statement (COMPLETE, BLOCKED, DEFERRED, etc.)
+
+**Task Completion**: All tasks in `tasks.md` MUST be marked with completion status (`[X]` for done, `[ ]` for incomplete). Incomplete tasks MUST have documented reasons.
+
+**Traceability**: The finalization document MUST reference:
+- Specification files (spec.md, plan.md, etc.)
+- Implementation files (source code paths)
+- Test files (unit tests, integration tests)
+- Documentation files (AGENT.md, README.md, etc.)
+
+**Discoverability**: Feature status MUST be easily identifiable:
+- Feature folder contains status document at top level
+- IMPLEMENTATION_PLAN.md or equivalent tracking document updated
+- CHANGELOG.md includes feature in appropriate version section
+
+**Rationale**: Without formal feature finalization, teams cannot determine which features are production-ready, what testing was performed, or what limitations exist. This leads to deployment of incomplete features, confusion about feature status, and difficulty in onboarding new developers. Structured finalization ensures institutional knowledge is captured and features are verifiably complete before release.
+
 ## Security & Performance
 
 Input from external sources MUST be validated. Authentication (API Key, Bearer, OAuth2) is REQUIRED for agent communications. Sensitive credentials MUST NEVER be logged. Rate limiting SHOULD be implemented in servers. Connection pooling and timeouts MUST be used for network operations.
@@ -65,9 +93,15 @@ Development follows a workspace-based approach. Use `cargo build` to build the e
 
 This Constitution supersedes all other development practices. Amendments require documentation, approval, and a migration plan. All PRs must verify compliance with these principles.
 
-**Version**: 1.3.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-17
+**Version**: 1.4.0 | **Ratified**: 2025-12-11 | **Last Amended**: 2025-12-18
 
 ## Amendment History
+
+### v1.4.0 (2025-12-18)
+- **Added**: Section VII (Feature Finalization & Status Tracking)
+- **Rationale**: Codify mandatory feature finalization practices to ensure production readiness and institutional knowledge capture
+- **Impact**: All completed features must include FEATURE_COMPLETE.md in specs/<feature-id>/ folder with deliverables, test results, validation evidence, and status declaration
+- **Benefit**: Eliminates ambiguity about feature status; enables easy discovery of feature completion state; ensures verification of acceptance criteria before release
 
 ### v1.3.0 (2025-12-17)
 - **Enhanced**: Section IV (Testing & Quality) - Added Test Organization & Co-location principle

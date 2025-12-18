@@ -118,6 +118,42 @@ ios/ or android/
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
 
+## Feature Finalization Requirement
+
+**Constitutional Mandate**: Per RANCH Constitution v1.4.0, Section VII, this feature MUST include formal finalization before being marked production-ready.
+
+### Required Deliverables for Feature Completion
+
+1. **FEATURE_COMPLETE.md** in `specs/[###-feature-name]/` folder containing:
+   - Executive summary of delivered functionality
+   - Complete list of user stories and task counts
+   - Test results (total tests, coverage percentage, pass rate)
+   - Validation evidence for all acceptance criteria
+   - Known limitations or scope reductions
+   - Production readiness checklist
+   - Clear status declaration (COMPLETE/BLOCKED/DEFERRED)
+
+2. **tasks.md** with all tasks marked complete ([X]) or incomplete ([ ] with reason)
+
+3. **IMPLEMENTATION_PLAN.md** (or equivalent) updated with feature completion status
+
+4. **CHANGELOG.md** entry documenting user-facing changes
+
+5. **Traceability** from specification → implementation → tests → documentation
+
+### Finalization Checklist
+
+Before declaring feature COMPLETE, verify:
+- [ ] All user story acceptance criteria met and documented
+- [ ] Test results captured and meet quality thresholds
+- [ ] FEATURE_COMPLETE.md created with all required sections
+- [ ] All implementation artifacts traceable to specification
+- [ ] Feature status easily discoverable by team members
+- [ ] Known limitations explicitly documented
+- [ ] Production deployment readiness assessed
+
+**Note**: Feature finalization is not optional. It ensures institutional knowledge capture, enables status discovery, and verifies production readiness before release.
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

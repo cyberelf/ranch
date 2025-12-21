@@ -83,7 +83,6 @@ pub struct TeamAgentConfig {
 pub struct Team {
     config: TeamConfig,
     agent_manager: Arc<AgentManager>,
-    router: Router,
 }
 
 impl Team {
@@ -117,12 +116,9 @@ impl Team {
     /// # }
     /// ```
     pub fn new(config: TeamConfig, agent_manager: Arc<AgentManager>) -> Self {
-        let router = Router::new(config.router_config.clone());
-
         Self {
             config,
             agent_manager,
-            router,
         }
     }
 

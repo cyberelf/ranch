@@ -1,0 +1,1 @@
+The Goal of our project is to provide a multi-agent team instead of yet another agent framework.

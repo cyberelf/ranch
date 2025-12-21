@@ -88,7 +88,7 @@ impl A2aServerAgent for TeamAgentAdapter {
 ///
 /// ```no_run
 /// use multi_agent::{Team, AgentManager, TeamServer};
-/// use multi_agent::team::{TeamConfig, TeamMode, TeamAgentConfig, SchedulerConfig, SupervisorSchedulerConfig};
+/// use multi_agent::team::{TeamConfig, RouterConfig, TeamAgentConfig};
 /// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -97,11 +97,11 @@ impl A2aServerAgent for TeamAgentAdapter {
 ///     id: "example-team".to_string(),
 ///     name: "Example Team".to_string(),
 ///     description: "An example team".to_string(),
-///     mode: TeamMode::Supervisor,
 ///     agents: vec![],
-///     scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-///         supervisor_agent_id: "supervisor".to_string(),
-///     }),
+///     router_config: RouterConfig {
+///         default_agent_id: "default-agent".to_string(),
+///         max_routing_hops: 10,
+///     },
 /// };
 /// let team = Arc::new(Team::new(team_config, manager));
 ///
@@ -142,11 +142,11 @@ impl TeamServer {
     pub async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "🚀 Starting TeamServer for team: {}",
-            self.team.get_config().name
+            self.team.config().name
         );
-        println!("   ID: {}", self.team.get_config().id);
-        println!("   Mode: {:?}", self.team.get_config().mode);
-        println!("   Members: {}", self.team.get_config().agents.len());
+        println!("   ID: {}", self.team.config().id);
+        println!("   Router: default_agent_id = {}", self.team.config().router_config.default_agent_id);
+        println!("   Members: {}", self.team.config().agents.len());
 
         // Wrap team with adapter to bridge multi-agent Agent trait to a2a-protocol Agent trait
         let adapter = TeamAgentAdapter::new(self.team.clone());
@@ -191,7 +191,7 @@ impl TeamServer {
 mod tests {
     use super::*;
     use crate::manager::AgentManager;
-    use crate::team::{SchedulerConfig, SupervisorSchedulerConfig, TeamConfig, TeamMode};
+    use crate::team::{RouterConfig, TeamConfig};
 
     #[test]
     fn test_team_server_creation() {
@@ -200,11 +200,11 @@ mod tests {
             id: "test-team".to_string(),
             name: "Test Team".to_string(),
             description: "A test team".to_string(),
-            mode: TeamMode::Supervisor,
             agents: vec![],
-            scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-                supervisor_agent_id: "supervisor".to_string(),
-            }),
+            router_config: RouterConfig {
+                default_agent_id: "supervisor".to_string(),
+                max_routing_hops: 10,
+            },
         };
 
         let team = Arc::new(Team::new(config, manager));
@@ -220,11 +220,11 @@ mod tests {
             id: "adapter-test-team".to_string(),
             name: "Adapter Test Team".to_string(),
             description: "Testing adapter".to_string(),
-            mode: TeamMode::Supervisor,
             agents: vec![],
-            scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-                supervisor_agent_id: "supervisor".to_string(),
-            }),
+            router_config: RouterConfig {
+                default_agent_id: "supervisor".to_string(),
+                max_routing_hops: 10,
+            },
         };
 
         let team = Arc::new(Team::new(config, manager));
@@ -248,11 +248,11 @@ mod tests {
             id: "process-test-team".to_string(),
             name: "Process Test Team".to_string(),
             description: "Testing message processing".to_string(),
-            mode: TeamMode::Supervisor,
             agents: vec![],
-            scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-                supervisor_agent_id: "supervisor".to_string(),
-            }),
+            router_config: RouterConfig {
+                default_agent_id: "supervisor".to_string(),
+                max_routing_hops: 10,
+            },
         };
 
         let team = Arc::new(Team::new(config, manager));

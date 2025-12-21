@@ -4,10 +4,9 @@ mod common;
 
 use common::MockAgent;
 use multi_agent::team::{
-    SupervisorSchedulerConfig, TeamAgentConfig, TeamMode, WorkflowSchedulerConfig,
-    WorkflowStepConfig,
+    RouterConfig, TeamAgentConfig,
 };
-use multi_agent::{track_team_nesting, Agent, AgentManager, SchedulerConfig, Team, TeamConfig};
+use multi_agent::{track_team_nesting, Agent, AgentManager, Team, TeamConfig};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -40,7 +39,6 @@ async fn test_team_info_aggregates_capabilities() {
         id: "test-team".to_string(),
         name: "Test Team".to_string(),
         description: "A test team".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: agent1_id.clone(),
@@ -53,9 +51,10 @@ async fn test_team_info_aggregates_capabilities() {
                 capabilities: vec!["writing".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: agent1_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent1_id.clone(),
+            max_routing_hops: 10,
+        },
     };
 
     let team = Team::new(team_config, agent_manager);
@@ -73,7 +72,7 @@ async fn test_team_info_aggregates_capabilities() {
 
     // Verify metadata includes team info
     assert_eq!(info.metadata.get("type"), Some(&"team".to_string()));
-    assert_eq!(info.metadata.get("mode"), Some(&"supervisor".to_string()));
+    assert_eq!(info.metadata.get("router_default_agent"), Some(&agent1_id));
     assert_eq!(info.metadata.get("member_count"), Some(&"2".to_string()));
 }
 
@@ -102,7 +101,6 @@ async fn test_team_process_supervisor_mode() {
         id: "supervisor-team".to_string(),
         name: "Supervisor Team".to_string(),
         description: "Team with supervisor".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: agent1_id.clone(),
@@ -115,9 +113,10 @@ async fn test_team_process_supervisor_mode() {
                 capabilities: vec![],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: agent1_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent1_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Team::new(team_config, agent_manager);
@@ -154,7 +153,6 @@ async fn test_team_process_workflow_mode() {
         id: "workflow-team".to_string(),
         name: "Workflow Team".to_string(),
         description: "Sequential workflow".to_string(),
-        mode: TeamMode::Workflow,
         agents: vec![
             TeamAgentConfig {
                 agent_id: agent1_id.clone(),
@@ -167,20 +165,10 @@ async fn test_team_process_workflow_mode() {
                 capabilities: vec![],
             },
         ],
-        scheduler_config: SchedulerConfig::Workflow(WorkflowSchedulerConfig {
-            steps: vec![
-                WorkflowStepConfig {
-                    agent_id: agent1_id,
-                    order: 1,
-                    condition: None,
-                },
-                WorkflowStepConfig {
-                    agent_id: agent2_id,
-                    order: 2,
-                    condition: None,
-                },
-            ],
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent1_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Team::new(team_config, agent_manager);
@@ -234,15 +222,15 @@ async fn test_error_propagation_from_member_agents() {
         id: "test-team".to_string(),
         name: "Test Team".to_string(),
         description: "Team for testing".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![TeamAgentConfig {
             agent_id: agent_id.clone(),
             role: "worker".to_string(),
             capabilities: vec![],
         }],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: agent_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Team::new(team_config, agent_manager);
@@ -298,7 +286,6 @@ async fn test_nested_team_delegation() {
         id: "research-dept".to_string(),
         name: "Research Department".to_string(),
         description: "Handles research tasks".to_string(),
-        mode: TeamMode::Workflow,
         agents: vec![
             TeamAgentConfig {
                 agent_id: agent1_id.clone(),
@@ -311,20 +298,10 @@ async fn test_nested_team_delegation() {
                 capabilities: vec!["data-analysis".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Workflow(WorkflowSchedulerConfig {
-            steps: vec![
-                WorkflowStepConfig {
-                    agent_id: agent1_id,
-                    order: 1,
-                    condition: None,
-                },
-                WorkflowStepConfig {
-                    agent_id: agent2_id,
-                    order: 2,
-                    condition: None,
-                },
-            ],
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent1_id,
+            max_routing_hops: 10,
+        },
     };
 
     let child_team = Arc::new(Team::new(child_team_config, agent_manager.clone()));
@@ -340,7 +317,6 @@ async fn test_nested_team_delegation() {
         id: "organization".to_string(),
         name: "Organization".to_string(),
         description: "Top-level organization".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: agent3_id.clone(),
@@ -353,9 +329,10 @@ async fn test_nested_team_delegation() {
                 capabilities: vec!["data-collection".to_string(), "data-analysis".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: agent3_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: agent3_id,
+            max_routing_hops: 10,
+        },
     };
 
     let parent_team = Team::new(parent_team_config, agent_manager);

@@ -28,12 +28,11 @@ temperature = "0.5"
 [[teams]]
 id = "team1"
 name = "Development Team"
-description = "Team for software development tasks"
-mode = "supervisor"
+description = "Team for software development tasks with dynamic routing"
 
-[teams.scheduler_config]
-type = "supervisor"
-supervisor_agent_id = "agent1"
+[teams.router_config]
+default_agent_id = "agent1"
+max_routing_hops = 10
 
 [[teams.agents]]
 agent_id = "agent1"
@@ -48,19 +47,11 @@ capabilities = ["code_review"]
 [[teams]]
 id = "team2"
 name = "Analysis Pipeline"
-description = "Sequential analysis workflow"
-mode = "workflow"
+description = "Team for sequential analysis with router-based coordination"
 
-[teams.scheduler_config]
-type = "workflow"
-
-[[teams.scheduler_config.steps]]
-agent_id = "agent1"
-order = 1
-
-[[teams.scheduler_config.steps]]
-agent_id = "agent2"
-order = 2
+[teams.router_config]
+default_agent_id = "agent1"
+max_routing_hops = 15
 
 [[teams.agents]]
 agent_id = "agent1"

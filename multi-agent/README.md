@@ -6,10 +6,13 @@ A Rust-based framework for building and managing multi-agent systems with suppor
 
 - **Protocol Support**: OpenAI API and A2A (Agent-to-Agent) protocols
 - **Agent Management**: Dynamic agent registration, health checks, and capability discovery
-- **Team Composition**: Group agents into teams with different collaboration modes
-- **Scheduling Modes**: 
-  - Supervisor mode: One agent acts as a coordinator
-  - Workflow mode: Sequential execution based on configuration
+- **Team Composition**: Group agents into teams with dynamic routing
+- **Router-Based Coordination**: 
+  - Dynamic message routing based on agent capabilities
+  - Client Agent Extension for intelligent routing decisions
+  - Fallback routing to default agent
+  - Back-to-sender routing support
+  - Max hop limits to prevent infinite loops
 - **REST API**: OpenAI-compatible and A2A endpoints for team interactions
 - **Configuration-driven**: TOML-based configuration for agents and teams
 
@@ -32,12 +35,16 @@ temperature = "0.7"
 [[teams]]
 id = "dev-team"
 name = "Development Team"
-mode = "supervisor"
+description = "Team with dynamic router-based coordination"
+
+[teams.router_config]
+default_agent_id = "research-assistant"
+max_routing_hops = 10
 
 [[teams.agents]]
 agent_id = "research-assistant"
-role = "supervisor"
-is_supervisor = true
+role = "coordinator"
+capabilities = ["research", "coordination"]
 ```
 
 2. **Set environment variables**:
@@ -106,9 +113,64 @@ The framework consists of several key components:
 - **Agent**: Represents a remote AI service with specific capabilities
 - **Protocol**: Handles communication with agents using different protocols
 - **AgentManager**: Manages agent lifecycle and discovery
-- **Team**: Groups agents with specific collaboration patterns
-- **Scheduler**: Implements different agent coordination strategies
+- **Team**: Groups agents with dynamic router-based coordination
+- **Router**: Implements intelligent message routing between agents
+  - Supports Client Agent Extension for capable agents
+  - Provides fallback routing for basic agents
+  - Tracks sender history for back-to-sender routing
+  - Enforces max hop limits to prevent infinite loops
 - **TeamServer**: Provides HTTP API endpoints
+
+## Client Agent Extension
+
+The framework supports a Client Agent Extension (URI: `https://ranch.woi.dev/extensions/client-routing/v1`) that enables intelligent routing decisions:
+
+### Extension Support
+
+Agents declare extension support in their capabilities:
+
+```rust
+capabilities: vec![
+    "https://ranch.woi.dev/extensions/client-routing/v1".to_string()
+]
+```
+
+### Extension Data Flow
+
+1. **Router → Agent**: Router injects peer agent list in message metadata:
+```json
+{
+  "https://ranch.woi.dev/extensions/client-routing/v1": {
+    "agentCards": [
+      {
+        "id": "researcher",
+        "name": "Research Agent",
+        "description": "Searches and summarizes",
+        "capabilities": ["search", "summarize"],
+        "supportsClientRouting": true
+      }
+    ],
+    "sender": "user"
+  }
+}
+```
+
+2. **Agent → Router**: Agent returns routing decision in metadata:
+```json
+{
+  "https://ranch.woi.dev/extensions/client-routing/v1": {
+    "recipient": "researcher",
+    "reason": "Query requires search capability"
+  }
+}
+```
+
+### Routing Options
+
+- **Agent ID**: Route to specific agent (e.g., `"researcher"`)
+- **"user"**: Return to user (end conversation)
+- **"sender"**: Route back to previous sender
+- **No decision**: Basic agents without extension return to user automatically
 
 ## Examples
 
@@ -135,19 +197,21 @@ let agent = Arc::new(RemoteAgent::new(config, protocol));
 ### Creating a Team
 
 ```rust
+use multi_agent::team::{TeamConfig, TeamAgentConfig, RouterConfig};
+
 let team_config = TeamConfig {
     id: "my-team".to_string(),
     name: "My Team".to_string(),
-    description: "A sample team".to_string(),
-    mode: TeamMode::Supervisor,
+    description: "A sample team with dynamic routing".to_string(),
     agents: vec![TeamAgentConfig {
         agent_id: "my-agent".to_string(),
-        role: "member".to_string(),
+        role: "coordinator".to_string(),
         capabilities: vec!["analysis".to_string()],
-        is_supervisor: Some(true),
-        order: None,
     }],
-      context: HashMap::new(),
+    router_config: RouterConfig {
+        default_agent_id: "my-agent".to_string(),
+        max_routing_hops: 10,
+    },
 };
 
 let team = Arc::new(Team::new(team_config, agent_manager));

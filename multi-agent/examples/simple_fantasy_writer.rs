@@ -3,7 +3,7 @@
 //! This is a simplified version that uses only OpenAI agents to demonstrate
 //! the multi-agent workflow without requiring an A2A server setup.
 
-use multi_agent::team::{TeamAgentConfig, TeamMode, WorkflowSchedulerConfig, WorkflowStepConfig};
+use multi_agent::team::{RouterConfig, TeamAgentConfig, TeamConfig};
 use multi_agent::*;
 use std::env;
 use std::io::Write;
@@ -103,26 +103,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let composer_id = agent_manager.register(composer).await?;
     println!("✅ Registered Story Composer: {}", composer_id);
 
-    // Create a team with workflow scheduler
+    // Create a team with router
     let team_config = TeamConfig {
         id: "fantasy-story-team".to_string(),
         name: "Fantasy Story Writing Team".to_string(),
         description: "Team for collaborative fantasy story creation".to_string(),
-        mode: TeamMode::Workflow,
-        scheduler_config: SchedulerConfig::Workflow(WorkflowSchedulerConfig {
-            steps: vec![
-                WorkflowStepConfig {
-                    agent_id: orchestrator_id.clone(),
-                    order: 1,
-                    condition: None,
-                },
-                WorkflowStepConfig {
-                    agent_id: composer_id.clone(),
-                    order: 2,
-                    condition: None,
-                },
-            ],
-        }),
         agents: vec![
             TeamAgentConfig {
                 agent_id: orchestrator_id.clone(),
@@ -135,6 +120,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 capabilities: vec!["prose_writing".to_string()],
             },
         ],
+        router_config: RouterConfig {
+            default_agent_id: orchestrator_id.clone(),
+            max_routing_hops: 10,
+        },
     };
 
     let team = Arc::new(Team::new(team_config, agent_manager.clone()));

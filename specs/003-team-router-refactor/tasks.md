@@ -19,9 +19,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create team module directory structure at multi-agent/src/team/ with mod.rs, router.rs, types.rs
-- [ ] T002 [P] Add extension constants to multi-agent/src/team/types.rs (EXTENSION_URI, EXTENSION_VERSION)
-- [ ] T003 [P] Update multi-agent/Cargo.toml dependencies (ensure uuid, serde_json are included)
+- [X] T001 Create team module directory structure at multi-agent/src/team/ with mod.rs, router.rs, types.rs
+- [X] T002 [P] Add extension constants to multi-agent/src/team/types.rs (EXTENSION_URI, EXTENSION_VERSION)
+- [X] T003 [P] Update multi-agent/Cargo.toml dependencies (ensure uuid, serde_json are included)
 
 ---
 
@@ -31,15 +31,15 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create new Recipient enum in multi-agent/src/team/types.rs (Agent(String), User variants) - Note: Existing Recipient struct in team.rs should be refactored or kept separate for backward compatibility
-- [ ] T005 [P] Create SimplifiedAgentCard struct in multi-agent/src/team/types.rs with A2A-compliant fields
-- [ ] T006 [P] Create ClientRoutingRequest struct in multi-agent/src/team/types.rs per data-model.md schema
-- [ ] T007 [P] Create ClientRoutingResponse struct in multi-agent/src/team/types.rs per data-model.md schema
-- [ ] T008 [P] Create TeamError enum in multi-agent/src/team/types.rs (InvalidRecipient, MaxHopsExceeded, RouterError variants)
-- [ ] T009 Create RouterConfig struct in multi-agent/src/team/types.rs (default_agent_id, max_routing_hops fields)
-- [ ] T010 Update TeamConfig struct in multi-agent/src/config.rs to replace mode with router_config field
-- [ ] T011 [P] Export all new types from multi-agent/src/team/mod.rs
-- [ ] T011a Ensure AgentInfo struct tracks extension support from AgentCard.capabilities.extensions array
+- [X] T004 [P] Create new Recipient enum in multi-agent/src/team/types.rs (Agent(String), User variants) - Note: Existing Recipient struct in team.rs should be refactored or kept separate for backward compatibility
+- [X] T005 [P] Create SimplifiedAgentCard struct in multi-agent/src/team/types.rs with A2A-compliant fields
+- [X] T006 [P] Create ClientRoutingRequest struct in multi-agent/src/team/types.rs per data-model.md schema
+- [X] T007 [P] Create ClientRoutingResponse struct in multi-agent/src/team/types.rs per data-model.md schema
+- [X] T008 [P] Create TeamError enum in multi-agent/src/team/types.rs (InvalidRecipient, MaxHopsExceeded, RouterError variants)
+- [X] T009 Create RouterConfig struct in multi-agent/src/team/types.rs (default_agent_id, max_routing_hops fields)
+- [X] T010 Update TeamConfig struct in multi-agent/src/config.rs to replace mode with router_config field
+- [X] T011 [P] Export all new types from multi-agent/src/team/mod.rs
+- [X] T011a Ensure AgentInfo struct tracks extension support from AgentCard.capabilities.extensions array
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -53,21 +53,21 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 Create Router struct in multi-agent/src/team/router.rs with default_agent_id, max_routing_hops, and sender_stack fields
-- [ ] T013 Implement Router::new() constructor in multi-agent/src/team/router.rs
-- [ ] T014 Implement Router::supports_extension() helper method in multi-agent/src/team/router.rs (checks agent capabilities)
-- [ ] T015 Implement Router::build_simplified_cards() in multi-agent/src/team/router.rs (converts AgentInfo to SimplifiedAgentCard)
-- [ ] T016 Implement Router::inject_extension_context() in multi-agent/src/team/router.rs (adds extension data to message.metadata)
-- [ ] T017 Implement Router::extract_recipient() in multi-agent/src/team/router.rs (parses extension response from message.metadata)
-- [ ] T018 Implement Router::route() main method in multi-agent/src/team/router.rs (orchestrates extension detection, injection, and routing)
-- [ ] T019 Update Team struct in multi-agent/src/team/mod.rs to replace Scheduler with Router field
-- [ ] T020 Update Team::new() in multi-agent/src/team/mod.rs to instantiate Router from config
-- [ ] T021 Refactor Team::process_messages() in multi-agent/src/team/mod.rs to use Router::route() instead of Scheduler logic
-- [ ] T022 Remove Scheduler trait and implementations in multi-agent/src/team/mod.rs (SupervisorScheduler, WorkflowScheduler)
-- [ ] T023 Remove TeamMode enum from multi-agent/src/team/mod.rs (no longer needed with unified Router)
-- [ ] T024 Add unit tests in #[cfg(test)] mod tests within multi-agent/src/team/router.rs (supports_extension, build_simplified_cards, inject_extension_context, extract_recipient)
-- [ ] T025 Add integration test in multi-agent/tests/router_integration.rs (team with extension-capable agent receives peer list and routes messages)
-- [ ] T026 Update config.example.toml with router_config section (default_agent_id, max_routing_hops)
+- [X] T012 Create Router struct in multi-agent/src/team/router.rs with default_agent_id, max_routing_hops, and sender_stack fields
+- [X] T013 Implement Router::new() constructor in multi-agent/src/team/router.rs
+- [X] T014 Implement Router::supports_extension() helper method in multi-agent/src/team/router.rs (checks agent capabilities)
+- [X] T015 Implement Router::build_simplified_cards() in multi-agent/src/team/router.rs (converts AgentInfo to SimplifiedAgentCard)
+- [X] T016 Implement Router::inject_extension_context() in multi-agent/src/team/router.rs (adds extension data to message.metadata)
+- [X] T017 Implement Router::extract_recipient() in multi-agent/src/team/router.rs (parses extension response from message.metadata)
+- [X] T018 Implement Router::route() main method in multi-agent/src/team/router.rs (orchestrates extension detection, injection, and routing)
+- [X] T019 Update Team struct in multi-agent/src/team/mod.rs to replace Scheduler with Router field
+- [X] T020 Update Team::new() in multi-agent/src/team/mod.rs to instantiate Router from config
+- [X] T021 Refactor Team::process_messages() in multi-agent/src/team/mod.rs to use Router::route() instead of Scheduler logic
+- [X] T022 Remove Scheduler trait and implementations in multi-agent/src/team/mod.rs (SupervisorScheduler, WorkflowScheduler)
+- [X] T023 Remove TeamMode enum from multi-agent/src/team/mod.rs (no longer needed with unified Router)
+- [X] T024 Add unit tests in #[cfg(test)] mod tests within multi-agent/src/team/router.rs (supports_extension, build_simplified_cards, inject_extension_context, extract_recipient)
+- [X] T025 Add integration test in multi-agent/tests/router_integration.rs (team with extension-capable agent receives peer list and routes messages)
+- [X] T026 Update config.example.toml with router_config section (default_agent_id, max_routing_hops)
 
 **Checkpoint**: At this point, dynamic routing with extension support should be fully functional and testable independently
 
@@ -81,11 +81,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Implement default agent fallback logic in Router::extract_recipient() in multi-agent/src/team/router.rs (return default if no metadata)
-- [ ] T028 [US2] Update Router::route() in multi-agent/src/team/router.rs to handle None from extract_recipient by routing to default agent
-- [ ] T029 [US2] Add edge case handling in Router::route() for invalid/missing recipient in multi-agent/src/team/router.rs
-- [ ] T030 [US2] Add unit test in #[cfg(test)] mod tests within multi-agent/src/team/router.rs verifying fallback to default agent when no recipient specified
-- [ ] T031 [US2] Add integration test in multi-agent/tests/router_integration.rs with simple agent (no extension) verifying default routing
+- [X] T027 [US2] Implement default agent fallback logic in Router::extract_recipient() in multi-agent/src/team/router.rs (return default if no metadata)
+- [X] T028 [US2] Update Router::route() in multi-agent/src/team/router.rs to handle None from extract_recipient by routing to default agent
+- [X] T029 [US2] Add edge case handling in Router::route() for invalid/missing recipient in multi-agent/src/team/router.rs
+- [X] T030 [US2] Add unit test in #[cfg(test)] mod tests within multi-agent/src/team/router.rs verifying fallback to default agent when no recipient specified
+- [X] T031 [US2] Add integration test in multi-agent/tests/router_integration.rs with simple agent (no extension) verifying default routing
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -99,15 +99,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Implement Router::push_sender() method in multi-agent/src/team/router.rs (adds sender to stack)
-- [ ] T033 [US3] Implement Router::pop_sender() method in multi-agent/src/team/router.rs (removes and returns last sender)
-- [ ] T034 [US3] Update Router::route() in multi-agent/src/team/router.rs to push sender before routing to next agent
-- [ ] T035 [US3] Update Router::extract_recipient() in multi-agent/src/team/router.rs to resolve "sender" to actual sender from stack
-- [ ] T036 [US3] Update Router::extract_recipient() in multi-agent/src/team/router.rs to handle "user" recipient as User variant
-- [ ] T037 [US3] Update ClientRoutingRequest injection in multi-agent/src/team/router.rs to include sender field
-- [ ] T038 [US3] Add unit test in #[cfg(test)] mod tests within multi-agent/src/team/router.rs for sender stack push/pop operations
-- [ ] T039 [US3] Add integration test in multi-agent/tests/router_integration.rs for back-to-sender routing (Agent A → Agent B → Agent A)
-- [ ] T040 [US3] Add integration test in multi-agent/tests/router_integration.rs for user routing (Agent → User)
+- [X] T032 [US3] Implement Router::push_sender() method in multi-agent/src/team/router.rs (adds sender to stack)
+- [X] T033 [US3] Implement Router::pop_sender() method in multi-agent/src/team/router.rs (removes and returns last sender)
+- [X] T034 [US3] Update Router::route() in multi-agent/src/team/router.rs to push sender before routing to next agent
+- [X] T035 [US3] Update Router::extract_recipient() in multi-agent/src/team/router.rs to resolve "sender" to actual sender from stack
+- [X] T036 [US3] Update Router::extract_recipient() in multi-agent/src/team/router.rs to handle "user" recipient as User variant
+- [X] T037 [US3] Update ClientRoutingRequest injection in multi-agent/src/team/router.rs to include sender field
+- [X] T038 [US3] Add unit test in #[cfg(test)] mod tests within multi-agent/src/team/router.rs for sender stack push/pop operations
+- [X] T039 [US3] Add integration test in multi-agent/tests/router_integration.rs for back-to-sender routing (Agent A → Agent B → Agent A)
+- [X] T040 [US3] Add integration test in multi-agent/tests/router_integration.rs for user routing (Agent → User)
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -117,20 +117,20 @@
 
 **Purpose**: Edge cases, documentation, and improvements affecting multiple user stories
 
-- [ ] T041 [P] Implement max_routing_hops limit in Router::route() in multi-agent/src/team/router.rs to prevent infinite loops (default: 10, per FR-008)
-- [ ] T042 [P] Add error handling for invalid agent IDs in Router::route() in multi-agent/src/team/router.rs
-- [ ] T043 [P] Update multi-agent/README.md with Router architecture and Client Agent Extension documentation
+- [X] T041 [P] Implement max_routing_hops limit in Router::route() in multi-agent/src/team/router.rs to prevent infinite loops (default: 10, per FR-008)
+- [X] T042 [P] Add error handling for invalid agent IDs in Router::route() in multi-agent/src/team/router.rs
+- [X] T043 [P] Update multi-agent/README.md with Router architecture and Client Agent Extension documentation
 - [ ] T044 [P] Add example in multi-agent/examples/router_example.rs demonstrating dynamic routing with extension
 - [ ] T045 [P] Update CHANGELOG.md with Router refactor and extension support details
-- [ ] T046 Run quickstart.md validation by creating team and executing routing scenarios from quickstart.md
-- [ ] T047 Add rustdoc comments to all public Router APIs in multi-agent/src/team/router.rs
-- [ ] T048 [P] Add rustdoc comments to all public types in multi-agent/src/team/types.rs
-- [ ] T049 Update .github/copilot-instructions.md with Router and Client Agent Extension guidance
-- [ ] T050 Create FEATURE_COMPLETE.md in specs/003-team-router-refactor/ with executive summary, deliverables checklist, test results (count/coverage/pass rate), validation evidence, known limitations, release readiness checklist, and status declaration
-- [ ] T048 Add rustdoc comments to all public Router APIs in multi-agent/src/team/router.rs
-- [ ] T049 [P] Add rustdoc comments to all public types in multi-agent/src/team/types.rs
-- [ ] T050 Update .github/copilot-instructions.md with Router and Client Agent Extension guidance
-- [ ] T051 Create FEATURE_COMPLETE.md in specs/003-team-router-refactor/ with executive summary, deliverables checklist, test results (count/coverage/pass rate), validation evidence, known limitations, release readiness checklist, and status declaration
+- [X] T046 Run quickstart.md validation by creating team and executing routing scenarios from quickstart.md
+- [X] T047 Add rustdoc comments to all public Router APIs in multi-agent/src/team/router.rs
+- [X] T048 [P] Add rustdoc comments to all public types in multi-agent/src/team/types.rs
+- [X] T049 Update .github/copilot-instructions.md with Router and Client Agent Extension guidance
+- [X] T050 Create FEATURE_COMPLETE.md in specs/003-team-router-refactor/ with executive summary, deliverables checklist, test results (count/coverage/pass rate), validation evidence, known limitations, release readiness checklist, and status declaration
+- [X] T048 Add rustdoc comments to all public Router APIs in multi-agent/src/team/router.rs
+- [X] T049 [P] Add rustdoc comments to all public types in multi-agent/src/team/types.rs
+- [X] T050 Update .github/copilot-instructions.md with Router and Client Agent Extension guidance
+- [X] T051 Create FEATURE_COMPLETE.md in specs/003-team-router-refactor/ with executive summary, deliverables checklist, test results (count/coverage/pass rate), validation evidence, known limitations, release readiness checklist, and status declaration
 
 ---
 

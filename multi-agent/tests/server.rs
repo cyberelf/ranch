@@ -10,7 +10,7 @@ use a2a_protocol::{
 };
 use common::MockAgent;
 use multi_agent::{
-    team::{SchedulerConfig, SupervisorSchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode},
+    team::{RouterConfig, TeamAgentConfig, TeamConfig},
     AgentManager, Team, TeamServer,
 };
 use std::{sync::Arc, time::Duration};
@@ -41,7 +41,6 @@ async fn create_test_team() -> Arc<Team> {
         id: "test-team".to_string(),
         name: "Test Team".to_string(),
         description: "A test team".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: "agent-1".to_string(),
@@ -54,9 +53,10 @@ async fn create_test_team() -> Arc<Team> {
                 capabilities: vec!["test".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: "agent-1".to_string(),
-        }),
+        router_config: RouterConfig {
+            default_agent_id: "agent-1".to_string(),
+            max_routing_hops: 10,
+        },
     };
 
     Arc::new(Team::new(team_config, manager))

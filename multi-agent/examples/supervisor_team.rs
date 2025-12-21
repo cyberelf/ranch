@@ -16,9 +16,7 @@
 
 use a2a_protocol::prelude::Message;
 use async_trait::async_trait;
-use multi_agent::team::{
-    SchedulerConfig, SupervisorSchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode,
-};
+use multi_agent::team::{RouterConfig, TeamAgentConfig, TeamConfig};
 use multi_agent::Agent;
 use multi_agent::*;
 use std::sync::Arc;
@@ -214,7 +212,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id: "dev-team".to_string(),
         name: "Development Team".to_string(),
         description: "Team with supervisor routing to specialists".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: supervisor_id.clone(),
@@ -237,9 +234,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 capabilities: vec!["testing".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: supervisor_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: supervisor_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Arc::new(Team::new(team_config, manager));

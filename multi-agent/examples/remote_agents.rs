@@ -32,9 +32,7 @@
 use a2a_protocol::prelude::*;
 use async_trait::async_trait;
 use multi_agent::agent::{A2AAgent, A2AAgentConfig, TaskHandling};
-use multi_agent::team::{
-    SchedulerConfig, SupervisorSchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode,
-};
+use multi_agent::team::{RouterConfig, TeamAgentConfig, TeamConfig};
 use multi_agent::Agent;
 use multi_agent::*;
 use std::sync::Arc;
@@ -190,7 +188,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id: "distributed-team".to_string(),
         name: "Distributed Agent Team".to_string(),
         description: "Team coordinating remote A2A agents".to_string(),
-        mode: TeamMode::Supervisor,
         agents: vec![
             TeamAgentConfig {
                 agent_id: supervisor_id.clone(),
@@ -208,9 +205,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 capabilities: vec!["processing".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Supervisor(SupervisorSchedulerConfig {
-            supervisor_agent_id: supervisor_id,
-        }),
+        router_config: RouterConfig {
+            default_agent_id: supervisor_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Arc::new(Team::new(team_config, manager));

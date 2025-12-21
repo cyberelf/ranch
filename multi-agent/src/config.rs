@@ -1,5 +1,5 @@
 use crate::agent::{A2AAgentConfig, OpenAIAgentConfig, TaskHandling};
-use crate::team::{SchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode};
+use crate::team::{RouterConfig, TeamAgentConfig, TeamConfig};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -70,9 +70,8 @@ pub struct TeamConfigFile {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub mode: String,
     pub agents: Vec<TeamAgentConfigFile>,
-    pub scheduler_config: SchedulerConfig,
+    pub router_config: RouterConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,11 +115,6 @@ impl Config {
                 id: team.id.clone(),
                 name: team.name.clone(),
                 description: team.description.clone(),
-                mode: match team.mode.as_str() {
-                    "supervisor" => TeamMode::Supervisor,
-                    "workflow" => TeamMode::Workflow,
-                    _ => TeamMode::Supervisor,
-                },
                 agents: team
                     .agents
                     .iter()
@@ -130,7 +124,7 @@ impl Config {
                         capabilities: agent.capabilities.clone(),
                     })
                     .collect(),
-                scheduler_config: team.scheduler_config.clone(),
+                router_config: team.router_config.clone(),
             })
             .collect()
     }

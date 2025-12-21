@@ -25,7 +25,11 @@ pub use agent::{
 pub use config::{AgentConfig, Config, ConfigConversionError, ProtocolType};
 pub use manager::AgentManager;
 pub use server::TeamServer;
-pub use team::{track_team_nesting, CycleError, SchedulerConfig, Team, TeamConfig};
+pub use team::{
+    track_team_nesting, ClientRoutingRequest, ClientRoutingResponse, CycleError, Recipient,
+    Router, RouterConfig, SimplifiedAgentCard, Team, TeamAgentConfig, TeamConfig, TeamError,
+    EXTENSION_DESCRIPTION, EXTENSION_NAME, EXTENSION_URI, EXTENSION_VERSION,
+};
 
 /// Create a complete multi-agent system with agents and team from configuration
 ///

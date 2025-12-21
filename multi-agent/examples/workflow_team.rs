@@ -17,10 +17,7 @@
 
 use a2a_protocol::prelude::Message;
 use async_trait::async_trait;
-use multi_agent::team::{
-    SchedulerConfig, TeamAgentConfig, TeamConfig, TeamMode, WorkflowSchedulerConfig,
-    WorkflowStepConfig,
-};
+use multi_agent::team::{RouterConfig, TeamAgentConfig, TeamConfig};
 use multi_agent::Agent;
 use multi_agent::*;
 use std::sync::Arc;
@@ -187,13 +184,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  ✓ Registered: {}", draft_id);
     println!("  ✓ Registered: {}", edit_id);
 
-    // Create team with workflow mode
+    // Create team with router (using first agent as default)
     println!("\n🏢 Creating workflow team...");
     let team_config = TeamConfig {
         id: "content-team".to_string(),
         name: "Content Creation Team".to_string(),
         description: "Sequential workflow for content creation".to_string(),
-        mode: TeamMode::Workflow,
         agents: vec![
             TeamAgentConfig {
                 agent_id: research_id.clone(),
@@ -211,25 +207,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 capabilities: vec!["editing".to_string()],
             },
         ],
-        scheduler_config: SchedulerConfig::Workflow(WorkflowSchedulerConfig {
-            steps: vec![
-                WorkflowStepConfig {
-                    agent_id: research_id,
-                    order: 1,
-                    condition: None,
-                },
-                WorkflowStepConfig {
-                    agent_id: draft_id,
-                    order: 2,
-                    condition: None,
-                },
-                WorkflowStepConfig {
-                    agent_id: edit_id,
-                    order: 3,
-                    condition: None,
-                },
-            ],
-        }),
+        router_config: RouterConfig {
+            default_agent_id: research_id,
+            max_routing_hops: 10,
+        },
     };
 
     let team = Arc::new(Team::new(team_config, manager));

@@ -34,7 +34,7 @@ pub trait AgentLogic: Send + Sync {
 /// This trait unifies agent logic and metadata, providing a clean separation between
 /// descriptive agent attributes (profile) and transport-level capabilities (added by handler).
 #[async_trait]
-pub trait Agent: Send + Sync {
+pub trait ProtocolAgent: Send + Sync {
     /// Returns the agent's descriptive profile.
     ///
     /// This method returns only the agent's identity, skills, and capabilities

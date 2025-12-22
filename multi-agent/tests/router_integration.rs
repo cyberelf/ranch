@@ -26,7 +26,13 @@ impl Agent for ExtensionCapableAgent {
             id: self.id.clone(),
             name: self.name.clone(),
             description: format!("Extension-capable agent: {}", self.name),
-            capabilities: vec![EXTENSION_URI.to_string()],
+            skills: vec![AgentSkill {
+                name: EXTENSION_URI.to_string(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }],
             metadata: HashMap::new(),
         })
     }
@@ -40,11 +46,13 @@ impl Agent for ExtensionCapableAgent {
                     ClientRoutingResponse {
                         recipient: target.clone(),
                         reason: Some(format!("Routing to {}", target)),
+                        handoffs: None,
                     }
                 } else {
                     ClientRoutingResponse {
                         recipient: "user".to_string(),
                         reason: Some("Task complete, returning to user".to_string()),
+                        handoffs: None,
                     }
                 };
 
@@ -86,7 +94,7 @@ impl Agent for BasicAgent {
             id: self.id.clone(),
             name: self.name.clone(),
             description: format!("Basic agent: {}", self.name),
-            capabilities: vec![], // No extension support
+            skills: vec![], // No extension support
             metadata: HashMap::new(),
         })
     }
@@ -367,7 +375,10 @@ async fn test_team_as_agent_trait() {
     let info = info.unwrap();
     assert_eq!(info.id, "test-team");
     assert_eq!(info.name, "Test Team");
-    assert!(info.capabilities.contains(&"test-capability".to_string()));
+    assert!(info
+        .skills
+        .iter()
+        .any(|s| s.name == "test-capability"));
 
     // Test process() method
     let message = Message::user_text("Test");

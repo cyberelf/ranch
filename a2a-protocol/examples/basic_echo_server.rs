@@ -7,7 +7,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -33,7 +33,7 @@ impl UppercaseEchoAgent {
 }
 
 #[async_trait]
-impl Agent for UppercaseEchoAgent {
+impl ProtocolAgent for UppercaseEchoAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }

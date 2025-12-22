@@ -4,6 +4,7 @@
 //! message routing between agents, including support for the Client Agent Extension.
 
 use serde::{Deserialize, Serialize};
+use a2a_protocol::core::extension::ProtocolExtension;
 
 /// Extension URI for the Client Agent Routing Extension
 ///
@@ -20,6 +21,27 @@ pub const EXTENSION_NAME: &str = "Client Agent Routing Extension";
 /// Extension description
 pub const EXTENSION_DESCRIPTION: &str =
     "Enables agents to receive peer agent list and make routing decisions";
+
+/// The Client Routing Extension definition
+pub struct ClientRoutingExtension;
+
+impl ProtocolExtension for ClientRoutingExtension {
+    fn uri(&self) -> &str {
+        EXTENSION_URI
+    }
+
+    fn version(&self) -> &str {
+        EXTENSION_VERSION
+    }
+
+    fn name(&self) -> &str {
+        EXTENSION_NAME
+    }
+
+    fn description(&self) -> &str {
+        EXTENSION_DESCRIPTION
+    }
+}
 
 /// Destination for a routed message
 ///
@@ -94,6 +116,11 @@ pub struct ClientRoutingResponse {
     pub recipient: String,
     /// Optional explanation for routing decision
     pub reason: Option<String>,
+    /// Optional list of candidate agents for the next step
+    ///
+    /// If provided, the router will convert these IDs into simplified agent cards
+    /// and pass them to the next agent if it supports the extension.
+    pub handoffs: Option<Vec<String>>,
 }
 
 /// Router configuration
@@ -232,6 +259,7 @@ mod tests {
         let response = ClientRoutingResponse {
             recipient: "agent-2".to_string(),
             reason: Some("Agent 2 has the required capability".to_string()),
+            handoffs: Some(vec!["agent-3".to_string(), "agent-4".to_string()]),
         };
 
         let json = serde_json::to_string(&response).unwrap();

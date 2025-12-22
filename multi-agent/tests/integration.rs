@@ -62,13 +62,13 @@ async fn test_team_info_aggregates_capabilities() {
     // Get team info
     let info = team.info().await.unwrap();
 
-    // Verify capabilities are aggregated
+    // Verify skills are aggregated
     assert_eq!(info.id, "test-team");
     assert_eq!(info.name, "Test Team");
-    assert!(info.capabilities.contains(&"research".to_string()));
-    assert!(info.capabilities.contains(&"analysis".to_string()));
-    assert!(info.capabilities.contains(&"writing".to_string()));
-    assert!(info.capabilities.contains(&"editing".to_string()));
+    assert!(info.skills.iter().any(|s| s.name == "research"));
+    assert!(info.skills.iter().any(|s| s.name == "analysis"));
+    assert!(info.skills.iter().any(|s| s.name == "writing"));
+    assert!(info.skills.iter().any(|s| s.name == "editing"));
 
     // Verify metadata includes team info
     assert_eq!(info.metadata.get("type"), Some(&"team".to_string()));
@@ -342,26 +342,28 @@ async fn test_nested_team_delegation() {
     assert_eq!(parent_info.id, "organization");
     assert_eq!(parent_info.name, "Organization");
 
-    // Verify parent team aggregates capabilities from child team
+    // Verify parent team aggregates skills from child team
+    assert!(parent_info.skills.iter().any(|s| s.name == "coordination"));
     assert!(parent_info
-        .capabilities
-        .contains(&"coordination".to_string()));
+        .skills
+        .iter()
+        .any(|s| s.name == "data-collection"));
     assert!(parent_info
-        .capabilities
-        .contains(&"data-collection".to_string()));
-    assert!(parent_info
-        .capabilities
-        .contains(&"data-analysis".to_string()));
+        .skills
+        .iter()
+        .any(|s| s.name == "data-analysis"));
 
     // Verify child team info is accessible
     let child_info = child_team.info().await.unwrap();
     assert_eq!(child_info.id, "research-dept");
     assert!(child_info
-        .capabilities
-        .contains(&"data-collection".to_string()));
+        .skills
+        .iter()
+        .any(|s| s.name == "data-collection"));
     assert!(child_info
-        .capabilities
-        .contains(&"data-analysis".to_string()));
+        .skills
+        .iter()
+        .any(|s| s.name == "data-analysis"));
 
     // Verify metadata
     assert_eq!(parent_info.metadata.get("type"), Some(&"team".to_string()));

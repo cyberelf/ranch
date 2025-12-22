@@ -19,13 +19,13 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 ///
 /// ```no_run
 /// # use a2a_protocol::prelude::*;
-/// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+/// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
 /// # use url::Url;
 /// # use std::sync::Arc;
 /// # use async_trait::async_trait;
 /// # struct MyAgent { profile: AgentProfile }
 /// # #[async_trait]
-/// # impl Agent for MyAgent {
+/// # impl ProtocolAgent for MyAgent {
 /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
 /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
 /// # }
@@ -61,13 +61,13 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
     /// # use std::sync::Arc;
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -93,14 +93,14 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
     /// # use std::{net::SocketAddr, sync::Arc};
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -121,14 +121,14 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
     /// # use std::sync::Arc;
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -154,14 +154,14 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     /// # Example
     ///
     /// ```
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use a2a_protocol::prelude::*;
     /// # use url::Url;
     /// # use std::sync::Arc;
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -194,13 +194,13 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```no_run
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
     /// # use std::sync::Arc;
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -260,13 +260,13 @@ impl<H: A2aHandler + 'static> ServerBuilder<H> {
     ///
     /// ```
     /// # use a2a_protocol::prelude::*;
-    /// # use a2a_protocol::server::{Agent, ServerBuilder, TaskAwareHandler};
+    /// # use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
     /// # use url::Url;
     /// # use std::sync::Arc;
     /// # use async_trait::async_trait;
     /// # struct MyAgent { profile: AgentProfile }
     /// # #[async_trait]
-    /// # impl Agent for MyAgent {
+    /// # impl ProtocolAgent for MyAgent {
     /// #     async fn profile(&self) -> A2aResult<AgentProfile> { Ok(self.profile.clone()) }
     /// #     async fn process_message(&self, msg: Message) -> A2aResult<Message> { Ok(Message::agent_text("response")) }
     /// # }
@@ -298,7 +298,7 @@ mod tests {
     use super::*;
     use crate::{
         server::AgentProfile,
-        server::{Agent, TaskAwareHandler},
+        server::{ProtocolAgent, TaskAwareHandler},
         AgentId, Message,
     };
     use async_trait::async_trait;
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl Agent for TestAgent {
+    impl ProtocolAgent for TestAgent {
         async fn profile(&self) -> crate::A2aResult<AgentProfile> {
             Ok(self.profile.clone())
         }

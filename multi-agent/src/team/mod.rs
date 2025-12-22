@@ -15,7 +15,7 @@ pub use types::{
 
 use crate::manager::AgentManager;
 use crate::{Agent, AgentInfo};
-use a2a_protocol::prelude::Message;
+use a2a_protocol::prelude::{AgentSkill, Message};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -249,16 +249,16 @@ impl Team {
 impl Agent for Team {
     /// Get agent information for the team
     ///
-    /// Returns aggregated capabilities from all member agents
+    /// Returns aggregated skills from all member agents
     async fn info(&self) -> a2a_protocol::prelude::A2aResult<AgentInfo> {
-        let mut capabilities = HashSet::new();
+        let mut skills = Vec::new();
 
-        // Aggregate capabilities from all member agents
+        // Aggregate skills from all member agents
         for agent_config in &self.config.agents {
             if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
                 match agent.info().await {
                     Ok(info) => {
-                        capabilities.extend(info.capabilities);
+                        skills.extend(info.skills);
                     }
                     Err(e) => {
                         // Log warning but continue - graceful degradation
@@ -271,9 +271,17 @@ impl Agent for Team {
             }
         }
 
-        // Add team-specific capabilities from config
+        // Add team-specific skills from config
         for agent_config in &self.config.agents {
-            capabilities.extend(agent_config.capabilities.clone());
+            for skill_name in &agent_config.capabilities {
+                skills.push(AgentSkill {
+                    name: skill_name.clone(),
+                    description: None,
+                    category: None,
+                    tags: vec![],
+                    examples: vec![],
+                });
+            }
         }
 
         let mut metadata = HashMap::new();
@@ -291,7 +299,7 @@ impl Agent for Team {
             id: self.config.id.clone(),
             name: self.config.name.clone(),
             description: self.config.description.clone(),
-            capabilities: capabilities.into_iter().collect(),
+            skills,
             metadata,
         })
     }

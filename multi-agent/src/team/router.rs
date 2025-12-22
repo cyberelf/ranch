@@ -29,6 +29,8 @@ pub struct Router {
     sender_stack: Vec<String>,
     /// Current hop count
     hop_count: usize,
+    /// Optional list of candidate agents for the next step (handoffs)
+    handoffs: Option<Vec<String>>,
 }
 
 impl Router {
@@ -53,6 +55,7 @@ impl Router {
             max_routing_hops: config.max_routing_hops,
             sender_stack: Vec::new(),
             hop_count: 0,
+            handoffs: None,
         }
     }
 
@@ -65,9 +68,9 @@ impl Router {
     /// `true` if the agent declares support for the extension, `false` otherwise
     pub fn supports_extension(&self, agent_info: &AgentInfo) -> bool {
         agent_info
-            .capabilities
+            .skills
             .iter()
-            .any(|cap| cap == EXTENSION_URI)
+            .any(|skill| skill.name == EXTENSION_URI)
     }
 
     /// Build simplified agent cards from agent information
@@ -92,7 +95,7 @@ impl Router {
                     id: agent_id.clone(),
                     name: info.name.clone(),
                     description: info.description.clone(),
-                    capabilities: info.capabilities.clone(),
+                    capabilities: info.skills.iter().map(|s| s.name.clone()).collect(),
                     supports_client_routing: self.supports_extension(&info),
                 });
             }
@@ -141,13 +144,16 @@ impl Router {
     /// # Returns
     /// * `Some(Recipient)` if routing decision found and valid
     /// * `None` if no routing decision present or extension not used
-    pub fn extract_recipient(&self, message: &Message) -> Option<Recipient> {
+    pub fn extract_recipient(&mut self, message: &Message) -> Option<Recipient> {
         // Extract extension data from metadata
         let metadata = message.metadata.as_ref()?;
         let ext_data = metadata.get(EXTENSION_URI)?;
 
         // Parse routing response
         let response: ClientRoutingResponse = serde_json::from_value(ext_data.clone()).ok()?;
+
+        // Store handoffs if present
+        self.handoffs = response.handoffs;
 
         // Resolve recipient
         match response.recipient.as_str() {
@@ -238,9 +244,18 @@ impl Router {
 
         // Inject extension context if agent supports it
         if self.supports_extension(&agent_info) {
-            let agent_cards = self.build_simplified_cards(agents).await;
+            let mut agent_cards = self.build_simplified_cards(agents).await;
+
+            // Filter by handoffs if present
+            if let Some(handoffs) = &self.handoffs {
+                agent_cards.retain(|card| handoffs.contains(&card.id));
+            }
+
             self.inject_extension_context(message, &agent_cards, sender)?;
         }
+
+        // Clear handoffs after they have been potentially used for this hop
+        self.handoffs = None;
 
         // Process message with agent
         let response = agent
@@ -280,6 +295,7 @@ impl Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use a2a_protocol::AgentSkill;
     use crate::AgentInfo;
     use async_trait::async_trait;
 
@@ -301,8 +317,14 @@ mod tests {
     }
 
     fn create_mock_agent(id: &str, supports_extension: bool) -> MockAgent {
-        let capabilities = if supports_extension {
-            vec![EXTENSION_URI.to_string()]
+        let skills = if supports_extension {
+            vec![AgentSkill {
+                name: EXTENSION_URI.to_string(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }]
         } else {
             vec![]
         };
@@ -312,7 +334,7 @@ mod tests {
                 id: id.to_string(),
                 name: format!("{} Agent", id),
                 description: format!("Mock agent {}", id),
-                capabilities,
+                skills,
                 metadata: HashMap::new(),
             },
             response: Message::agent_text("Response"),
@@ -345,7 +367,13 @@ mod tests {
             id: "agent1".to_string(),
             name: "Agent 1".to_string(),
             description: "Test agent".to_string(),
-            capabilities: vec![EXTENSION_URI.to_string()],
+            skills: vec![AgentSkill {
+                name: EXTENSION_URI.to_string(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }],
             metadata: HashMap::new(),
         };
 
@@ -353,7 +381,7 @@ mod tests {
             id: "agent2".to_string(),
             name: "Agent 2".to_string(),
             description: "Test agent".to_string(),
-            capabilities: vec![],
+            skills: vec![],
             metadata: HashMap::new(),
         };
 
@@ -421,13 +449,14 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let mut router = Router::new(config);
 
         let mut message = Message::agent_text("Response");
 
         let response = ClientRoutingResponse {
             recipient: "agent2".to_string(),
             reason: Some("Test routing".to_string()),
+            handoffs: None,
         };
 
         let mut metadata = HashMap::new();
@@ -451,13 +480,14 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let mut router = Router::new(config);
 
         let mut message = Message::agent_text("Response");
 
         let response = ClientRoutingResponse {
             recipient: "user".to_string(),
             reason: None,
+            handoffs: None,
         };
 
         let mut metadata = HashMap::new();
@@ -478,7 +508,7 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let mut router = Router::new(config);
 
         let message = Message::agent_text("Response without extension");
         let recipient = router.extract_recipient(&message);
@@ -521,6 +551,7 @@ mod tests {
         let response = ClientRoutingResponse {
             recipient: "sender".to_string(),
             reason: Some("Back to sender".to_string()),
+            handoffs: None,
         };
 
         let mut metadata = HashMap::new();

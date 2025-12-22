@@ -3,6 +3,7 @@
 pub mod agent_card;
 pub mod agent_id;
 pub mod error;
+pub mod extension;
 pub mod json_rpc;
 pub mod message;
 pub mod message_id;
@@ -20,6 +21,7 @@ pub use agent_card::{
 };
 pub use agent_id::AgentId;
 pub use error::{A2aError, A2aResult};
+pub use extension::ProtocolExtension;
 pub use message::{
     DataPart, File, FilePart, FileWithBytes, FileWithUri, Message, MessageRole, Part, TextPart,
 };

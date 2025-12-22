@@ -2,7 +2,7 @@
 
 use a2a_protocol::{
     core::push_notification::{PushNotificationAuth, PushNotificationConfig, TaskEvent},
-    server::{A2aHandler, Agent, AgentProfile, TaskAwareHandler},
+    server::{A2aHandler, AgentProfile, ProtocolAgent, TaskAwareHandler},
     AgentId, Message, PushNotificationDeleteRequest, PushNotificationGetRequest,
     PushNotificationListRequest, PushNotificationSetRequest,
 };
@@ -15,7 +15,7 @@ struct TestAgent {
 }
 
 #[async_trait]
-impl Agent for TestAgent {
+impl ProtocolAgent for TestAgent {
     async fn profile(&self) -> Result<AgentProfile, a2a_protocol::A2aError> {
         Ok(self.profile.clone())
     }

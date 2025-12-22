@@ -8,7 +8,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -34,7 +34,7 @@ impl StreamingAgent {
 }
 
 #[async_trait]
-impl Agent for StreamingAgent {
+impl ProtocolAgent for StreamingAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }

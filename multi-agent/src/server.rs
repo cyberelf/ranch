@@ -5,7 +5,7 @@
 
 use crate::{team::Team, Agent as MultiAgentAgent, AgentInfo};
 use a2a_protocol::{
-    server::{Agent as A2aServerAgent, AgentProfile, JsonRpcRouter, TaskAwareHandler},
+    server::{AgentProfile, JsonRpcRouter, ProtocolAgent as A2aServerAgent, TaskAwareHandler},
     A2aResult, Message,
 };
 use async_trait::async_trait;
@@ -41,18 +41,17 @@ impl TeamAgentAdapter {
         profile.default_input_modes = vec!["text".to_string()];
         profile.default_output_modes = vec!["text".to_string()];
 
-        // Convert capabilities to AgentCapability with proper fields
-        profile.capabilities = info
-            .capabilities
-            .into_iter()
-            .map(|cap| a2a_protocol::core::agent_card::AgentCapability {
-                name: cap,
-                description: None,
-                category: Some("team-capability".to_string()),
+        // Convert skills to capabilities (protocol level)
+        // Skills = what the agent does; Capabilities = transport-level protocol features
+        profile.capabilities = info.skills.iter().map(|skill| {
+            a2a_protocol::core::agent_card::AgentCapability {
+                name: skill.name.clone(),
+                description: skill.description.clone(),
+                category: skill.category.clone(),
                 input_schema: None,
                 output_schema: None,
-            })
-            .collect();
+            }
+        }).collect();
 
         profile.metadata = info
             .metadata
@@ -190,6 +189,7 @@ impl TeamServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use a2a_protocol::AgentSkill;
     use crate::manager::AgentManager;
     use crate::team::{RouterConfig, TeamConfig};
 
@@ -275,7 +275,22 @@ mod tests {
             id: "test-agent".to_string(),
             name: "Test Agent".to_string(),
             description: "Test description".to_string(),
-            capabilities: vec!["capability1".to_string(), "capability2".to_string()],
+            skills: vec![
+                AgentSkill {
+                    name: "capability1".to_string(),
+                    description: None,
+                    category: None,
+                    tags: vec![],
+                    examples: vec![],
+                },
+                AgentSkill {
+                    name: "capability2".to_string(),
+                    description: None,
+                    category: None,
+                    tags: vec![],
+                    examples: vec![],
+                },
+            ],
             metadata: {
                 let mut map = HashMap::new();
                 map.insert("key1".to_string(), "value1".to_string());

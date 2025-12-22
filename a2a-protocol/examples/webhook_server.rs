@@ -10,7 +10,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ impl WebhookAgent {
 }
 
 #[async_trait]
-impl Agent for WebhookAgent {
+impl ProtocolAgent for WebhookAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }

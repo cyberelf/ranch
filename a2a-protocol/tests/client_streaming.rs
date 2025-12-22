@@ -4,7 +4,7 @@
 use a2a_protocol::client::transport::{JsonRpcTransport, StreamingResult};
 use a2a_protocol::client::{A2aStreamingClient, ClientBuilder};
 use a2a_protocol::prelude::*;
-use a2a_protocol::server::{Agent, JsonRpcRouter, TaskAwareHandler};
+use a2a_protocol::server::{JsonRpcRouter, ProtocolAgent, TaskAwareHandler};
 use a2a_protocol::TaskResubscribeRequest;
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -17,7 +17,7 @@ struct TestAgent {
 }
 
 #[async_trait]
-impl Agent for TestAgent {
+impl ProtocolAgent for TestAgent {
     async fn profile(&self) -> Result<AgentProfile, A2aError> {
         Ok(self.profile.clone())
     }

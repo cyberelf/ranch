@@ -194,11 +194,11 @@ impl AgentManager {
         let mut matching = Vec::new();
         for agent in agents {
             if let Ok(info) = agent.info().await {
-                // Check if any capability contains the search string
+                // Check if any skill contains the search string
                 if info
-                    .capabilities
+                    .skills
                     .iter()
-                    .any(|cap| cap.to_lowercase().contains(&capability.to_lowercase()))
+                    .any(|skill| skill.name.to_lowercase().contains(&capability.to_lowercase()))
                 {
                     matching.push(agent.clone());
                 }
@@ -249,7 +249,7 @@ impl Default for AgentManager {
 mod tests {
     use super::AgentManager;
     use crate::agent::{Agent, AgentInfo};
-    use a2a_protocol::prelude::{A2aResult, Message};
+    use a2a_protocol::prelude::{A2aResult, AgentSkill, Message};
     use async_trait::async_trait;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -289,7 +289,13 @@ mod tests {
                 id: self.id.clone(),
                 name: self.name.clone(),
                 description: "Mock agent for testing".to_string(),
-                capabilities: self.capabilities.clone(),
+                skills: self.capabilities.iter().map(|c| AgentSkill {
+                    name: c.clone(),
+                    description: None,
+                    category: None,
+                    tags: vec![],
+                    examples: vec![],
+                }).collect(),
                 metadata: HashMap::new(),
             })
         }

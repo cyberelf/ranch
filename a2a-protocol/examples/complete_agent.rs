@@ -11,7 +11,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -56,7 +56,7 @@ impl ResearchAgent {
 }
 
 #[async_trait]
-impl Agent for ResearchAgent {
+impl ProtocolAgent for ResearchAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         // Build a comprehensive agent profile that reflects the agent's capabilities
         let mut profile = AgentProfile::new(

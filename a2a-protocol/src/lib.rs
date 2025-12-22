@@ -105,6 +105,7 @@ pub mod prelude {
         // A2A request types
         MessageSendRequest,
         Part,
+        ProtocolExtension,
         SendResponse,
         Task,
         TaskCancelRequest,
@@ -119,7 +120,7 @@ pub mod prelude {
     // Server types (only available with "server" feature)
     #[cfg(feature = "server")]
     pub use crate::server::{
-        Agent, AgentLogic, AgentProfile, PushNotificationSupport, TransportCapabilities,
+        AgentLogic, AgentProfile, ProtocolAgent, PushNotificationSupport, TransportCapabilities,
         WebhookRetryPolicy,
     };
 

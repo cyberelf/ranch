@@ -1,31 +1,45 @@
 //! A2A Protocol Extension Interfaces
 //!
 //! This module defines standard interfaces for implementing A2A protocol extensions.
-//! Extensions typically use message metadata to pass additional information between agents.
+//! Extensions use message metadata to pass additional information between agents with
+//! type-safe accessors for better ergonomics.
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for A2A Protocol Extensions
-pub trait ProtocolExtension {
+///
+/// This trait should be implemented for extension-specific types that need to be
+/// serialized into message metadata. It provides const metadata about the extension
+/// for registration in agent capabilities.
+///
+/// # Example
+///
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use a2a_protocol::core::extension::AgentExtension;
+///
+/// #[derive(Debug, Clone, Serialize, Deserialize)]
+/// pub struct MyExtensionData {
+///     pub some_field: String,
+/// }
+///
+/// impl AgentExtension for MyExtensionData {
+///     const URI: &'static str = "https://example.com/extensions/my-extension/v1";
+///     const VERSION: &'static str = "v1";
+///     const NAME: &'static str = "My Extension";
+///     const DESCRIPTION: &'static str = "Description of my extension";
+/// }
+/// ```
+pub trait AgentExtension: Serialize + DeserializeOwned + Send + Sync {
     /// The unique URI identifying this extension
-    fn uri(&self) -> &str;
+    const URI: &'static str;
 
     /// The version of this extension
-    fn version(&self) -> &str;
+    const VERSION: &'static str;
 
     /// The human-readable name of this extension
-    fn name(&self) -> &str;
+    const NAME: &'static str;
 
     /// A brief description of what this extension does
-    fn description(&self) -> &str;
-}
-
-/// Common structure for extension metadata
-///
-/// Extensions should serialize their data into the message metadata
-/// using their URI as the key.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtensionMetadata<T> {
-    /// The extension data payload
-    pub data: T,
+    const DESCRIPTION: &'static str;
 }

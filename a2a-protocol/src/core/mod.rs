@@ -21,7 +21,7 @@ pub use agent_card::{
 };
 pub use agent_id::AgentId;
 pub use error::{A2aError, A2aResult};
-pub use extension::ProtocolExtension;
+pub use extension::AgentExtension;
 pub use message::{
     DataPart, File, FilePart, FileWithBytes, FileWithUri, Message, MessageRole, Part, TextPart,
 };

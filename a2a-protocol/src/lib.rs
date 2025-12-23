@@ -98,6 +98,7 @@ pub mod prelude {
         A2aResult,
         AgentCard,
         AgentCardGetRequest,
+        AgentExtension,
         DataPart,
         FilePart,
         Message,
@@ -105,7 +106,6 @@ pub mod prelude {
         // A2A request types
         MessageSendRequest,
         Part,
-        ProtocolExtension,
         SendResponse,
         Task,
         TaskCancelRequest,

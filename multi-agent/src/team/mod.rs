@@ -9,8 +9,8 @@ pub mod types;
 // Re-export main types
 pub use router::Router;
 pub use types::{
-    ClientRoutingRequest, ClientRoutingResponse, Recipient, RouterConfig, SimplifiedAgentCard,
-    TeamError, EXTENSION_DESCRIPTION, EXTENSION_NAME, EXTENSION_URI, EXTENSION_VERSION,
+    ClientRoutingExtensionData, Participant, RouterConfig,
+    SimplifiedAgentCard, TeamError,
 };
 
 use crate::manager::AgentManager;
@@ -216,11 +216,11 @@ impl Team {
                 .await?;
 
             match recipient {
-                Recipient::User => {
+                Participant::User => {
                     // Return to user - end routing
                     return Ok(current_message);
                 }
-                Recipient::Agent { agent_id } => {
+                Participant::Agent { id: agent_id } => {
                     // Continue routing to next agent
                     sender = agent_id;
                 }

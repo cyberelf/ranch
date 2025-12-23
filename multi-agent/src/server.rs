@@ -41,17 +41,27 @@ impl TeamAgentAdapter {
         profile.default_input_modes = vec!["text".to_string()];
         profile.default_output_modes = vec!["text".to_string()];
 
-        // Convert skills to capabilities (protocol level)
+        // Convert skills to AgentSkill (not capabilities)
         // Skills = what the agent does; Capabilities = transport-level protocol features
-        profile.capabilities = info.skills.iter().map(|skill| {
-            a2a_protocol::core::agent_card::AgentCapability {
+        profile.skills = info
+            .skills
+            .iter()
+            .map(|skill| a2a_protocol::core::agent_card::AgentSkill {
                 name: skill.name.clone(),
                 description: skill.description.clone(),
                 category: skill.category.clone(),
-                input_schema: None,
-                output_schema: None,
-            }
-        }).collect();
+                tags: Vec::new(),
+                examples: Vec::new(),
+            })
+            .collect();
+
+        // Set up basic capabilities (streaming, push notifications, etc.)
+        profile.capabilities = vec![
+            a2a_protocol::core::agent_card::AgentCapability::new()
+                .with_streaming(false)
+                .with_push_notifications(false)
+                .with_state_transition_history(false),
+        ];
 
         profile.metadata = info
             .metadata
@@ -304,9 +314,16 @@ mod tests {
         let profile = profile_result.unwrap();
         assert_eq!(profile.name, "Test Agent");
         assert_eq!(profile.description, Some("Test description".to_string()));
-        assert_eq!(profile.capabilities.len(), 2);
-        assert_eq!(profile.capabilities[0].name, "capability1");
-        assert_eq!(profile.capabilities[1].name, "capability2");
+        
+        // Check that capabilities are present and properly structured
+        assert_eq!(profile.capabilities.len(), 1);
+        assert_eq!(profile.capabilities[0].streaming, false);
+        assert_eq!(profile.capabilities[0].push_notifications, false);
+        
+        // Check that skills are properly mapped
+        assert_eq!(profile.skills.len(), 2);
+        assert_eq!(profile.skills[0].name, "capability1");
+        assert_eq!(profile.skills[1].name, "capability2");
         
         // Check metadata conversion
         assert_eq!(profile.metadata.len(), 1);

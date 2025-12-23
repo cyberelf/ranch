@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::extension::AgentExtension;
+
 /// Message role - A2A spec only allows "user" or "agent"
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -285,6 +287,77 @@ impl Message {
     pub fn has_data(&self) -> bool {
         self.parts.iter().any(|part| matches!(part, Part::Data(_)))
     }
+
+    /// Get a typed extension from message metadata
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use a2a_protocol::core::{Message, MessageRole};
+    /// use a2a_protocol::core::extension::AgentExtension;
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    /// struct MyExtension {
+    ///     value: String,
+    /// }
+    ///
+    /// impl AgentExtension for MyExtension {
+    ///     const URI: &'static str = "https://example.com/ext/my-extension";
+    ///     const VERSION: &'static str = "v1";
+    ///     const NAME: &'static str = "My Extension";
+    ///     const DESCRIPTION: &'static str = "Example extension";
+    /// }
+    ///
+    /// let mut msg = Message::user_text("Hello");
+    /// msg.set_extension(MyExtension { value: "test".to_string() }).unwrap();
+    ///
+    /// let ext: Option<MyExtension> = msg.get_extension().unwrap();
+    /// assert_eq!(ext.unwrap().value, "test");
+    /// ```
+    pub fn get_extension<T: AgentExtension>(&self) -> Result<Option<T>, serde_json::Error> {
+        if let Some(metadata) = &self.metadata {
+            if let Some(value) = metadata.get(T::URI) {
+                let extension: T = serde_json::from_value(value.clone())?;
+                Ok(Some(extension))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Set a typed extension in message metadata
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use a2a_protocol::core::{Message, MessageRole};
+    /// use a2a_protocol::core::extension::AgentExtension;
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// #[derive(Debug, Clone, Serialize, Deserialize)]
+    /// struct MyExtension {
+    ///     value: String,
+    /// }
+    ///
+    /// impl AgentExtension for MyExtension {
+    ///     const URI: &'static str = "https://example.com/ext/my-extension";
+    ///     const VERSION: &'static str = "v1";
+    ///     const NAME: &'static str = "My Extension";
+    ///     const DESCRIPTION: &'static str = "Example extension";
+    /// }
+    ///
+    /// let mut msg = Message::user_text("Hello");
+    /// msg.set_extension(MyExtension { value: "test".to_string() }).unwrap();
+    /// ```
+    pub fn set_extension<T: AgentExtension>(&mut self, extension: T) -> Result<(), serde_json::Error> {
+        let value = serde_json::to_value(&extension)?;
+        let metadata = self.metadata.get_or_insert_with(HashMap::new);
+        metadata.insert(T::URI.to_string(), value);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -373,5 +446,148 @@ mod tests {
         let msg = Message::user_text("Hello").add_text(" ").add_text("World!");
 
         assert_eq!(msg.all_text(), "Hello World!");
+    }
+
+    #[test]
+    fn test_extension_set_and_get() {
+        use crate::core::extension::AgentExtension;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct TestExtension {
+            value: String,
+            count: i32,
+        }
+
+        impl AgentExtension for TestExtension {
+            const URI: &'static str = "https://test.example.com/ext/test-extension";
+            const VERSION: &'static str = "v1";
+            const NAME: &'static str = "Test Extension";
+            const DESCRIPTION: &'static str = "Extension for testing";
+        }
+
+        let mut msg = Message::user_text("Test message");
+        
+        // Set extension
+        let ext = TestExtension {
+            value: "test-value".to_string(),
+            count: 42,
+        };
+        msg.set_extension(ext.clone()).unwrap();
+
+        // Get extension
+        let retrieved: TestExtension = msg.get_extension().unwrap().unwrap();
+        assert_eq!(retrieved, ext);
+        assert_eq!(retrieved.value, "test-value");
+        assert_eq!(retrieved.count, 42);
+    }
+
+    #[test]
+    fn test_extension_not_present() {
+        use crate::core::extension::AgentExtension;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct MissingExtension {
+            data: String,
+        }
+
+        impl AgentExtension for MissingExtension {
+            const URI: &'static str = "https://test.example.com/ext/missing";
+            const VERSION: &'static str = "v1";
+            const NAME: &'static str = "Missing Extension";
+            const DESCRIPTION: &'static str = "Extension that is not set";
+        }
+
+        let msg = Message::user_text("Test message");
+        
+        // Try to get extension that was never set
+        let retrieved: Option<MissingExtension> = msg.get_extension().unwrap();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_multiple_extensions() {
+        use crate::core::extension::AgentExtension;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct ExtensionA {
+            field_a: String,
+        }
+
+        impl AgentExtension for ExtensionA {
+            const URI: &'static str = "https://test.example.com/ext/a";
+            const VERSION: &'static str = "v1";
+            const NAME: &'static str = "Extension A";
+            const DESCRIPTION: &'static str = "First extension";
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct ExtensionB {
+            field_b: i32,
+        }
+
+        impl AgentExtension for ExtensionB {
+            const URI: &'static str = "https://test.example.com/ext/b";
+            const VERSION: &'static str = "v1";
+            const NAME: &'static str = "Extension B";
+            const DESCRIPTION: &'static str = "Second extension";
+        }
+
+        let mut msg = Message::user_text("Test message");
+        
+        // Set multiple extensions
+        msg.set_extension(ExtensionA { field_a: "value-a".to_string() }).unwrap();
+        msg.set_extension(ExtensionB { field_b: 123 }).unwrap();
+
+        // Get both extensions
+        let ext_a: ExtensionA = msg.get_extension().unwrap().unwrap();
+        let ext_b: ExtensionB = msg.get_extension().unwrap().unwrap();
+
+        assert_eq!(ext_a.field_a, "value-a");
+        assert_eq!(ext_b.field_b, 123);
+    }
+
+    #[test]
+    fn test_extension_with_complex_data() {
+        use crate::core::extension::AgentExtension;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct ComplexExtension {
+            nested: NestedData,
+            list: Vec<String>,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct NestedData {
+            id: String,
+            active: bool,
+        }
+
+        impl AgentExtension for ComplexExtension {
+            const URI: &'static str = "https://test.example.com/ext/complex";
+            const VERSION: &'static str = "v2";
+            const NAME: &'static str = "Complex Extension";
+            const DESCRIPTION: &'static str = "Extension with nested data";
+        }
+
+        let mut msg = Message::user_text("Test message");
+        
+        let ext = ComplexExtension {
+            nested: NestedData {
+                id: "nested-123".to_string(),
+                active: true,
+            },
+            list: vec!["item1".to_string(), "item2".to_string()],
+        };
+
+        msg.set_extension(ext.clone()).unwrap();
+
+        let retrieved: ComplexExtension = msg.get_extension().unwrap().unwrap();
+        assert_eq!(retrieved, ext);
+        assert_eq!(retrieved.nested.id, "nested-123");
+        assert_eq!(retrieved.list.len(), 2);
     }
 }

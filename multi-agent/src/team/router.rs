@@ -5,10 +5,10 @@
 //! and provides fallback routing for agents without extension support.
 
 use super::types::{
-    ClientRoutingRequest, ClientRoutingResponse, Recipient, RouterConfig, SimplifiedAgentCard,
-    TeamError, EXTENSION_URI,
+    ClientRoutingExtensionData, Participant, RouterConfig, SimplifiedAgentCard, TeamError,
 };
 use crate::{Agent, AgentInfo};
+use a2a_protocol::core::extension::AgentExtension;
 use a2a_protocol::prelude::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,15 +18,12 @@ use std::sync::Arc;
 /// The Router orchestrates message flow between agents based on:
 /// - Extension-based routing decisions (for capable agents)
 /// - Fallback to default agent (for agents without extension support)
-/// - Back-to-sender routing (when agents request it)
 /// - Maximum hop limits (to prevent infinite loops)
 pub struct Router {
     /// ID of the default agent to route to when no routing decision is made
     default_agent_id: String,
     /// Maximum number of routing hops allowed
     max_routing_hops: usize,
-    /// Stack of message senders for back-to-sender routing
-    sender_stack: Vec<String>,
     /// Current hop count
     hop_count: usize,
     /// Optional list of candidate agents for the next step (handoffs)
@@ -53,7 +50,6 @@ impl Router {
         Self {
             default_agent_id: config.default_agent_id,
             max_routing_hops: config.max_routing_hops,
-            sender_stack: Vec::new(),
             hop_count: 0,
             handoffs: None,
         }
@@ -70,7 +66,7 @@ impl Router {
         agent_info
             .skills
             .iter()
-            .any(|skill| skill.name == EXTENSION_URI)
+            .any(|skill| skill.name == ClientRoutingExtensionData::URI)
     }
 
     /// Build simplified agent cards from agent information
@@ -119,16 +115,23 @@ impl Router {
         agent_cards: &[SimplifiedAgentCard],
         sender: &str,
     ) -> Result<(), TeamError> {
-        // Build extension request
-        let request = ClientRoutingRequest {
-            agent_cards: agent_cards.to_vec(),
-            sender: sender.to_string(),
+        // Build extension data for Router → Agent direction
+        let sender_participant = if sender == "user" {
+            Participant::user()
+        } else {
+            Participant::agent(sender)
         };
 
-        // Add to metadata
-        let mut metadata = message.metadata.clone().unwrap_or_default();
-        metadata.insert(EXTENSION_URI.to_string(), serde_json::to_value(&request)?);
-        message.metadata = Some(metadata);
+        let ext_data = ClientRoutingExtensionData {
+            sender: Some(sender_participant),
+            agent_cards: Some(agent_cards.to_vec()),
+            recipient: None,
+            reason: None,
+        };
+
+        // Use typed accessor to set extension
+        message.set_extension(ext_data)
+            .map_err(|e| TeamError::ExtensionParseError(e))?;
 
         Ok(())
     }
@@ -136,58 +139,24 @@ impl Router {
     /// Extract recipient from extension response in message metadata
     ///
     /// Parses the Client Agent Extension response to determine the next recipient.
-    /// Resolves special recipients like "sender" and "user".
     ///
     /// # Arguments
     /// * `message` - Message potentially containing routing decision
     ///
     /// # Returns
-    /// * `Some(Recipient)` if routing decision found and valid
+    /// * `Some(Participant)` if routing decision found and valid
     /// * `None` if no routing decision present or extension not used
-    pub fn extract_recipient(&mut self, message: &Message) -> Option<Recipient> {
-        // Extract extension data from metadata
-        let metadata = message.metadata.as_ref()?;
-        let ext_data = metadata.get(EXTENSION_URI)?;
+    pub fn extract_recipient(&self, message: &Message) -> Option<Participant> {
+        // Use typed accessor to get extension data
+        let ext_data: ClientRoutingExtensionData = message
+            .get_extension::<ClientRoutingExtensionData>()
+            .ok()??;
 
-        // Parse routing response
-        let response: ClientRoutingResponse = serde_json::from_value(ext_data.clone()).ok()?;
-
-        // Store handoffs if present
-        self.handoffs = response.handoffs;
-
-        // Resolve recipient
-        match response.recipient.as_str() {
-            "user" => Some(Recipient::User),
-            "sender" => {
-                // Resolve to actual sender from stack
-                self.sender_stack
-                    .last()
-                    .map(|sender_id| Recipient::agent(sender_id.clone()))
-            }
-            agent_id => Some(Recipient::agent(agent_id)),
-        }
+        // Return recipient directly from extension data
+        ext_data.recipient
     }
 
-    /// Push a sender onto the sender stack
-    ///
-    /// Used to track message senders for back-to-sender routing.
-    ///
-    /// # Arguments
-    /// * `sender_id` - ID of the sender ("user" or agent ID)
-    pub fn push_sender(&mut self, sender_id: String) {
-        self.sender_stack.push(sender_id);
-    }
 
-    /// Pop a sender from the sender stack
-    ///
-    /// Returns and removes the most recent sender.
-    ///
-    /// # Returns
-    /// * `Some(sender_id)` if stack is not empty
-    /// * `None` if stack is empty
-    pub fn pop_sender(&mut self) -> Option<String> {
-        self.sender_stack.pop()
-    }
 
     /// Route a message to the next recipient
     ///
@@ -204,32 +173,48 @@ impl Router {
     /// * `sender` - ID of current sender
     ///
     /// # Returns
-    /// * `Ok(Recipient)` with next routing target
+    /// * `Ok(Participant)` with next routing target
     /// * `Err(TeamError)` if routing fails or max hops exceeded
     pub async fn route(
         &mut self,
         message: &mut Message,
         agents: &HashMap<String, Arc<dyn Agent>>,
         sender: &str,
-    ) -> Result<Recipient, TeamError> {
+    ) -> Result<Participant, TeamError> {
         // Check hop limit
         if self.hop_count >= self.max_routing_hops {
             return Err(TeamError::MaxHopsExceeded(self.max_routing_hops));
         }
         self.hop_count += 1;
 
-        // Push sender to stack for back-to-sender routing
-        self.push_sender(sender.to_string());
-
         // Determine target agent from recipient or default
         let target_agent_id = match &self.extract_recipient(message) {
-            Some(Recipient::Agent { agent_id }) => agent_id.clone(),
-            Some(Recipient::User) => {
-                self.pop_sender(); // Remove from stack since we're not proceeding
-                return Ok(Recipient::User);
+            Some(Participant::Agent { id }) => id.clone(),
+            Some(Participant::User) => {
+                return Ok(Participant::User);
             }
-            None => self.default_agent_id.clone(),
+            None => {
+                // Default routing: avoid loops and end conversation from default agent
+                if sender == self.default_agent_id {
+                    // If from default agent, route to user
+                    return Ok(Participant::User);
+                } else if sender == "user" {
+                    // If from user with no decision, route to default
+                    self.default_agent_id.clone()
+                } else {
+                    // From another agent, route to default but avoid sender
+                    self.default_agent_id.clone()
+                }
+            }
         };
+
+        // Prevent routing back to sender
+        if target_agent_id == sender {
+            return Err(TeamError::Protocol(format!(
+                "Cannot route message back to sender: {}",
+                sender
+            )));
+        }
 
         // Get target agent
         let agent = agents
@@ -269,11 +254,15 @@ impl Router {
         } else {
             // No routing decision provided
             // If agent doesn't support extension (basic agent), return to user
-            // Otherwise, route to default agent
+            // Otherwise, apply default routing logic
             if !self.supports_extension(&agent_info) {
-                Recipient::User
+                Participant::User
+            } else if target_agent_id == self.default_agent_id {
+                // If response from default agent with no decision, end conversation
+                Participant::User
             } else {
-                Recipient::agent(&self.default_agent_id)
+                // Route to default agent
+                Participant::agent(&self.default_agent_id)
             }
         };
 
@@ -285,9 +274,8 @@ impl Router {
 
     /// Reset the router state for a new conversation
     ///
-    /// Clears sender stack and hop count.
+    /// Clears hop count.
     pub fn reset(&mut self) {
-        self.sender_stack.clear();
         self.hop_count = 0;
     }
 }
@@ -319,7 +307,7 @@ mod tests {
     fn create_mock_agent(id: &str, supports_extension: bool) -> MockAgent {
         let skills = if supports_extension {
             vec![AgentSkill {
-                name: EXTENSION_URI.to_string(),
+                name: ClientRoutingExtensionData::URI.to_string(),
                 description: None,
                 category: None,
                 tags: vec![],
@@ -352,7 +340,6 @@ mod tests {
         assert_eq!(router.default_agent_id, "default");
         assert_eq!(router.max_routing_hops, 5);
         assert_eq!(router.hop_count, 0);
-        assert!(router.sender_stack.is_empty());
     }
 
     #[test]
@@ -368,7 +355,7 @@ mod tests {
             name: "Agent 1".to_string(),
             description: "Test agent".to_string(),
             skills: vec![AgentSkill {
-                name: EXTENSION_URI.to_string(),
+                name: ClientRoutingExtensionData::URI.to_string(),
                 description: None,
                 category: None,
                 tags: vec![],
@@ -435,12 +422,11 @@ mod tests {
             .inject_extension_context(&mut message, &agent_cards, "user")
             .unwrap();
 
-        assert!(message.metadata.is_some());
-        assert!(message
-            .metadata
-            .as_ref()
-            .unwrap()
-            .contains_key(EXTENSION_URI));
+        // Verify extension was set using typed accessor
+        let ext_data: ClientRoutingExtensionData = message.get_extension().unwrap().unwrap();
+        assert_eq!(ext_data.sender, Some(Participant::User));
+        assert!(ext_data.agent_cards.is_some());
+        assert_eq!(ext_data.agent_cards.unwrap().len(), 1);
     }
 
     #[test]
@@ -449,27 +435,23 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let mut router = Router::new(config);
+        let router = Router::new(config);
 
         let mut message = Message::agent_text("Response");
 
-        let response = ClientRoutingResponse {
-            recipient: "agent2".to_string(),
+        // Set extension data using typed accessor with Participant enum
+        let ext_data = ClientRoutingExtensionData {
+            sender: None,
+            agent_cards: None,
+            recipient: Some(Participant::agent("agent2")),
             reason: Some("Test routing".to_string()),
-            handoffs: None,
         };
-
-        let mut metadata = HashMap::new();
-        metadata.insert(
-            EXTENSION_URI.to_string(),
-            serde_json::to_value(&response).unwrap(),
-        );
-        message.metadata = Some(metadata);
+        message.set_extension(ext_data).unwrap();
 
         let recipient = router.extract_recipient(&message);
         assert!(recipient.is_some());
         match recipient.unwrap() {
-            Recipient::Agent { agent_id } => assert_eq!(agent_id, "agent2"),
+            Participant::Agent { id: agent_id } => assert_eq!(agent_id, "agent2"),
             _ => panic!("Expected Agent recipient"),
         }
     }
@@ -480,26 +462,22 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let mut router = Router::new(config);
+        let router = Router::new(config);
 
         let mut message = Message::agent_text("Response");
 
-        let response = ClientRoutingResponse {
-            recipient: "user".to_string(),
+        // Set extension data using typed accessor with Participant enum
+        let ext_data = ClientRoutingExtensionData {
+            sender: None,
+            agent_cards: None,
+            recipient: Some(Participant::User),
             reason: None,
-            handoffs: None,
         };
-
-        let mut metadata = HashMap::new();
-        metadata.insert(
-            EXTENSION_URI.to_string(),
-            serde_json::to_value(&response).unwrap(),
-        );
-        message.metadata = Some(metadata);
+        message.set_extension(ext_data).unwrap();
 
         let recipient = router.extract_recipient(&message);
         assert!(recipient.is_some());
-        assert_eq!(recipient.unwrap(), Recipient::User);
+        assert_eq!(recipient.unwrap(), Participant::User);
     }
 
     #[test]
@@ -508,66 +486,16 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let mut router = Router::new(config);
+        let router = Router::new(config);
 
         let message = Message::agent_text("Response without extension");
         let recipient = router.extract_recipient(&message);
         assert!(recipient.is_none());
     }
 
-    #[test]
-    fn test_sender_stack() {
-        let config = RouterConfig {
-            default_agent_id: "default".to_string(),
-            max_routing_hops: 10,
-        };
-        let mut router = Router::new(config);
 
-        router.push_sender("user".to_string());
-        router.push_sender("agent1".to_string());
-        router.push_sender("agent2".to_string());
 
-        assert_eq!(router.sender_stack.len(), 3);
 
-        assert_eq!(router.pop_sender(), Some("agent2".to_string()));
-        assert_eq!(router.pop_sender(), Some("agent1".to_string()));
-        assert_eq!(router.pop_sender(), Some("user".to_string()));
-        assert_eq!(router.pop_sender(), None);
-    }
-
-    #[test]
-    fn test_extract_recipient_sender() {
-        let config = RouterConfig {
-            default_agent_id: "default".to_string(),
-            max_routing_hops: 10,
-        };
-        let mut router = Router::new(config);
-
-        // Push sender to stack
-        router.push_sender("agent1".to_string());
-
-        let mut message = Message::agent_text("Response");
-
-        let response = ClientRoutingResponse {
-            recipient: "sender".to_string(),
-            reason: Some("Back to sender".to_string()),
-            handoffs: None,
-        };
-
-        let mut metadata = HashMap::new();
-        metadata.insert(
-            EXTENSION_URI.to_string(),
-            serde_json::to_value(&response).unwrap(),
-        );
-        message.metadata = Some(metadata);
-
-        let recipient = router.extract_recipient(&message);
-        assert!(recipient.is_some());
-        match recipient.unwrap() {
-            Recipient::Agent { agent_id } => assert_eq!(agent_id, "agent1"),
-            _ => panic!("Expected Agent recipient"),
-        }
-    }
 
     #[test]
     fn test_reset() {
@@ -577,12 +505,10 @@ mod tests {
         };
         let mut router = Router::new(config);
 
-        router.push_sender("user".to_string());
         router.hop_count = 5;
 
         router.reset();
 
         assert_eq!(router.hop_count, 0);
-        assert!(router.sender_stack.is_empty());
     }
 }

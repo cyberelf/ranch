@@ -136,7 +136,13 @@ impl OpenAIAgent {
             id: config.id.clone(),
             name: config.name.clone(),
             description: config.description.clone(),
-            capabilities: config.capabilities.clone(),
+            skills: config.capabilities.iter().map(|c| AgentSkill {
+                name: c.clone(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }).collect(),
             metadata: {
                 let mut meta = HashMap::new();
                 meta.insert("model".to_string(), config.model.clone());
@@ -371,8 +377,8 @@ mod tests {
         assert_eq!(info.id, "info-test");
         assert_eq!(info.name, "Info Test Agent");
         assert_eq!(info.description, "Testing info method");
-        assert_eq!(info.capabilities.len(), 2);
-        assert!(info.capabilities.contains(&"cap1".to_string()));
+        assert_eq!(info.skills.len(), 2);
+        assert!(info.skills.iter().any(|s| s.name == "cap1"));
     }
 
     #[test]
@@ -451,9 +457,9 @@ mod tests {
         assert_eq!(info.id, "test-openai");
         assert_eq!(info.name, "Test OpenAI Agent");
         assert_eq!(info.description, "Testing OpenAI agent info");
-        assert_eq!(info.capabilities.len(), 2);
-        assert!(info.capabilities.contains(&"text-gen".to_string()));
-        assert!(info.capabilities.contains(&"qa".to_string()));
+        assert_eq!(info.skills.len(), 2);
+        assert!(info.skills.iter().any(|s| s.name == "text-gen"));
+        assert!(info.skills.iter().any(|s| s.name == "qa"));
     }
 
     #[tokio::test]

@@ -6,7 +6,7 @@ use crate::{
         AgentCard, Message, SendResponse, Task, TaskState, TaskStatus,
     },
     server::{
-        agent_logic::Agent,
+        agent_logic::ProtocolAgent,
         handler::{HealthStatus, HealthStatusType},
         transport_capabilities::{PushNotificationSupport, TransportCapabilities},
         A2aHandler, PushNotificationStore, TaskStore, WebhookPayload, WebhookQueue,
@@ -35,7 +35,7 @@ use tokio::sync::RwLock;
 /// Handler that supports full task lifecycle management
 #[derive(Clone)]
 pub struct TaskAwareHandler {
-    agent: Arc<dyn Agent>,
+    agent: Arc<dyn ProtocolAgent>,
     task_store: TaskStore,
     push_notification_store: PushNotificationStore,
     webhook_queue: Arc<WebhookQueue>,
@@ -48,7 +48,7 @@ pub struct TaskAwareHandler {
 
 impl TaskAwareHandler {
     /// Create a new task-aware handler with the given agent logic
-    pub fn new(agent: Arc<dyn Agent>) -> Self {
+    pub fn new(agent: Arc<dyn ProtocolAgent>) -> Self {
         Self {
             agent,
             task_store: TaskStore::new(),
@@ -61,7 +61,7 @@ impl TaskAwareHandler {
     }
 
     /// Create a handler that returns immediate responses by default
-    pub fn with_immediate_responses(agent: Arc<dyn Agent>) -> Self {
+    pub fn with_immediate_responses(agent: Arc<dyn ProtocolAgent>) -> Self {
         Self {
             agent,
             task_store: TaskStore::new(),
@@ -423,7 +423,7 @@ impl A2aHandler for TaskAwareHandler {
 mod tests {
     use super::*;
     use crate::{
-        server::agent_logic::Agent, server::AgentProfile, A2aError, AgentId, Message, MessageRole,
+        server::agent_logic::ProtocolAgent, server::AgentProfile, A2aError, AgentId, Message, MessageRole,
     };
     use async_trait::async_trait;
     use std::sync::Arc;
@@ -448,7 +448,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl Agent for EchoAgent {
+    impl ProtocolAgent for EchoAgent {
         async fn profile(&self) -> A2aResult<AgentProfile> {
             Ok(self.profile.clone())
         }

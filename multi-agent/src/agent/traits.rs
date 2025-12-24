@@ -13,7 +13,9 @@ pub struct AgentInfo {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub capabilities: Vec<String>,
+    /// Skills represent what the agent can do (e.g., "search", "translate")
+    /// This is different from A2A protocol capabilities which are transport-level
+    pub skills: Vec<AgentSkill>,
     pub metadata: HashMap<String, String>,
 }
 

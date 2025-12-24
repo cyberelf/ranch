@@ -9,7 +9,7 @@
 use a2a_protocol::{
     client::ClientBuilder,
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -40,7 +40,7 @@ impl CalculatorAgent {
 }
 
 #[async_trait]
-impl Agent for CalculatorAgent {
+impl ProtocolAgent for CalculatorAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }
@@ -129,7 +129,7 @@ impl ReporterAgent {
 }
 
 #[async_trait]
-impl Agent for ReporterAgent {
+impl ProtocolAgent for ReporterAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }

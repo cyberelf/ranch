@@ -1,46 +1,85 @@
-# Multi-Agent Runtime Framework
+# Multi-Agent Client Collaboration Framework
 
-A Rust-based framework for building and managing multi-agent systems with support for different communication protocols and scheduling modes.
+**A client-side framework for coordinating remote agents, not for implementing agents.**
+
+This crate provides a **collaboration ground** where remote agents (accessed via A2A protocol) can work together as teams. It is NOT a framework for implementing new agents - agents should be implemented as A2A protocol servers using the `a2a-protocol` crate.
+
+## Core Principle
+
+**Multi-agent is a client-side coordination layer:**
+- ✅ Use `A2AAgent` to connect to remote A2A protocol servers
+- ✅ Form teams of remote agents for collaboration
+- ✅ Route messages between remote agents dynamically
+- ❌ Do NOT implement local agents using the `Agent` trait
+- ❌ Do NOT create mock agents in examples - use real A2A servers
 
 ## Features
 
-- **Protocol Support**: OpenAI API and A2A (Agent-to-Agent) protocols
-- **Agent Management**: Dynamic agent registration, health checks, and capability discovery
-- **Team Composition**: Group agents into teams with different collaboration modes
-- **Scheduling Modes**: 
-  - Supervisor mode: One agent acts as a coordinator
-  - Workflow mode: Sequential execution based on configuration
-- **REST API**: OpenAI-compatible and A2A endpoints for team interactions
-- **Configuration-driven**: TOML-based configuration for agents and teams
+- **Remote Agent Coordination**: Connect to remote A2A protocol agents via `A2AAgent`
+- **Team Composition**: Form teams of remote agents with dynamic routing
+- **Router-Based Coordination**: 
+  - Dynamic message routing based on agent skills
+  - Client Agent Extension for intelligent routing decisions
+  - Handoffs feature for filtered peer suggestions
+  - Max hop limits to prevent infinite loops
+- **Protocol Adapters**: OpenAI API adapter for legacy systems (transitional)
+- **REST API**: Team-level endpoints for external interaction
 
 ## Quick Start
 
-1. **Set up your configuration** (config.toml):
+### 1. Start Remote Agent Servers
 
-```toml
-[[agents]]
-id = "research-assistant"
-name = "Research Assistant"
-endpoint = "https://api.openai.com/v1"
-protocol = "openai"
-capabilities = ["research", "analysis"]
+First, implement and start your agents as A2A protocol servers:
 
-[agents.metadata]
-model = "gpt-4"
-temperature = "0.7"
+```rust
+// In your agent server crate
+use a2a_protocol::prelude::*;
+use a2a_protocol::server::{ProtocolAgent, ServerBuilder, TaskAwareHandler};
 
-[[teams]]
-id = "dev-team"
-name = "Development Team"
-mode = "supervisor"
+#[async_trait]
+impl ProtocolAgent for MyAgent {
+    async fn profile(&self) -> A2aResult<AgentProfile> {
+        // Return agent profile with skills
+    }
+    
+    async fn process_message(&self, msg: Message) -> A2aResult<Message> {
+        // Handle messages
+    }
+}
 
-[[teams.agents]]
-agent_id = "research-assistant"
-role = "supervisor"
-is_supervisor = true
+// Start server on port 3000
+let handler = TaskAwareHandler::new(Arc::new(my_agent));
+ServerBuilder::new(handler).with_port(3000).run().await?;
 ```
 
-2. **Set environment variables**:
+### 2. Create Client-Side Team
+
+Then use multi-agent to coordinate remote agents:
+
+```rust
+use multi_agent::{A2AAgent, AgentManager, Team, TeamConfig};
+use a2a_protocol::prelude::*;
+
+// Connect to remote agents via A2A protocol
+let client1 = A2aClient::new(Arc::new(
+    JsonRpcTransport::new("http://localhost:3000/rpc")?
+));
+let agent1 = Arc::new(A2AAgent::new(client1));
+
+let client2 = A2aClient::new(Arc::new(
+    JsonRpcTransport::new("http://localhost:3001/rpc")?
+));
+let agent2 = Arc::new(A2AAgent::new(client2));
+
+// Register agents
+let manager = Arc::new(AgentManager::new());
+manager.register(agent1).await?;
+manager.register(agent2).await?;
+
+// Form team
+let team = Team::new(team_config, manager);
+let response = team.process(message).await?;
+```
 
 ```bash
 export OPENAI_API_KEY="your-api-key"
@@ -106,9 +145,64 @@ The framework consists of several key components:
 - **Agent**: Represents a remote AI service with specific capabilities
 - **Protocol**: Handles communication with agents using different protocols
 - **AgentManager**: Manages agent lifecycle and discovery
-- **Team**: Groups agents with specific collaboration patterns
-- **Scheduler**: Implements different agent coordination strategies
+- **Team**: Groups agents with dynamic router-based coordination
+- **Router**: Implements intelligent message routing between agents
+  - Supports Client Agent Extension for capable agents
+  - Provides fallback routing for basic agents
+  - Tracks sender history for back-to-sender routing
+  - Enforces max hop limits to prevent infinite loops
 - **TeamServer**: Provides HTTP API endpoints
+
+## Client Agent Extension
+
+The framework supports a Client Agent Extension (URI: `https://ranch.woi.dev/extensions/client-routing/v1`) that enables intelligent routing decisions:
+
+### Extension Support
+
+Agents declare extension support in their capabilities:
+
+```rust
+capabilities: vec![
+    "https://ranch.woi.dev/extensions/client-routing/v1".to_string()
+]
+```
+
+### Extension Data Flow
+
+1. **Router → Agent**: Router injects peer agent list in message metadata:
+```json
+{
+  "https://ranch.woi.dev/extensions/client-routing/v1": {
+    "agentCards": [
+      {
+        "id": "researcher",
+        "name": "Research Agent",
+        "description": "Searches and summarizes",
+        "capabilities": ["search", "summarize"],
+        "supportsClientRouting": true
+      }
+    ],
+    "sender": "user"
+  }
+}
+```
+
+2. **Agent → Router**: Agent returns routing decision in metadata:
+```json
+{
+  "https://ranch.woi.dev/extensions/client-routing/v1": {
+    "recipient": "researcher",
+    "reason": "Query requires search capability"
+  }
+}
+```
+
+### Routing Options
+
+- **Agent ID**: Route to specific agent (e.g., `"researcher"`)
+- **"user"**: Return to user (end conversation)
+- **"sender"**: Route back to previous sender
+- **No decision**: Basic agents without extension return to user automatically
 
 ## Examples
 
@@ -135,19 +229,21 @@ let agent = Arc::new(RemoteAgent::new(config, protocol));
 ### Creating a Team
 
 ```rust
+use multi_agent::team::{TeamConfig, TeamAgentConfig, RouterConfig};
+
 let team_config = TeamConfig {
     id: "my-team".to_string(),
     name: "My Team".to_string(),
-    description: "A sample team".to_string(),
-    mode: TeamMode::Supervisor,
+    description: "A sample team with dynamic routing".to_string(),
     agents: vec![TeamAgentConfig {
         agent_id: "my-agent".to_string(),
-        role: "member".to_string(),
+        role: "coordinator".to_string(),
         capabilities: vec!["analysis".to_string()],
-        is_supervisor: Some(true),
-        order: None,
     }],
-      context: HashMap::new(),
+    router_config: RouterConfig {
+        default_agent_id: "my-agent".to_string(),
+        max_routing_hops: 10,
+    },
 };
 
 let team = Arc::new(Team::new(team_config, agent_manager));

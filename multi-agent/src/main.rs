@@ -51,7 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Available agents:");
             for agent in agents {
                 println!("  - {} ({})", agent.name, agent.id);
-                println!("    Capabilities: {}", agent.capabilities.join(", "));
+                let skills: Vec<String> = agent.skills.iter().map(|s| s.name.clone()).collect();
+                println!("    Skills: {}", skills.join(", "));
                 println!();
             }
             continue;

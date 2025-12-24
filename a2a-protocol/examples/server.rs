@@ -7,7 +7,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, JsonRpcRouter, TaskAwareHandler},
+    server::{JsonRpcRouter, ProtocolAgent, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::net::SocketAddr;
@@ -32,7 +32,7 @@ impl ExampleAgent {
 }
 
 #[async_trait]
-impl Agent for ExampleAgent {
+impl ProtocolAgent for ExampleAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         Ok(self.profile.clone())
     }

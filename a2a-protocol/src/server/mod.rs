@@ -16,7 +16,7 @@ pub mod transport_capabilities;
 pub mod webhook_delivery;
 
 // Re-export server types
-pub use agent_logic::{Agent, AgentLogic};
+pub use agent_logic::{AgentLogic, ProtocolAgent};
 pub use agent_profile::AgentProfile;
 pub use builder::ServerBuilder;
 pub use handler::A2aHandler;

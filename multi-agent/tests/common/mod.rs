@@ -1,6 +1,6 @@
 //! Common test utilities for multi-agent integration tests
 
-use a2a_protocol::{A2aResult, Message};
+use a2a_protocol::{A2aResult, AgentSkill, Message};
 use async_trait::async_trait;
 use multi_agent::{Agent, AgentInfo};
 use std::sync::{
@@ -55,7 +55,13 @@ impl Agent for MockAgent {
             id: self.id.clone(),
             name: self.name.clone(),
             description: format!("Mock agent {}", self.name),
-            capabilities: self.capabilities.clone(),
+            skills: self.capabilities.iter().map(|c| AgentSkill {
+                name: c.clone(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }).collect(),
             metadata: std::collections::HashMap::new(),
         })
     }

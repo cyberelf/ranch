@@ -26,8 +26,28 @@ This document provides RANCH-specific technical guidance and conventions that co
 
 This is a Rust workspace with two main crates:
 
-- **`a2a-protocol/`**: Standalone implementation of the A2A (Agent-to-Agent) communication protocol v0.3.0, providing JSON-RPC 2.0 transport, task management, and agent discovery
-- **`multi-agent/`**: Multi-agent runtime framework that orchestrates agents using different protocols (OpenAI API and A2A) with team composition and scheduling capabilities
+- **`a2a-protocol/`**: Standalone implementation of the A2A (Agent-to-Agent) communication protocol v0.3.0, providing JSON-RPC 2.0 transport, task management, and agent discovery. **Use this for implementing agents.**
+- **`multi-agent/`**: **Client-side collaboration framework** for coordinating remote A2A agents. This is NOT for implementing agents - it provides team composition, routing, and coordination of remote agents accessed via A2A protocol.
+
+### Critical Architectural Principle
+
+**The multi-agent crate is a CLIENT-SIDE coordination layer, NOT an agent implementation framework.**
+
+✅ **Correct Usage:**
+- Implement agents as A2A protocol servers in `a2a-protocol` crate using `ProtocolAgent` trait
+- Use `multi-agent::A2AAgent` to connect to remote agent servers
+- Form teams of remote agents for collaboration
+- Route messages between remote agents dynamically
+
+❌ **Incorrect Usage:**
+- Do NOT implement agents locally using `multi-agent::Agent` trait
+- Do NOT create mock agents in `multi-agent` examples
+- Do NOT mix agent implementation with coordination logic
+
+**All examples MUST follow this pattern:**
+1. Agent servers implemented using `a2a-protocol::server::ProtocolAgent`
+2. Client connects to servers using `multi-agent::A2AAgent`
+3. Teams coordinate remote agents without local implementations
 
 ## Development Guidelines
 
@@ -124,30 +144,37 @@ let router = JsonRpcRouter::new(handler);
 ### Multi-Agent Runtime (`multi-agent/`)
 
 **Core Principles:**
-- Support multiple agent protocols (OpenAI API, A2A)
-- Team-based agent coordination with supervisor and workflow modes
-- Configuration-driven agent and team setup via TOML
+- **Client-side coordination layer** - NOT an agent implementation framework
+- Connect to remote A2A agents via `A2AAgent`
+- Route messages dynamically between remote agents
+- Support Client Agent Extension for intelligent routing
 
 **Key Components:**
-- `agent/`: Agent abstraction and remote agent implementation
-- `protocols/`: Protocol adapters (OpenAI, A2A)
-- `team/`: Team composition and scheduling logic
-- `server/`: HTTP API endpoints (OpenAI-compatible and A2A)
+- `agent/`: Agent trait and `A2AAgent` client for remote agents
+- `manager/`: `AgentManager` for agent registry and discovery
+- `team/`: Team composition and dynamic router
+- `server/`: HTTP API endpoints for team-level operations
 
-**Important Notes:**
-- Agents are configured via TOML (`config.toml`)
-- Teams can operate in `supervisor` mode (one coordinator) or `workflow` mode (sequential)
-- Use `AgentManager` for dynamic agent registration and discovery
-- The server provides both `/v1/chat/completions` (OpenAI) and `/v1/chat` (A2A) endpoints
+**Critical Usage Rules:**
+- ✅ Use `A2AAgent` to connect to remote A2A protocol servers
+- ✅ Form teams of remote agents via `Team`
+- ✅ Use `AgentManager` for agent discovery
+- ❌ Do NOT implement `Agent` trait for new agents locally
+- ❌ Do NOT create mock agents in examples
+- ❌ Agent implementation belongs in `a2a-protocol` crate
 
-**Configuration Format:**
-```toml
-[[agents]]
-id = "agent-id"
-name = "Agent Name"
-endpoint = "https://api.example.com"
-protocol = "openai" # or "a2a"
-capabilities = ["research", "analysis"]
+**Example Pattern:**
+```rust
+// Correct: Connect to remote agent
+let transport = Arc::new(JsonRpcTransport::new("http://localhost:3000/rpc")?);
+let client = A2aClient::new(transport);
+let remote_agent = Arc::new(A2AAgent::new(client));
+
+let manager = Arc::new(AgentManager::new());
+manager.register(remote_agent).await?;
+
+let team = Team::new(team_config, manager);
+```
 
 [[teams]]
 id = "team-id"
@@ -252,13 +279,29 @@ cargo doc --open                    # Generate and open documentation
 cargo run -p multi-agent            # Run multi-agent server
 
 # Examples
-cargo run --example basic_agent     # Run basic agent example
+cargo run --example agent_servers   # Start A2A agent servers
+cargo run --example team_client     # Run team coordination client
 ```
 
 ### When to Use Which Crate
 
 - **Use `a2a-protocol`** when you need:
-  - Direct A2A protocol implementation
+  - Agent implementation (use `ProtocolAgent` trait)
+  - Direct A2A protocol server or client
+  - JSON-RPC 2.0 communication
+  - Task lifecycle management
+  - Standalone agent capabilities
+
+- **Use `multi-agent`** when you need:
+  - Client-side coordination of REMOTE agents
+  - Team formation and routing
+  - Dynamic message routing between agents
+  - Client Agent Extension support
+  - Multi-agent orchestration
+
+**Remember: Always implement agents in `a2a-protocol`, then coordinate them via `multi-agent`.**
+
+### Additional Resources
   - JSON-RPC 2.0 client or server
   - Standalone agent communication
   - Task lifecycle management

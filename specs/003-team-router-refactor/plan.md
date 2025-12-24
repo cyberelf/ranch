@@ -9,6 +9,13 @@
 
 Refactor the `Team` architecture to replace the rigid `Scheduler` with a dynamic `Router`. This enables flexible, metadata-driven message routing between agents, including a "Client Agent Extension" that allows capable agents to receive peer lists and make routing decisions. Unifies "Supervisor" and "Workflow" modes into a single router-based mode.
 
+Additionally, this plan includes:
+1.  Standardizing extension interfaces in `a2a-protocol`.
+2.  Resolving `Agent` trait naming conflicts.
+3.  Aligning `capabilities` definitions.
+4.  Enhancing `ClientRoutingResponse` with handoff candidates.
+5.  Adding comprehensive examples.
+
 ## Technical Context
 
 **Language/Version**: Rust 2021 (Workspace)
@@ -65,6 +72,12 @@ specs/003-team-router-refactor/
 ### Source Code (repository root)
 
 ```text
+a2a-protocol/
+├── src/
+│   ├── core/
+│   │   └── extension.rs     # NEW: Standard extension interfaces
+│   └── lib.rs               # Re-exports
+
 multi-agent/
 ├── src/
 │   ├── team/                # NEW: Team logic separation
@@ -75,6 +88,8 @@ multi-agent/
 │   │   └── traits.rs        # Update Agent trait if needed
 │   ├── config.rs            # Update TeamConfig to use RouterConfig
 │   └── lib.rs               # Re-exports
+├── examples/
+│   └── extension_agent.rs   # NEW: Example of extension-capable agent
 tests/
 ├── integration.rs           # Updated integration tests
 ├── router_integration.rs    # NEW: Router-specific integration tests

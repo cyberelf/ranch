@@ -11,7 +11,7 @@
 
 use a2a_protocol::{
     prelude::*,
-    server::{Agent, ServerBuilder, TaskAwareHandler},
+    server::{ProtocolAgent, ServerBuilder, TaskAwareHandler},
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -56,7 +56,7 @@ impl ResearchAgent {
 }
 
 #[async_trait]
-impl Agent for ResearchAgent {
+impl ProtocolAgent for ResearchAgent {
     async fn profile(&self) -> A2aResult<AgentProfile> {
         // Build a comprehensive agent profile that reflects the agent's capabilities
         let mut profile = AgentProfile::new(
@@ -78,42 +78,31 @@ impl Agent for ResearchAgent {
         };
         profile = profile.with_provider(provider);
 
-        // Add capabilities
+        // Add capabilities for protocol features
         profile = profile
-            .with_capability(AgentCapability {
+            .with_capability(
+                AgentCapability::new()
+                    .with_streaming(false)
+                    .with_push_notifications(false)
+                    .with_state_transition_history(false),
+            );
+
+        // Add skills for what the agent can do
+        profile = profile
+            .with_skill(AgentSkill {
                 name: "research".to_string(),
                 description: Some("Conduct in-depth research on any topic".to_string()),
                 category: Some("analysis".to_string()),
-                input_schema: Some(serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The research query"
-                        }
-                    },
-                    "required": ["query"]
-                })),
-                output_schema: Some(serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "findings": {
-                            "type": "string",
-                            "description": "Research findings and analysis"
-                        }
-                    }
-                })),
+                tags: vec!["research".to_string(), "analysis".to_string()],
+                examples: vec!["Research the history of artificial intelligence".to_string()],
             })
-            .with_capability(AgentCapability {
+            .with_skill(AgentSkill {
                 name: "summarization".to_string(),
                 description: Some("Summarize long-form content".to_string()),
                 category: Some("text-processing".to_string()),
-                input_schema: None,
-                output_schema: None,
-            });
-
-        // Add skills
-        profile = profile
+                tags: vec![],
+                examples: vec![],
+            })
             .with_skill(AgentSkill {
                 name: "Academic Research".to_string(),
                 description: Some("Research academic papers and publications".to_string()),

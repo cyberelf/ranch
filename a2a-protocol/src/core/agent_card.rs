@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::fmt;
 use url::Url;
 
+use super::extension::AgentExtension;
+
 /// Supported transport types defined by the A2A v0.3.0 specification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TransportType {
@@ -239,27 +241,118 @@ pub struct AgentCardSignature {
     pub extra: HashMap<String, serde_json::Value>,
 }
 
-/// Agent capability definition
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Agent transport and protocol capabilities (A2A v0.3.0 spec compliant)
+///
+/// Defines optional capabilities supported by an agent according to the
+/// A2A Protocol specification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentCapability {
-    /// Capability name
-    pub name: String,
+    /// Indicates if the agent supports streaming responses
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub streaming: bool,
 
-    /// Capability description
+    /// Indicates if the agent supports sending push notifications for asynchronous task updates
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub push_notifications: bool,
+
+    /// Indicates if the agent provides a history of state transitions for a task
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub state_transition_history: bool,
+
+    /// A list of protocol extensions supported by the agent
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extensions: Vec<AgentExtensionInfo>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
+}
+
+impl AgentCapability {
+    /// Create new empty capabilities
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Enable streaming support
+    pub fn with_streaming(mut self, enabled: bool) -> Self {
+        self.streaming = enabled;
+        self
+    }
+
+    /// Enable push notifications support
+    pub fn with_push_notifications(mut self, enabled: bool) -> Self {
+        self.push_notifications = enabled;
+        self
+    }
+
+    /// Enable state transition history support
+    pub fn with_state_transition_history(mut self, enabled: bool) -> Self {
+        self.state_transition_history = enabled;
+        self
+    }
+
+    /// Add an extension to the capabilities
+    pub fn with_extension_info(mut self, extension: AgentExtensionInfo) -> Self {
+        self.extensions.push(extension);
+        self
+    }
+
+    /// Add a typed extension using the AgentExtension trait
+    ///
+    /// This automatically populates the extension info from the trait's const values.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use a2a_protocol::core::agent_card::AgentCapability;
+    /// use a2a_protocol::core::extension::AgentExtension;
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// #[derive(Debug, Clone, Serialize, Deserialize)]
+    /// struct MyExtension {
+    ///     value: String,
+    /// }
+    ///
+    /// impl AgentExtension for MyExtension {
+    ///     const URI: &'static str = "https://example.com/ext/my-extension";
+    ///     const VERSION: &'static str = "v1";
+    ///     const NAME: &'static str = "My Extension";
+    ///     const DESCRIPTION: &'static str = "Example extension";
+    /// }
+    ///
+    /// let capabilities = AgentCapability::new()
+    ///     .with_extension::<MyExtension>();
+    /// ```
+    pub fn with_extension<T: AgentExtension>(mut self) -> Self {
+        self.extensions.push(AgentExtensionInfo {
+            uri: T::URI.to_string(),
+            version: Some(T::VERSION.to_string()),
+            name: Some(T::NAME.to_string()),
+            description: Some(T::DESCRIPTION.to_string()),
+        });
+        self
+    }
+}
+
+/// Information about a protocol extension supported by an agent
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentExtensionInfo {
+    /// Extension URI (e.g., "https://example.com/extensions/my-extension/v1")
+    pub uri: String,
+
+    /// Extension version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
+    /// Human-readable extension name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    /// Extension description
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-
-    /// Capability category
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub category: Option<String>,
-
-    /// Input schema for this capability
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub input_schema: Option<serde_json::Value>,
-
-    /// Output schema for this capability
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub output_schema: Option<serde_json::Value>,
 }
 
 /// Agent skill definition
@@ -277,11 +370,11 @@ pub struct AgentSkill {
     pub category: Option<String>,
 
     /// Skill tags
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
 
     /// Examples of using this skill
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<String>,
 }
 
@@ -515,6 +608,53 @@ impl AgentCard {
     /// Add a capability
     pub fn with_capability(mut self, capability: AgentCapability) -> Self {
         self.capabilities.push(capability);
+        self
+    }
+
+    /// Add a typed extension to the agent capabilities
+    ///
+    /// This is a convenience method that automatically adds extension information
+    /// to the agent's capabilities based on the AgentExtension trait implementation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use a2a_protocol::core::{AgentCard, AgentId};
+    /// use a2a_protocol::core::extension::AgentExtension;
+    /// use serde::{Serialize, Deserialize};
+    /// use url::Url;
+    ///
+    /// #[derive(Debug, Clone, Serialize, Deserialize)]
+    /// struct ClientRoutingExtension {
+    ///     target_agent_id: String,
+    /// }
+    ///
+    /// impl AgentExtension for ClientRoutingExtension {
+    ///     const URI: &'static str = "https://a2a-protocol.org/extensions/client-agent/v1";
+    ///     const VERSION: &'static str = "v1";
+    ///     const NAME: &'static str = "Client Agent Extension";
+    ///     const DESCRIPTION: &'static str = "Client-side routing extension";
+    /// }
+    ///
+    /// let url = Url::parse("http://localhost:3000").unwrap();
+    /// let card = AgentCard::new(AgentId::new("agent-1".to_string()).unwrap(), "My Agent", url)
+    ///     .with_extension::<ClientRoutingExtension>();
+    /// ```
+    pub fn with_extension<T: AgentExtension>(mut self) -> Self {
+        // Find or create a capability to add the extension to
+        if let Some(capability) = self.capabilities.first_mut() {
+            capability.extensions.push(AgentExtensionInfo {
+                uri: T::URI.to_string(),
+                version: Some(T::VERSION.to_string()),
+                name: Some(T::NAME.to_string()),
+                description: Some(T::DESCRIPTION.to_string()),
+            });
+        } else {
+            // No existing capabilities, create one with the extension
+            self.capabilities.push(
+                AgentCapability::new().with_extension::<T>()
+            );
+        }
         self
     }
 

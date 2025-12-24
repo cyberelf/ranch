@@ -1,53 +1,68 @@
-# Multi-Agent Framework Guide
+# Multi-Agent Client Collaboration Guide
 
-This guide covers building coordinated multi-agent systems using the `multi-agent` framework, including team composition, schedulers, and configuration.
+**Important: This guide covers client-side coordination of remote agents, NOT agent implementation.**
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Agent Trait](#agent-trait)
+- [Core Principle](#core-principle)
+- [A2AAgent - Remote Agent Client](#a2aagent---remote-agent-client)
 - [Team Composition](#team-composition)
-- [Scheduler Patterns](#scheduler-patterns)
-- [Configuration via TOML](#configuration-via-toml)
-- [Nested Teams](#nested-teams)
+- [Router-Based Coordination](#router-based-coordination)
+- [Client Agent Extension](#client-agent-extension)
 - [Code Examples](#code-examples)
 - [Best Practices](#best-practices)
 
 ## Overview
 
-The `multi-agent` framework provides high-level abstractions for orchestrating multiple agents to accomplish complex tasks. Key features:
+The `multi-agent` framework is a **client-side collaboration ground** for coordinating remote agents. It does NOT provide agent implementation capabilities - agents must be implemented as A2A protocol servers using the `a2a-protocol` crate.
 
-- **Team Orchestration**: Coordinate multiple agents as a unified team
-- **Flexible Scheduling**: Supervisor and workflow modes for message routing
-- **Nested Composition**: Teams can contain other teams
-- **Protocol Adapters**: Support for A2A, OpenAI, and custom protocols
-- **Configuration-Driven**: Define agents and teams via TOML files
-- **AgentManager**: Registry for agent discovery and lifecycle management
+**What multi-agent provides:**
+- Client connections to remote A2A agents (`A2AAgent`)
+- Team composition and routing logic
+- Dynamic message routing between remote agents
+- Extension support for intelligent routing decisions
 
-## Agent Trait
+**What multi-agent does NOT provide:**
+- Agent implementation (use `a2a-protocol` for that)
+- Local agent execution
+- Mock agents for testing (use real A2A servers instead)
 
-The `multi_agent::Agent` trait is the foundation for framework-level agents:
+## Core Principle
+
+### ✅ Correct Usage
 
 ```rust
+// 1. Start A2A protocol servers (in separate processes/services)
+// (See a2a-protocol crate for server implementation)
+
+// 2. Connect to remote agents via A2AAgent
+use multi_agent::{A2AAgent, AgentManager, Team};
+use a2a_protocol::prelude::*;
+
+let transport = Arc::new(JsonRpcTransport::new("http://localhost:3000/rpc")?);
+let client = A2aClient::new(transport);
+let remote_agent = Arc::new(A2AAgent::new(client));
+
+// 3. Register and coordinate remote agents
+let manager = Arc::new(AgentManager::new());
+manager.register(remote_agent).await?;
+```
+
+### ❌ Incorrect Usage
+
+```rust
+// DON'T: Implement Agent trait locally for new agents
+struct MyLocalAgent { /* ... */ }
+
 #[async_trait]
-pub trait Agent: Send + Sync {
-    /// Get agent information (ID, name, capabilities)
-    async fn info(&self) -> MultiAgentResult<AgentInfo>;
-    
-    /// Process a message and return a response
-    async fn process_message(&self, message: Message) -> MultiAgentResult<Message>;
+impl Agent for MyLocalAgent {  // ❌ Wrong approach
+    async fn info(&self) -> A2aResult<AgentInfo> { /* ... */ }
+    async fn process(&self, msg: Message) -> A2aResult<Message> { /* ... */ }
 }
 ```
 
-### AgentInfo Structure
-
-```rust
-pub struct AgentInfo {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub capabilities: Vec<String>,
-}
+**Instead:** Implement agents as A2A protocol servers using `a2a-protocol::server::ProtocolAgent`
 ```
 
 ### Implementing a Custom Agent

@@ -7,11 +7,14 @@
 use super::types::{
     ClientRoutingExtensionData, Participant, RouterConfig, SimplifiedAgentCard, TeamError,
 };
+use super::TeamAgentConfig;
+use crate::manager::AgentManager;
 use crate::{Agent, AgentInfo};
 use a2a_protocol::core::extension::AgentExtension;
 use a2a_protocol::prelude::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Router for dynamic message routing within a team
 ///
@@ -21,13 +24,15 @@ use std::sync::Arc;
 /// - Maximum hop limits (to prevent infinite loops)
 pub struct Router {
     /// ID of the default agent to route to when no routing decision is made
-    default_agent_id: String,
+    pub default_agent_id: String,
     /// Maximum number of routing hops allowed
     max_routing_hops: usize,
-    /// Current hop count
-    hop_count: usize,
-    /// Optional list of candidate agents for the next step (handoffs)
-    handoffs: Option<Vec<String>>,
+    /// Agent manager for resolving agents
+    agent_manager: Arc<AgentManager>,
+    /// Configuration of agents in the team
+    team_agents_config: Vec<TeamAgentConfig>,
+    /// Cache of resolved agents
+    agents_cache: RwLock<HashMap<String, Arc<dyn Agent>>>,
 }
 
 impl Router {
@@ -35,24 +40,40 @@ impl Router {
     ///
     /// # Arguments
     /// * `config` - Router configuration including default agent and max hops
-    ///
-    /// # Example
-    /// ```
-    /// use multi_agent::team::{Router, RouterConfig};
-    ///
-    /// let config = RouterConfig {
-    ///     default_agent_id: "default-agent".to_string(),
-    ///     max_routing_hops: 10,
-    /// };
-    /// let router = Router::new(config);
-    /// ```
-    pub fn new(config: RouterConfig) -> Self {
+    /// * `team_agents_config` - Configuration of agents in the team
+    /// * `agent_manager` - Agent manager for resolving agents
+    pub fn new(
+        config: RouterConfig,
+        team_agents_config: Vec<TeamAgentConfig>,
+        agent_manager: Arc<AgentManager>,
+    ) -> Self {
         Self {
             default_agent_id: config.default_agent_id,
             max_routing_hops: config.max_routing_hops,
-            hop_count: 0,
-            handoffs: None,
+            agent_manager,
+            team_agents_config,
+            agents_cache: RwLock::new(HashMap::new()),
         }
+    }
+
+    /// Get resolved agents, populating cache if necessary
+    async fn get_agents(&self) -> HashMap<String, Arc<dyn Agent>> {
+        let cache = self.agents_cache.read().await;
+        if !cache.is_empty() {
+            return cache.clone();
+        }
+        drop(cache);
+
+        let mut cache = self.agents_cache.write().await;
+        // Double check
+        if cache.is_empty() {
+            for agent_config in &self.team_agents_config {
+                if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
+                    cache.insert(agent_config.agent_id.clone(), agent);
+                }
+            }
+        }
+        cache.clone()
     }
 
     /// Check if an agent supports the Client Agent Extension
@@ -74,15 +95,9 @@ impl Router {
     /// Converts full AgentInfo objects to lightweight SimplifiedAgentCard
     /// for inclusion in extension context.
     ///
-    /// # Arguments
-    /// * `agents` - Map of agent IDs to Agent trait objects
-    ///
     /// # Returns
     /// Vector of SimplifiedAgentCard objects
-    pub async fn build_simplified_cards(
-        &self,
-        agents: &HashMap<String, Arc<dyn Agent>>,
-    ) -> Vec<SimplifiedAgentCard> {
+    pub async fn build_simplified_cards(&self, agents: &HashMap<String, Arc<dyn Agent>>) -> Vec<SimplifiedAgentCard> {
         let mut cards = Vec::new();
 
         for (agent_id, agent) in agents {
@@ -126,6 +141,7 @@ impl Router {
             sender: Some(sender_participant),
             agent_cards: Some(agent_cards.to_vec()),
             recipient: None,
+            handoffs: None,
             reason: None,
         };
 
@@ -156,127 +172,144 @@ impl Router {
         ext_data.recipient
     }
 
-
-
-    /// Route a message to the next recipient
+    /// Extract handoffs from extension response in message metadata
     ///
-    /// Main routing method that orchestrates:
-    /// 1. Extension detection
-    /// 2. Context injection (if supported)
-    /// 3. Message sending to target agent
-    /// 4. Recipient extraction from response
-    /// 5. Hop count tracking
+    /// Parses the Client Agent Extension response to determine suggested next agents.
     ///
     /// # Arguments
-    /// * `message` - Message to route
-    /// * `agents` - Map of available agents
-    /// * `sender` - ID of current sender
+    /// * `message` - Message potentially containing handoff suggestions
     ///
     /// # Returns
-    /// * `Ok(Participant)` with next routing target
-    /// * `Err(TeamError)` if routing fails or max hops exceeded
-    pub async fn route(
-        &mut self,
-        message: &mut Message,
-        agents: &HashMap<String, Arc<dyn Agent>>,
-        sender: &str,
-    ) -> Result<Participant, TeamError> {
-        // Check hop limit
-        if self.hop_count >= self.max_routing_hops {
-            return Err(TeamError::MaxHopsExceeded(self.max_routing_hops));
-        }
-        self.hop_count += 1;
+    /// * `Some(Vec<String>)` if handoffs found
+    /// * `None` if no handoffs present
+    pub fn extract_handoffs(&self, message: &Message) -> Option<Vec<String>> {
+        // Use typed accessor to get extension data
+        let ext_data: ClientRoutingExtensionData = message
+            .get_extension::<ClientRoutingExtensionData>()
+            .ok()??;
 
-        // Determine target agent from recipient or default
-        let target_agent_id = match &self.extract_recipient(message) {
-            Some(Participant::Agent { id }) => id.clone(),
-            Some(Participant::User) => {
-                return Ok(Participant::User);
-            }
-            None => {
-                // Default routing: avoid loops and end conversation from default agent
-                if sender == self.default_agent_id {
-                    // If from default agent, route to user
-                    return Ok(Participant::User);
-                } else if sender == "user" {
-                    // If from user with no decision, route to default
-                    self.default_agent_id.clone()
-                } else {
-                    // From another agent, route to default but avoid sender
-                    self.default_agent_id.clone()
-                }
-            }
-        };
-
-        // Prevent routing back to sender
-        if target_agent_id == sender {
-            return Err(TeamError::Protocol(format!(
-                "Cannot route message back to sender: {}",
-                sender
-            )));
-        }
-
-        // Get target agent
-        let agent = agents
-            .get(&target_agent_id)
-            .ok_or_else(|| TeamError::AgentNotFound(target_agent_id.clone()))?;
-
-        // Get agent info to check extension support
-        let agent_info = agent
-            .info()
-            .await
-            .map_err(|e| TeamError::Agent(format!("Failed to get agent info: {}", e)))?;
-
-        // Inject extension context if agent supports it
-        if self.supports_extension(&agent_info) {
-            let mut agent_cards = self.build_simplified_cards(agents).await;
-
-            // Filter by handoffs if present
-            if let Some(handoffs) = &self.handoffs {
-                agent_cards.retain(|card| handoffs.contains(&card.id));
-            }
-
-            self.inject_extension_context(message, &agent_cards, sender)?;
-        }
-
-        // Clear handoffs after they have been potentially used for this hop
-        self.handoffs = None;
-
-        // Process message with agent
-        let response = agent
-            .process(message.clone())
-            .await
-            .map_err(|e| TeamError::Protocol(format!("Agent processing failed: {}", e)))?;
-
-        // Extract routing decision from response
-        let recipient = if let Some(recipient) = self.extract_recipient(&response) {
-            recipient
-        } else {
-            // No routing decision provided
-            // If agent doesn't support extension (basic agent), return to user
-            // Otherwise, apply default routing logic
-            if !self.supports_extension(&agent_info) {
-                Participant::User
-            } else if target_agent_id == self.default_agent_id {
-                // If response from default agent with no decision, end conversation
-                Participant::User
-            } else {
-                // Route to default agent
-                Participant::agent(&self.default_agent_id)
-            }
-        };
-
-        // Update message with response content for next hop
-        *message = response;
-
-        Ok(recipient)
+        ext_data.handoffs
     }
 
-    /// Reset the router state for a new conversation
+
+
+    /// Process a message through the team routing logic
     ///
-    /// Clears hop count.
-    pub fn reset(&mut self) {
-        self.hop_count = 0;
+    /// Orchestrates the entire conversation flow:
+    /// 1. Resolves agents
+    /// 2. Routes message through agents until completion or max hops
+    /// 3. Manages conversation state (hops, handoffs)
+    ///
+    /// # Arguments
+    /// * `initial_message` - The starting message from the user
+    ///
+    /// # Returns
+    /// * `Ok(Message)` - The final response message
+    /// * `Err(TeamError)` - If routing fails or max hops exceeded
+    pub async fn process(&self, initial_message: Message) -> Result<Message, TeamError> {
+        let agents = self.get_agents().await;
+        let mut current_message = initial_message;
+        let mut hop_count = 0;
+        let mut handoffs: Option<Vec<String>> = None;
+
+        // Initial sender is "user", start with default agent
+        let mut sender = "user".to_string();
+        let mut target_agent_id = self.default_agent_id.clone();
+
+        loop {
+            // Check hop limit
+            if hop_count >= self.max_routing_hops {
+                return Err(TeamError::MaxHopsExceeded(self.max_routing_hops));
+            }
+            hop_count += 1;
+
+            // Prevent routing to sender (loop detection)
+            if target_agent_id == sender {
+                return Err(TeamError::Protocol(format!(
+                    "Cannot route message back to sender: {}",
+                    sender
+                )));
+            }
+
+            // Get target agent
+            let agent = agents
+                .get(&target_agent_id)
+                .ok_or_else(|| TeamError::AgentNotFound(target_agent_id.to_string()))?;
+
+            // Get agent info to check extension support
+            let agent_info = agent
+                .info()
+                .await
+                .map_err(|e| TeamError::Agent(format!("Failed to get agent info: {}", e)))?;
+
+            // Inject extension context if agent supports it
+            if self.supports_extension(&agent_info) {
+                let mut agent_cards = self.build_simplified_cards(&agents).await;
+
+                // Filter by handoffs if present
+                if let Some(current_handoffs) = &handoffs {
+                    agent_cards.retain(|card| current_handoffs.contains(&card.id));
+                }
+
+                self.inject_extension_context(&mut current_message, &agent_cards, &sender)?;
+            }
+
+            // Clear handoffs after they have been potentially used for this hop
+            handoffs = None;
+
+            // Process message with agent
+            let response = agent
+                .process(current_message.clone())
+                .await
+                .map_err(|e| TeamError::Protocol(format!("Agent processing failed: {}", e)))?;
+
+            // Extract handoffs from response
+            if let Some(new_handoffs) = self.extract_handoffs(&response) {
+                handoffs = Some(new_handoffs);
+            }
+
+            // Extract routing decision from response
+            let recipient = if let Some(recipient) = self.extract_recipient(&response) {
+                // Validate routing decision doesn't create loops
+                if let Participant::Agent { id } = &recipient {
+                    if id == &target_agent_id {
+                        // Agent trying to route to itself
+                        return Err(TeamError::Protocol(format!(
+                            "Agent {} cannot route to itself",
+                            target_agent_id
+                        )));
+                    }
+                }
+                recipient
+            } else {
+                // No routing decision provided - apply defaults
+                if !self.supports_extension(&agent_info) {
+                    // Basic agent without extension support - end conversation
+                    Participant::User
+                } else if target_agent_id == self.default_agent_id {
+                    // Default agent with no routing decision - end conversation
+                    Participant::User
+                } else {
+                    // Non-default agent with no decision - route to default
+                    Participant::agent(&self.default_agent_id)
+                }
+            };
+
+            // Update message with response content for next hop
+            current_message = response;
+
+            match recipient {
+                Participant::User => {
+                    // Return to user - end routing
+                    return Ok(current_message);
+                }
+                Participant::Agent { id: next_agent_id } => {
+                    // Continue routing to next agent
+                    sender = target_agent_id;
+                    target_agent_id = next_agent_id;
+                }
+            }
+        }
     }
 }
 
@@ -335,11 +368,10 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 5,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         assert_eq!(router.default_agent_id, "default");
         assert_eq!(router.max_routing_hops, 5);
-        assert_eq!(router.hop_count, 0);
     }
 
     #[test]
@@ -348,7 +380,7 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let agent_with_ext = AgentInfo {
             id: "agent1".to_string(),
@@ -382,8 +414,6 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
-
         let mut agents: HashMap<String, Arc<dyn Agent>> = HashMap::new();
         agents.insert(
             "agent1".to_string(),
@@ -393,6 +423,8 @@ mod tests {
             "agent2".to_string(),
             Arc::new(create_mock_agent("agent2", false)),
         );
+
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let cards = router.build_simplified_cards(&agents).await;
 
@@ -407,7 +439,7 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let mut message = Message::user_text("Test message");
         let agent_cards = vec![SimplifiedAgentCard {
@@ -435,7 +467,7 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let mut message = Message::agent_text("Response");
 
@@ -444,6 +476,7 @@ mod tests {
             sender: None,
             agent_cards: None,
             recipient: Some(Participant::agent("agent2")),
+            handoffs: None,
             reason: Some("Test routing".to_string()),
         };
         message.set_extension(ext_data).unwrap();
@@ -462,7 +495,7 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let mut message = Message::agent_text("Response");
 
@@ -471,6 +504,7 @@ mod tests {
             sender: None,
             agent_cards: None,
             recipient: Some(Participant::User),
+            handoffs: None,
             reason: None,
         };
         message.set_extension(ext_data).unwrap();
@@ -486,29 +520,373 @@ mod tests {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let router = Router::new(config);
+        let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
         let message = Message::agent_text("Response without extension");
         let recipient = router.extract_recipient(&message);
         assert!(recipient.is_none());
     }
 
+    fn create_mock_agent_info(id: &str, supports_extension: bool) -> AgentInfo {
+        let skills = if supports_extension {
+            vec![AgentSkill {
+                name: ClientRoutingExtensionData::URI.to_string(),
+                description: None,
+                category: None,
+                tags: vec![],
+                examples: vec![],
+            }]
+        } else {
+            vec![]
+        };
 
+        AgentInfo {
+            id: id.to_string(),
+            name: format!("{} Agent", id),
+            description: format!("Mock agent {}", id),
+            skills,
+            metadata: HashMap::new(),
+        }
+    }
 
-
-
-    #[test]
-    fn test_reset() {
+    #[tokio::test]
+    async fn test_process_max_hops() {
         let config = RouterConfig {
+            default_agent_id: "agent1".to_string(),
+            max_routing_hops: 2,
+        };
+
+        let manager = Arc::new(AgentManager::new());
+
+        // Agent 1 routes to Agent 2
+        let mut agent1_resp = Message::agent_text("To Agent 2");
+        agent1_resp
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::agent("agent2")),
+                ..Default::default()
+            })
+            .unwrap();
+
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent1", true),
+                response: agent1_resp,
+            }))
+            .await
+            .unwrap();
+
+        // Agent 2 routes to Agent 3
+        let mut agent2_resp = Message::agent_text("To Agent 3");
+        agent2_resp
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::agent("agent3")),
+                ..Default::default()
+            })
+            .unwrap();
+
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent2", true),
+                response: agent2_resp,
+            }))
+            .await
+            .unwrap();
+
+        let team_agents = vec![
+            TeamAgentConfig {
+                agent_id: "agent1".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+            TeamAgentConfig {
+                agent_id: "agent2".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+        ];
+
+        let router = Router::new(config, team_agents, manager);
+
+        let result = router.process(Message::user_text("Start")).await;
+
+        match result {
+            Err(TeamError::MaxHopsExceeded(hops)) => assert_eq!(hops, 2),
+            _ => panic!("Expected MaxHopsExceeded error, got {:?}", result),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_loop_detection() {
+        let config = RouterConfig {
+            default_agent_id: "user".to_string(),
+            max_routing_hops: 10,
+        };
+
+        let manager = Arc::new(AgentManager::new());
+
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("user", true),
+                response: Message::agent_text("I am user agent"),
+            }))
+            .await
+            .unwrap();
+
+        let team_agents = vec![TeamAgentConfig {
+            agent_id: "user".to_string(),
+            role: "role".to_string(),
+            capabilities: vec![],
+        }];
+
+        let router = Router::new(config, team_agents, manager);
+
+        let result = router.process(Message::user_text("Start")).await;
+
+        match result {
+            Err(TeamError::Protocol(msg)) => {
+                assert!(msg.contains("Cannot route message back to sender: user"))
+            }
+            _ => panic!(
+                "Expected Protocol error for loop detection, got {:?}",
+                result
+            ),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_handoffs() {
+        let config = RouterConfig {
+            default_agent_id: "agent1".to_string(),
+            max_routing_hops: 10,
+        };
+
+        let manager = Arc::new(AgentManager::new());
+
+        // Agent 1 provides handoffs and routes to Agent 2
+        let mut agent1_resp = Message::agent_text("To Agent 2 with handoffs");
+        agent1_resp
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::agent("agent2")),
+                handoffs: Some(vec!["agent3".to_string()]),
+                ..Default::default()
+            })
+            .unwrap();
+
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent1", true),
+                response: agent1_resp,
+            }))
+            .await
+            .unwrap();
+
+        struct RecordingMockAgent {
+            info: AgentInfo,
+            response: Message,
+            last_received: Arc<RwLock<Option<Message>>>,
+        }
+
+        #[async_trait]
+        impl Agent for RecordingMockAgent {
+            async fn process(&self, message: Message) -> a2a_protocol::prelude::A2aResult<Message> {
+                let mut last = self.last_received.write().await;
+                *last = Some(message);
+                Ok(self.response.clone())
+            }
+            async fn info(&self) -> a2a_protocol::prelude::A2aResult<AgentInfo> {
+                Ok(self.info.clone())
+            }
+        }
+
+        let last_received_by_agent2 = Arc::new(RwLock::new(None));
+
+        // Agent 2 returns User to end
+        let mut agent2_resp = Message::agent_text("Final");
+        agent2_resp
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::User),
+                ..Default::default()
+            })
+            .unwrap();
+
+        manager
+            .register(Arc::new(RecordingMockAgent {
+                info: create_mock_agent_info("agent2", true),
+                response: agent2_resp,
+                last_received: last_received_by_agent2.clone(),
+            }))
+            .await
+            .unwrap();
+
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent3", true),
+                response: Message::agent_text("Agent 3"),
+            }))
+            .await
+            .unwrap();
+
+        let team_agents = vec![
+            TeamAgentConfig {
+                agent_id: "agent1".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+            TeamAgentConfig {
+                agent_id: "agent2".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+            TeamAgentConfig {
+                agent_id: "agent3".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+        ];
+
+        let router = Router::new(config, team_agents, manager);
+
+        router.process(Message::user_text("Start")).await.unwrap();
+
+        let received = last_received_by_agent2.read().await;
+        let msg = received.as_ref().unwrap();
+        let ext_data: ClientRoutingExtensionData = msg.get_extension().unwrap().unwrap();
+
+        let cards = ext_data.agent_cards.unwrap();
+        assert_eq!(cards.len(), 1);
+        assert_eq!(cards[0].id, "agent3");
+    }
+
+    #[tokio::test]
+    async fn test_process_default_routing_logic() {
+        let manager = Arc::new(AgentManager::new());
+
+        // 1. Basic agent without extension support -> Participant::User (End)
+        let config1 = RouterConfig {
+            default_agent_id: "basic".to_string(),
+            max_routing_hops: 10,
+        };
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("basic", false),
+                response: Message::agent_text("Basic response"),
+            }))
+            .await
+            .unwrap();
+
+        let router1 = Router::new(
+            config1,
+            vec![TeamAgentConfig {
+                agent_id: "basic".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            }],
+            manager.clone(),
+        );
+
+        let resp1 = router1.process(Message::user_text("Start")).await.unwrap();
+        assert_eq!(resp1.text_content(), Some("Basic response"));
+
+        // 2. Default agent with extension but no routing decision -> Participant::User (End)
+        let config2 = RouterConfig {
+            default_agent_id: "default_ext".to_string(),
+            max_routing_hops: 10,
+        };
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("default_ext", true),
+                response: Message::agent_text("Default ext response"),
+            }))
+            .await
+            .unwrap();
+
+        let router2 = Router::new(
+            config2,
+            vec![TeamAgentConfig {
+                agent_id: "default_ext".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            }],
+            manager.clone(),
+        );
+
+        let resp2 = router2.process(Message::user_text("Start")).await.unwrap();
+        assert_eq!(resp2.text_content(), Some("Default ext response"));
+
+        // 3. Non-default agent with no decision -> route to default
+        let config3 = RouterConfig {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
         };
-        let mut router = Router::new(config);
 
-        router.hop_count = 5;
+        // Agent 1 (non-default)
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent1", true),
+                response: Message::agent_text("Agent 1 response"),
+            }))
+            .await
+            .unwrap();
 
-        router.reset();
+        let mut default_to_agent1 = Message::agent_text("Routing to agent 1");
+        default_to_agent1
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::agent("agent1")),
+                ..Default::default()
+            })
+            .unwrap();
 
-        assert_eq!(router.hop_count, 0);
+        struct MultiResponseMockAgent {
+            info: AgentInfo,
+            responses: Arc<RwLock<Vec<Message>>>,
+        }
+
+        #[async_trait]
+        impl Agent for MultiResponseMockAgent {
+            async fn process(&self, _message: Message) -> a2a_protocol::prelude::A2aResult<Message> {
+                let mut resps = self.responses.write().await;
+                if resps.is_empty() {
+                    Ok(Message::agent_text("Final"))
+                } else {
+                    Ok(resps.remove(0))
+                }
+            }
+            async fn info(&self) -> a2a_protocol::prelude::A2aResult<AgentInfo> {
+                Ok(self.info.clone())
+            }
+        }
+
+        let default_responses = Arc::new(RwLock::new(vec![
+            default_to_agent1,
+            Message::agent_text("Default final response"),
+        ]));
+
+        manager
+            .register(Arc::new(MultiResponseMockAgent {
+                info: create_mock_agent_info("default", true),
+                responses: default_responses,
+            }))
+            .await
+            .unwrap();
+
+        let router3 = Router::new(
+            config3,
+            vec![
+                TeamAgentConfig {
+                    agent_id: "agent1".to_string(),
+                    role: "role".to_string(),
+                    capabilities: vec![],
+                },
+                TeamAgentConfig {
+                    agent_id: "default".to_string(),
+                    role: "role".to_string(),
+                    capabilities: vec![],
+                },
+            ],
+            manager.clone(),
+        );
+
+        let resp3 = router3.process(Message::user_text("Start")).await.unwrap();
+        assert_eq!(resp3.text_content(), Some("Default final response"));
     }
 }

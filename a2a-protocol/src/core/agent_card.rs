@@ -370,11 +370,11 @@ pub struct AgentSkill {
     pub category: Option<String>,
 
     /// Skill tags
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
 
     /// Examples of using this skill
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<String>,
 }
 
@@ -637,7 +637,7 @@ impl AgentCard {
     /// }
     ///
     /// let url = Url::parse("http://localhost:3000").unwrap();
-    /// let card = AgentCard::new(AgentId::new("agent-1"), "My Agent", url)
+    /// let card = AgentCard::new(AgentId::new("agent-1".to_string()).unwrap(), "My Agent", url)
     ///     .with_extension::<ClientRoutingExtension>();
     /// ```
     pub fn with_extension<T: AgentExtension>(mut self) -> Self {

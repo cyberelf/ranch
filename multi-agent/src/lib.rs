@@ -52,7 +52,7 @@
 //! # Example Usage
 //!
 //! ```no_run
-//! use multi_agent::{A2AAgent, AgentManager, Team, TeamConfig, RouterConfig};
+//! use multi_agent::{A2AAgent, Agent, AgentManager, Team, TeamConfig, RouterConfig};
 //! use a2a_protocol::prelude::*;
 //! use std::sync::Arc;
 //!

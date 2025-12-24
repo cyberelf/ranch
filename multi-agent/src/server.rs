@@ -43,17 +43,7 @@ impl TeamAgentAdapter {
 
         // Convert skills to AgentSkill (not capabilities)
         // Skills = what the agent does; Capabilities = transport-level protocol features
-        profile.skills = info
-            .skills
-            .iter()
-            .map(|skill| a2a_protocol::core::agent_card::AgentSkill {
-                name: skill.name.clone(),
-                description: skill.description.clone(),
-                category: skill.category.clone(),
-                tags: Vec::new(),
-                examples: Vec::new(),
-            })
-            .collect();
+        profile.skills = info.skills;
 
         // Set up basic capabilities (streaming, push notifications, etc.)
         profile.capabilities = vec![

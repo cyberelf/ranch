@@ -69,6 +69,11 @@ pub struct ClientRoutingExtensionData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient: Option<Participant>,
 
+    /// List of suggested agents for the next step (handoffs)
+    /// Set by Agent when responding to Router
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handoffs: Option<Vec<String>>,
+
     /// List of available peer agents in the team
     /// Set by Router when sending to Agent (optional)
     #[serde(rename = "agentCards", skip_serializing_if = "Option::is_none")]
@@ -199,6 +204,7 @@ mod tests {
                 supports_client_routing: false,
             }]),
             recipient: None,
+            handoffs: None,
             reason: None,
         };
 
@@ -217,6 +223,7 @@ mod tests {
             sender: None,
             agent_cards: None,
             recipient: Some(Participant::agent("agent-2")),
+            handoffs: None,
             reason: Some("Agent 2 has the required capability".to_string()),
         };
 
@@ -253,6 +260,7 @@ mod tests {
             sender: Some(Participant::agent("agent-1")),
             recipient: Some(Participant::User),
             agent_cards: None,
+            handoffs: None,
             reason: Some("Routing to user".to_string()),
         };
 
@@ -267,6 +275,7 @@ mod tests {
             sender: Some(Participant::User),
             recipient: Some(Participant::agent("agent-2")),
             agent_cards: None,
+            handoffs: None,
             reason: Some("Routing to agent".to_string()),
         };
 

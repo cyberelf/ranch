@@ -20,6 +20,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Cycle detection for nested teams
 #[derive(Debug, thiserror::Error)]
@@ -83,6 +84,7 @@ pub struct TeamAgentConfig {
 pub struct Team {
     config: TeamConfig,
     agent_manager: Arc<AgentManager>,
+    router: Router,
 }
 
 impl Team {
@@ -116,9 +118,15 @@ impl Team {
     /// # }
     /// ```
     pub fn new(config: TeamConfig, agent_manager: Arc<AgentManager>) -> Self {
+        let router = Router::new(
+            config.router_config.clone(),
+            config.agents.clone(),
+            agent_manager.clone(),
+        );
         Self {
             config,
             agent_manager,
+            router,
         }
     }
 
@@ -192,40 +200,12 @@ impl Team {
         &self,
         initial_messages: Vec<Message>,
     ) -> Result<Message, TeamError> {
-        let mut router = Router::new(self.config.router_config.clone());
-        let mut current_message = initial_messages
+        let current_message = initial_messages
             .last()
             .ok_or_else(|| TeamError::RouterError("No messages to process".to_string()))?
             .clone();
 
-        // Get all agents in the team
-        let mut agents: HashMap<String, Arc<dyn Agent>> = HashMap::new();
-        for agent_config in &self.config.agents {
-            if let Some(agent) = self.agent_manager.get(&agent_config.agent_id).await {
-                agents.insert(agent_config.agent_id.clone(), agent);
-            }
-        }
-
-        // Initial sender is "user"
-        let mut sender = "user".to_string();
-
-        loop {
-            // Route message
-            let recipient = router
-                .route(&mut current_message, &agents, &sender)
-                .await?;
-
-            match recipient {
-                Participant::User => {
-                    // Return to user - end routing
-                    return Ok(current_message);
-                }
-                Participant::Agent { id: agent_id } => {
-                    // Continue routing to next agent
-                    sender = agent_id;
-                }
-            }
-        }
+        self.router.process(current_message).await
     }
 
     /// Get team configuration

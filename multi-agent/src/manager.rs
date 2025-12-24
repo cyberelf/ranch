@@ -249,7 +249,7 @@ impl Default for AgentManager {
 mod tests {
     use super::AgentManager;
     use crate::agent::{Agent, AgentInfo};
-    use a2a_protocol::prelude::{A2aResult, AgentSkill, Message};
+    use a2a_protocol::prelude::{A2aResult, AgentCapabilities, AgentSkill, Message};
     use async_trait::async_trait;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -297,6 +297,7 @@ mod tests {
                     examples: vec![],
                 }).collect(),
                 metadata: HashMap::new(),
+                capabilities: AgentCapabilities::default(),
             })
         }
 

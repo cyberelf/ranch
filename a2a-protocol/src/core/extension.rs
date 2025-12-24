@@ -6,6 +6,8 @@
 
 use serde::{de::DeserializeOwned, Serialize};
 
+use crate::AgentCapabilities;
+
 /// Trait for A2A Protocol Extensions
 ///
 /// This trait should be implemented for extension-specific types that need to be
@@ -42,4 +44,9 @@ pub trait AgentExtension: Serialize + DeserializeOwned + Send + Sync {
 
     /// A brief description of what this extension does
     const DESCRIPTION: &'static str;
+
+    /// Check if the given capability supports this extension
+    fn supported_by(capability: &AgentCapabilities) -> bool {
+        capability.extensions.iter().any(|ext| ext.uri == Self::URI)    
+    }
 }

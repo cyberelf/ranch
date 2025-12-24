@@ -3,11 +3,12 @@
 //! Tests dynamic message routing with the Client Agent Extension
 
 use multi_agent::team::{
-    ClientRoutingExtensionData, Participant, RouterConfig, SimplifiedAgentCard, Team,
+    ClientRoutingExtensionData, Participant, RouterConfig, Team,
     TeamAgentConfig, TeamConfig,
 };
 use multi_agent::{extract_text, Agent, AgentInfo, AgentManager};
 use a2a_protocol::prelude::*;
+use a2a_protocol::agent_card::AgentExtensionInfo;
 use a2a_protocol::core::extension::AgentExtension;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -35,6 +36,15 @@ impl Agent for ExtensionCapableAgent {
                 examples: vec![],
             }],
             metadata: HashMap::new(),
+            capabilities: AgentCapabilities {
+                extensions: vec![AgentExtensionInfo {
+                    uri: ClientRoutingExtensionData::URI.to_string(),
+                    name: Some("Client Routing".to_string()),
+                    version: Some("1.0".to_string()),
+                    description: None,
+                }],
+                ..Default::default()
+            },
         })
     }
 
@@ -100,6 +110,7 @@ impl Agent for BasicAgent {
             description: format!("Basic agent: {}", self.name),
             skills: vec![], // No extension support
             metadata: HashMap::new(),
+            capabilities: AgentCapabilities::default(),
         })
     }
 

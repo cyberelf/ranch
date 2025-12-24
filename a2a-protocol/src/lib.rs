@@ -66,6 +66,9 @@
 // Core protocol types (shared between client and server)
 pub mod core;
 
+// Standard protocol extensions
+pub mod extensions;
+
 // Client-side implementations (outbound requests)
 #[cfg(feature = "client")]
 pub mod client;
@@ -88,7 +91,7 @@ pub mod prelude {
     // Core protocol types (always available)
     pub use crate::core::{
         agent_card::{
-            AgentCapability, AgentProvider, AgentSkill, AuthenticationRequirement, RateLimit,
+            AgentCapabilities, AgentProvider, AgentSkill, AuthenticationRequirement, RateLimit,
             RateLimitStrategy, StreamingCapabilities, TransportInterface, TransportType,
         },
         agent_id::AgentId,
@@ -115,6 +118,11 @@ pub mod prelude {
         TaskStatus,
         TaskStatusRequest,
         TextPart,
+    };
+
+    // Standard extensions
+    pub use crate::extensions::client_routing::{
+        ClientRoutingExtensionData, Participant, SimplifiedAgentCard,
     };
 
     // Server types (only available with "server" feature)

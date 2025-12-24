@@ -46,12 +46,11 @@ impl TeamAgentAdapter {
         profile.skills = info.skills;
 
         // Set up basic capabilities (streaming, push notifications, etc.)
-        profile.capabilities = vec![
-            a2a_protocol::core::agent_card::AgentCapability::new()
+        profile.capabilities =
+            a2a_protocol::core::agent_card::AgentCapabilities::new()
                 .with_streaming(false)
                 .with_push_notifications(false)
-                .with_state_transition_history(false),
-        ];
+                .with_state_transition_history(false);
 
         profile.metadata = info
             .metadata
@@ -189,7 +188,7 @@ impl TeamServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a2a_protocol::AgentSkill;
+    use a2a_protocol::{AgentCapabilities, AgentSkill};
     use crate::manager::AgentManager;
     use crate::team::{RouterConfig, TeamConfig};
 
@@ -296,6 +295,7 @@ mod tests {
                 map.insert("key1".to_string(), "value1".to_string());
                 map
             },
+            capabilities: AgentCapabilities::default(),
         };
 
         let profile_result = TeamAgentAdapter::info_to_profile(info);
@@ -306,9 +306,8 @@ mod tests {
         assert_eq!(profile.description, Some("Test description".to_string()));
         
         // Check that capabilities are present and properly structured
-        assert_eq!(profile.capabilities.len(), 1);
-        assert_eq!(profile.capabilities[0].streaming, false);
-        assert_eq!(profile.capabilities[0].push_notifications, false);
+        assert_eq!(profile.capabilities.streaming, false);
+        assert_eq!(profile.capabilities.push_notifications, false);
         
         // Check that skills are properly mapped
         assert_eq!(profile.skills.len(), 2);

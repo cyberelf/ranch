@@ -143,6 +143,7 @@ impl OpenAIAgent {
                 tags: vec![],
                 examples: vec![],
             }).collect(),
+            capabilities: AgentCapabilities::default(),
             metadata: {
                 let mut meta = HashMap::new();
                 meta.insert("model".to_string(), config.model.clone());

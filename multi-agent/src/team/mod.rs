@@ -13,14 +13,12 @@ pub use types::{
     SimplifiedAgentCard, TeamError,
 };
 
-use crate::manager::AgentManager;
-use crate::{Agent, AgentInfo};
-use a2a_protocol::prelude::{AgentSkill, Message};
+use a2a_protocol::prelude::{AgentCapabilities, AgentSkill, Message};
+use crate::{Agent, AgentInfo, AgentManager};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Cycle detection for nested teams
 #[derive(Debug, thiserror::Error)]
@@ -280,6 +278,7 @@ impl Agent for Team {
             name: self.config.name.clone(),
             description: self.config.description.clone(),
             skills,
+            capabilities: AgentCapabilities::default(),
             metadata,
         })
     }

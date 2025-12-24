@@ -81,7 +81,7 @@ impl ProtocolAgent for ResearchAgent {
         // Add capabilities for protocol features
         profile = profile
             .with_capability(
-                AgentCapability::new()
+                AgentCapabilities::new()
                     .with_streaming(false)
                     .with_push_notifications(false)
                     .with_state_transition_history(false),

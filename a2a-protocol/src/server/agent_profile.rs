@@ -5,7 +5,7 @@
 //! details. The profile is consumed by the handler layer to assemble a complete `AgentCard`.
 
 use crate::core::{
-    agent_card::{AgentCapability, AgentProvider, AgentSkill, TransportType},
+    agent_card::{AgentCapabilities, AgentProvider, AgentSkill, TransportType},
     AgentCard, AgentId,
 };
 use serde::{Deserialize, Serialize};
@@ -66,8 +66,8 @@ pub struct AgentProfile {
     pub default_output_modes: Vec<String>,
 
     /// Agent capabilities
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub capabilities: Vec<AgentCapability>,
+    #[serde(default)]
+    pub capabilities: AgentCapabilities,
 
     /// Agent skills
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -92,7 +92,7 @@ impl AgentProfile {
             documentation_url: None,
             default_input_modes: Vec::new(),
             default_output_modes: Vec::new(),
-            capabilities: Vec::new(),
+            capabilities: AgentCapabilities::default(),
             skills: Vec::new(),
             metadata: HashMap::new(),
         }
@@ -148,9 +148,9 @@ impl AgentProfile {
         self
     }
 
-    /// Add a capability
-    pub fn with_capability(mut self, capability: AgentCapability) -> Self {
-        self.capabilities.push(capability);
+    /// Set the agent capabilities
+    pub fn with_capability(mut self, capability: AgentCapabilities) -> Self {
+        self.capabilities = capability;
         self
     }
 

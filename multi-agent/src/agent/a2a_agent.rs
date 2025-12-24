@@ -204,6 +204,7 @@ impl crate::agent::Agent for A2AAgent {
             name: self.config.local_name.clone().unwrap_or_else(|| card.name.clone()),
             description: card.description.clone().unwrap_or_default(),
             skills: card.skills.clone(),
+            capabilities: card.capabilities.clone(),
             metadata: card
                 .metadata
                 .iter()

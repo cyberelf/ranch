@@ -1,6 +1,6 @@
 //! Common test utilities for multi-agent integration tests
 
-use a2a_protocol::{A2aResult, AgentSkill, Message};
+use a2a_protocol::{A2aResult, AgentCapabilities, AgentSkill, Message};
 use async_trait::async_trait;
 use multi_agent::{Agent, AgentInfo};
 use std::sync::{
@@ -63,6 +63,7 @@ impl Agent for MockAgent {
                 examples: vec![],
             }).collect(),
             metadata: std::collections::HashMap::new(),
+            capabilities: AgentCapabilities::default(),
         })
     }
 

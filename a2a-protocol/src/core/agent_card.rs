@@ -138,8 +138,8 @@ pub struct AgentCard {
     pub supports_authenticated_extended_card: bool,
 
     /// Agent capabilities
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub capabilities: Vec<AgentCapability>,
+    #[serde(default)]
+    pub capabilities: AgentCapabilities,
 
     /// Agent skills
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -247,7 +247,7 @@ pub struct AgentCardSignature {
 /// A2A Protocol specification.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentCapability {
+pub struct AgentCapabilities {
     /// Indicates if the agent supports streaming responses
     #[serde(default, skip_serializing_if = "is_false")]
     pub streaming: bool,
@@ -269,7 +269,7 @@ fn is_false(b: &bool) -> bool {
     !b
 }
 
-impl AgentCapability {
+impl AgentCapabilities {
     /// Create new empty capabilities
     pub fn new() -> Self {
         Self::default()
@@ -306,7 +306,7 @@ impl AgentCapability {
     /// # Example
     ///
     /// ```
-    /// use a2a_protocol::core::agent_card::AgentCapability;
+    /// use a2a_protocol::core::agent_card::AgentCapabilities;
     /// use a2a_protocol::core::extension::AgentExtension;
     /// use serde::{Serialize, Deserialize};
     ///
@@ -322,7 +322,7 @@ impl AgentCapability {
     ///     const DESCRIPTION: &'static str = "Example extension";
     /// }
     ///
-    /// let capabilities = AgentCapability::new()
+    /// let capabilities = AgentCapabilities::new()
     ///     .with_extension::<MyExtension>();
     /// ```
     pub fn with_extension<T: AgentExtension>(mut self) -> Self {
@@ -514,7 +514,7 @@ impl AgentCard {
             default_input_modes: Vec::new(),
             default_output_modes: Vec::new(),
             supports_authenticated_extended_card: false,
-            capabilities: Vec::new(),
+            capabilities: AgentCapabilities::default(),
             skills: Vec::new(),
             authentication: None,
             rate_limits: None,
@@ -605,9 +605,9 @@ impl AgentCard {
         self
     }
 
-    /// Add a capability
-    pub fn with_capability(mut self, capability: AgentCapability) -> Self {
-        self.capabilities.push(capability);
+    /// Set the agent capabilities
+    pub fn with_capability(mut self, capability: AgentCapabilities) -> Self {
+        self.capabilities = capability;
         self
     }
 
@@ -641,20 +641,13 @@ impl AgentCard {
     ///     .with_extension::<ClientRoutingExtension>();
     /// ```
     pub fn with_extension<T: AgentExtension>(mut self) -> Self {
-        // Find or create a capability to add the extension to
-        if let Some(capability) = self.capabilities.first_mut() {
-            capability.extensions.push(AgentExtensionInfo {
-                uri: T::URI.to_string(),
-                version: Some(T::VERSION.to_string()),
-                name: Some(T::NAME.to_string()),
-                description: Some(T::DESCRIPTION.to_string()),
-            });
-        } else {
-            // No existing capabilities, create one with the extension
-            self.capabilities.push(
-                AgentCapability::new().with_extension::<T>()
-            );
-        }
+        // Add extension to capabilities
+        self.capabilities.extensions.push(AgentExtensionInfo {
+            uri: T::URI.to_string(),
+            version: Some(T::VERSION.to_string()),
+            name: Some(T::NAME.to_string()),
+            description: Some(T::DESCRIPTION.to_string()),
+        });
         self
     }
 

@@ -16,6 +16,8 @@ pub struct AgentInfo {
     /// Skills represent what the agent can do (e.g., "search", "translate")
     /// This is different from A2A protocol capabilities which are transport-level
     pub skills: Vec<AgentSkill>,
+    /// Capabilities represent transport-level features and extension supports
+    pub capabilities: AgentCapabilities,
     pub metadata: HashMap<String, String>,
 }
 

@@ -33,6 +33,10 @@ pub struct Router {
     team_agents_config: Vec<TeamAgentConfig>,
     /// Cache of resolved agents
     agents_cache: RwLock<HashMap<String, Arc<dyn Agent>>>,
+    /// Cache of extension support status
+    extension_support_cache: RwLock<HashMap<String, bool>>,
+    /// Cache of simplified agent cards
+    simplified_cards_cache: RwLock<Option<Vec<SimplifiedAgentCard>>>,
 }
 
 impl Router {
@@ -53,6 +57,8 @@ impl Router {
             agent_manager,
             team_agents_config,
             agents_cache: RwLock::new(HashMap::new()),
+            extension_support_cache: RwLock::new(HashMap::new()),
+            simplified_cards_cache: RwLock::new(None),
         }
     }
 
@@ -84,20 +90,51 @@ impl Router {
     /// # Returns
     /// `true` if the agent declares support for the extension, `false` otherwise
     pub fn supports_extension(&self, agent_info: &AgentInfo) -> bool {
-        agent_info
-            .skills
-            .iter()
-            .any(|skill| skill.name == ClientRoutingExtensionData::URI)
+        ClientRoutingExtensionData::supported_by(&agent_info.capabilities)
     }
 
-    /// Build simplified agent cards from agent information
+    /// Check if an agent supports the Client Agent Extension (cached)
+    async fn check_extension_support(
+        &self,
+        agent_id: &str,
+        agent: &dyn Agent,
+    ) -> Result<bool, TeamError> {
+        {
+            let cache = self.extension_support_cache.read().await;
+            if let Some(&support) = cache.get(agent_id) {
+                return Ok(support);
+            }
+        }
+
+        let info = agent
+            .info()
+            .await
+            .map_err(|e| TeamError::Agent(format!("Failed to get agent info: {}", e)))?;
+        let support = self.supports_extension(&info);
+
+        let mut cache = self.extension_support_cache.write().await;
+        cache.insert(agent_id.to_string(), support);
+        Ok(support)
+    }
+
+    /// Get simplified agent cards from agent information (cached)
     ///
     /// Converts full AgentInfo objects to lightweight SimplifiedAgentCard
     /// for inclusion in extension context.
     ///
     /// # Returns
     /// Vector of SimplifiedAgentCard objects
-    pub async fn build_simplified_cards(&self, agents: &HashMap<String, Arc<dyn Agent>>) -> Vec<SimplifiedAgentCard> {
+    pub async fn get_simplified_cards(
+        &self,
+        agents: &HashMap<String, Arc<dyn Agent>>,
+    ) -> Vec<SimplifiedAgentCard> {
+        {
+            let cache = self.simplified_cards_cache.read().await;
+            if let Some(cards) = cache.as_ref() {
+                return cards.clone();
+            }
+        }
+
         let mut cards = Vec::new();
 
         for (agent_id, agent) in agents {
@@ -112,6 +149,8 @@ impl Router {
             }
         }
 
+        let mut cache = self.simplified_cards_cache.write().await;
+        *cache = Some(cards.clone());
         cards
     }
 
@@ -208,6 +247,11 @@ impl Router {
     /// * `Err(TeamError)` - If routing fails or max hops exceeded
     pub async fn process(&self, initial_message: Message) -> Result<Message, TeamError> {
         let agents = self.get_agents().await;
+        
+        if agents.is_empty() {
+            return Err(TeamError::Configuration("No agents found in team".to_string()));
+        }
+        
         let mut current_message = initial_message;
         let mut hop_count = 0;
         let mut handoffs: Option<Vec<String>> = None;
@@ -236,15 +280,17 @@ impl Router {
                 .get(&target_agent_id)
                 .ok_or_else(|| TeamError::AgentNotFound(target_agent_id.to_string()))?;
 
-            // Get agent info to check extension support
-            let agent_info = agent
-                .info()
-                .await
-                .map_err(|e| TeamError::Agent(format!("Failed to get agent info: {}", e)))?;
+            // Check extension support (cached)
+            let supports_ext = self
+                .check_extension_support(&target_agent_id, agent.as_ref())
+                .await?;
 
             // Inject extension context if agent supports it
-            if self.supports_extension(&agent_info) {
-                let mut agent_cards = self.build_simplified_cards(&agents).await;
+            if supports_ext {
+                let mut agent_cards = self.get_simplified_cards(&agents).await;
+
+                // Filter out the target agent itself to avoid self-routing suggestions
+                agent_cards.retain(|card| card.id != target_agent_id);
 
                 // Filter by handoffs if present
                 if let Some(current_handoffs) = &handoffs {
@@ -283,7 +329,7 @@ impl Router {
                 recipient
             } else {
                 // No routing decision provided - apply defaults
-                if !self.supports_extension(&agent_info) {
+                if !supports_ext {
                     // Basic agent without extension support - end conversation
                     Participant::User
                 } else if target_agent_id == self.default_agent_id {
@@ -316,7 +362,8 @@ impl Router {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a2a_protocol::AgentSkill;
+    use a2a_protocol::{AgentCapabilities, AgentSkill};
+    use a2a_protocol::agent_card::AgentExtensionInfo;
     use crate::AgentInfo;
     use async_trait::async_trait;
 
@@ -350,6 +397,20 @@ mod tests {
             vec![]
         };
 
+        let capabilities = if supports_extension {
+            AgentCapabilities {
+                extensions: vec![AgentExtensionInfo {
+                    uri: ClientRoutingExtensionData::URI.to_string(),
+                    name: Some("Client Routing".to_string()),
+                    version: Some("1.0".to_string()),
+                    description: None,
+                }],
+                ..Default::default()
+            }
+        } else {
+            AgentCapabilities::default()
+        };
+
         MockAgent {
             info: AgentInfo {
                 id: id.to_string(),
@@ -357,6 +418,7 @@ mod tests {
                 description: format!("Mock agent {}", id),
                 skills,
                 metadata: HashMap::new(),
+                capabilities,
             },
             response: Message::agent_text("Response"),
         }
@@ -394,6 +456,15 @@ mod tests {
                 examples: vec![],
             }],
             metadata: HashMap::new(),
+            capabilities: AgentCapabilities {
+                extensions: vec![AgentExtensionInfo {
+                    uri: ClientRoutingExtensionData::URI.to_string(),
+                    name: Some("Client Routing".to_string()),
+                    version: Some("1.0".to_string()),
+                    description: None,
+                }],
+                ..Default::default()
+            },
         };
 
         let agent_without_ext = AgentInfo {
@@ -402,6 +473,7 @@ mod tests {
             description: "Test agent".to_string(),
             skills: vec![],
             metadata: HashMap::new(),
+            capabilities: AgentCapabilities::default(),
         };
 
         assert!(router.supports_extension(&agent_with_ext));
@@ -409,7 +481,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_build_simplified_cards() {
+    async fn test_get_simplified_cards() {
         let config = RouterConfig {
             default_agent_id: "default".to_string(),
             max_routing_hops: 10,
@@ -426,7 +498,7 @@ mod tests {
 
         let router = Router::new(config, vec![], Arc::new(AgentManager::new()));
 
-        let cards = router.build_simplified_cards(&agents).await;
+        let cards = router.get_simplified_cards(&agents).await;
 
         assert_eq!(cards.len(), 2);
         assert!(cards.iter().any(|c| c.id == "agent1" && c.supports_client_routing));
@@ -540,12 +612,27 @@ mod tests {
             vec![]
         };
 
+        let capabilities = if supports_extension {
+            AgentCapabilities {
+                extensions: vec![AgentExtensionInfo {
+                    uri: ClientRoutingExtensionData::URI.to_string(),
+                    name: Some("Client Routing".to_string()),
+                    version: Some("1.0".to_string()),
+                    description: None,
+                }],
+                ..Default::default()
+            }
+        } else {
+            AgentCapabilities::default()
+        };
+
         AgentInfo {
             id: id.to_string(),
             name: format!("{} Agent", id),
             description: format!("Mock agent {}", id),
             skills,
             metadata: HashMap::new(),
+            capabilities,
         }
     }
 
@@ -888,5 +975,87 @@ mod tests {
 
         let resp3 = router3.process(Message::user_text("Start")).await.unwrap();
         assert_eq!(resp3.text_content(), Some("Default final response"));
+    }
+
+    #[tokio::test]
+    async fn test_process_filters_target_agent() {
+        let config = RouterConfig {
+            default_agent_id: "agent1".to_string(),
+            max_routing_hops: 10,
+        };
+
+        let manager = Arc::new(AgentManager::new());
+
+        struct RecordingMockAgent {
+            info: AgentInfo,
+            response: Message,
+            last_received: Arc<RwLock<Option<Message>>>,
+        }
+
+        #[async_trait]
+        impl Agent for RecordingMockAgent {
+            async fn process(&self, message: Message) -> a2a_protocol::prelude::A2aResult<Message> {
+                let mut last = self.last_received.write().await;
+                *last = Some(message);
+                Ok(self.response.clone())
+            }
+            async fn info(&self) -> a2a_protocol::prelude::A2aResult<AgentInfo> {
+                Ok(self.info.clone())
+            }
+        }
+
+        let last_received = Arc::new(RwLock::new(None));
+        let mut response = Message::agent_text("Final");
+        response
+            .set_extension(ClientRoutingExtensionData {
+                recipient: Some(Participant::User),
+                ..Default::default()
+            })
+            .unwrap();
+
+        manager
+            .register(Arc::new(RecordingMockAgent {
+                info: create_mock_agent_info("agent1", true),
+                response,
+                last_received: last_received.clone(),
+            }))
+            .await
+            .unwrap();
+
+        // Register another agent so there's something to see in agent_cards
+        manager
+            .register(Arc::new(MockAgent {
+                info: create_mock_agent_info("agent2", true),
+                response: Message::agent_text("Agent 2"),
+            }))
+            .await
+            .unwrap();
+
+        let team_agents = vec![
+            TeamAgentConfig {
+                agent_id: "agent1".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+            TeamAgentConfig {
+                agent_id: "agent2".to_string(),
+                role: "role".to_string(),
+                capabilities: vec![],
+            },
+        ];
+
+        let router = Router::new(config, team_agents, manager);
+
+        router.process(Message::user_text("Start")).await.unwrap();
+
+        let received = last_received.read().await;
+        let msg = received.as_ref().unwrap();
+        let ext_data: ClientRoutingExtensionData = msg.get_extension().unwrap().unwrap();
+
+        let cards = ext_data.agent_cards.unwrap();
+        // Should only contain agent2, not agent1
+        assert_eq!(cards.len(), 1);
+        assert_eq!(cards[0].id, "agent2");
+        assert!(!cards.iter().any(|c| c.id == "agent1"));
     }
 }

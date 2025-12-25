@@ -1,6 +1,5 @@
 # Webhooks & Push Notifications Guide
 
-> **🎉 NEW in v0.7.0** - Get real-time notifications when your tasks complete!
 
 This guide explains how to use webhooks (push notifications) to receive asynchronous updates about your tasks instead of polling for status.
 

@@ -35,7 +35,7 @@ The design separates protocol compliance from orchestration concerns, enabling f
 │                                  │  │  Implementation  │  │  (via A2A)        │
 │  - Team Orchestration            │  │                  │  │                   │
 │  - AgentManager (Registry)       │  │  - Protocol      │  │  - Remote A2A     │
-│  - Schedulers (Routing Logic)    │  │    Agent Trait   │  │    Services       │
+│  - Router (Routing Logic)        │  │    Agent Trait   │  │    Services       │
 │  - TeamServer (A2A Service)      │  │  - Client/Server │  │  - Third-party    │
 │  - Multi-Agent Agent Trait       │  │  - Task Mgmt     │  │    Agents         │
 └──────────────────────────────────┘  └──────────────────┘  └───────────────────┘

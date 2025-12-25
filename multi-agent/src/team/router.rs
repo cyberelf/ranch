@@ -186,7 +186,7 @@ impl Router {
 
         // Use typed accessor to set extension
         message.set_extension(ext_data)
-            .map_err(|e| TeamError::ExtensionParseError(e))?;
+            .map_err(TeamError::ExtensionParseError)?;
 
         Ok(())
     }

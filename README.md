@@ -40,7 +40,7 @@ The project is structured around several key components:
   
 - **[multi-agent/AGENT.md](multi-agent/AGENT.md)** - Multi-agent framework guide
   - Team composition patterns
-  - Scheduler implementation
+  - Router implementation
   - Configuration via TOML
   - Nested team hierarchies
 

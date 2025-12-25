@@ -106,7 +106,7 @@ impl SseWriter {
         *self.event_counter.read().unwrap()
     }
 
-    pub fn subscribe(&self) -> impl Stream<Item = A2aResult<StreamingResult>> {
+    pub fn subscribe(&self) -> impl Stream<Item = A2aResult<StreamingResult>> + use<> {
         let mut rx = self.tx.subscribe();
         stream! {
             loop {

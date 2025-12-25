@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "a2a-protocol"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "assert-json-diff",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "multi-agent"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "a2a-protocol",
  "anyhow",
@@ -3153,6 +3153,6 @@ dependencies = [
 
 [[package]]
 name = "zmij"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e404bcd8afdaf006e529269d3e85a743f9480c3cef60034d77860d02964f3ba"
+checksum = "f1dccf46b25b205e4bebe1d5258a991df1cc17801017a845cb5b3fe0269781aa"

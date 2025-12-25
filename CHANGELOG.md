@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-12-25
+
 ### Added
+
+#### Team Router & Client Agent Extension
+- **Team Router**: Replaced rigid Scheduler with dynamic Router component for flexible message routing
+- **Client Agent Extension (v1)**: Implemented full support for Client Agent Extension
+  - Extension URI: `https://ranch.woi.dev/extensions/client-routing/v1`
+  - Capability detection and context injection
+  - Metadata-driven routing decisions
+- **Dynamic Routing Features**:
+  - **Metadata Routing**: Route messages to specific agents based on `recipient` metadata
+  - **Fallback Routing**: Automatically route to default agent or return to user if no recipient specified
+  - **Back-to-Sender**: Stack-based routing to return responses to the correct sender (User or Agent)
+  - **Max Hops Enforcement**: Configurable limit to prevent infinite routing loops (default: 10)
+- **Router Configuration**: New `RouterConfig` in `TeamConfig` for customizing behavior
 
 #### Team as Agent Implementation
 - **Team implements Agent trait**: Teams can now be treated as agents themselves, enabling hierarchical multi-agent systems and recursive team composition
@@ -48,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **examples/README.md**: Comprehensive guide to all examples with pattern selection criteria, common code patterns, and troubleshooting
 
 ### Changed
+
+#### Team Architecture
+- **Replaced Scheduler**: Removed `Scheduler` trait and implementations in favor of `Router`
+- **Removed TeamMode**: `TeamMode` enum removed as routing logic is now handled by `Router`
+- **Updated TeamConfig**: `TeamConfig` now includes `RouterConfig` instead of `mode`
 - **SupervisorScheduler**: Fixed infinite loop bug by adding call counter and proper return-to-user logic
 - **Team orchestration**: Enhanced with better logging showing which agent is processing each message
 

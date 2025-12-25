@@ -5,6 +5,38 @@ All notable changes to the a2a-protocol crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-12-25
+
+### Added
+
+#### Client Agent Extension Support (v1)
+- **Extension Definition**: New `AgentExtension` trait for defining A2A protocol extensions
+  - `ClientRoutingExtensionData` implementation with bidirectional data flow
+  - Extension URI: `https://ranch.woi.dev/extensions/client-routing/v1`
+  - Unified data structure for Router → Agent and Agent → Router communication
+- **Extension Data Structures**:
+  - `ClientRoutingExtensionData` - Bidirectional extension payload
+  - `Participant` enum for sender identification (User, Agent)
+  - `SimplifiedAgentCard` - Lightweight agent metadata for routing decisions
+  - Support for `recipient`, `handoffs`, `reason`, `agent_cards`, and `sender` fields
+- **Message Extension Methods**:
+  - `message.set_extension()` - Type-safe extension data setter
+  - `message.get_extension()` - Type-safe extension data getter
+  - `message.extensions` field for declaring used extensions
+  - `message.metadata` keyed by extension URI for extension-specific data
+- **Agent Card Extensions**:
+  - `AgentCapabilities` with `extensions: Vec<AgentExtensionInfo>` field
+  - `AgentExtensionInfo` struct with URI, name, version, and description
+  - Extension capability detection in agent discovery
+- **A2A Protocol Compliance**:
+  - Full compliance with A2A Protocol v0.3.0 extension specification (Section 4.6.2)
+  - JSON serialization/deserialization for extension data
+  - Proper integration with existing Message and AgentCard types
+  - No breaking changes to existing A2A protocol APIs
+
+### Changed
+- Version bump to sync with workspace version 0.8.0
+
 ## [0.7.0] - 2025-11-11
 
 ### Added

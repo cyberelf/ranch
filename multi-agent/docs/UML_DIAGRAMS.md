@@ -140,7 +140,7 @@ classDiagram
     class Team {
         -config: TeamConfig
         -agent_manager: Arc~AgentManager~
-        -scheduler: Arc~dyn Scheduler~
+        -router: Arc~Router~
         +new(config: TeamConfig, agent_manager: Arc~AgentManager~) Self
         +process_message(message: AgentMessage) Result~AgentResponse, TeamError~
         +process_messages(messages: Vec~AgentMessage~) Result~AgentResponse, TeamError~
@@ -152,15 +152,14 @@ classDiagram
         +id: String
         +name: String
         +description: String
-        +mode: TeamMode
+        +router_config: RouterConfig
         +agents: Vec~TeamAgentConfig~
         +context: HashMap~String, String~
     }
 
-    class TeamMode {
-        <<enumeration>>
-        Supervisor
-        Workflow
+    class RouterConfig {
+        +max_hops: usize
+        +default_agent_id: Option~String~
     }
 
     class TeamAgentConfig {
@@ -171,38 +170,26 @@ classDiagram
         +order: Option~u32~
     }
 
-
-    class Scheduler {
-        <<interface>>
-        +schedule(team_config: &TeamConfig, agent_manager: &AgentManager, messages: Vec~AgentMessage~) Result~AgentResponse, TeamError~
+    class Router {
+        -config: RouterConfig
+        -agent_manager: Arc~AgentManager~
+        -sender_stack: RwLock~Vec~Recipient~~
+        +new(config: RouterConfig, agent_manager: Arc~AgentManager~) Self
+        +route(message: Message, team_config: &TeamConfig) Result~Message, TeamError~
     }
 
-    class SupervisorScheduler {
-        -context: RwLock~HashMap~String, String~~
-        +new() Self
-        -find_supervisor(team_config: &TeamConfig, agent_manager: &AgentManager) Option~AgentRef~
-    }
-
-    class WorkflowScheduler {
-        -workflow_config: WorkflowConfig
-        +new(team_config: &TeamConfig) Self
-    }
-
-    class WorkflowConfig {
-        -steps: Vec~WorkflowStep~
-    }
-
-    class WorkflowStep {
-        -agent_id: String
-        -order: u32
-        -condition: Option~String~
+    class Recipient {
+        <<enumeration>>
+        Agent(String)
+        User
+        Sender
     }
 
     class TeamError {
         <<enumeration>>
         Agent(String)
         NoAgentAvailable
-        Scheduling(String)
+        Routing(String)
         Configuration(String)
     }
 
@@ -226,8 +213,6 @@ classDiagram
     Agent <|.. RemoteAgent : implements
     Protocol <|.. OpenAIProtocol : implements
     Protocol <|.. A2AProtocol : implements
-    Scheduler <|.. SupervisorScheduler : implements
-    Scheduler <|.. WorkflowScheduler : implements
 
     RemoteAgent *-- AgentConfig : contains
     RemoteAgent *-- Protocol : uses
@@ -236,11 +221,12 @@ classDiagram
 
     Team *-- TeamConfig : contains
     Team *-- AgentManager : uses
-    Team *-- Scheduler : contains
+    Team *-- Router : contains
     TeamConfig *-- TeamAgentConfig : contains
+    TeamConfig *-- RouterConfig : contains
 
-    WorkflowScheduler *-- WorkflowConfig : contains
-    WorkflowConfig *-- WorkflowStep : contains
+    Router *-- RouterConfig : contains
+    Router *-- AgentManager : uses
 
     TeamServer *-- Team : serves
 
@@ -271,8 +257,7 @@ graph TB
     %% Team Orchestration Layer
     subgraph "Team Orchestration Layer"
         Team[Team]
-        SupervisorScheduler[SupervisorScheduler]
-        WorkflowScheduler[WorkflowScheduler]
+        Router[Router]
         TeamConfig[TeamConfig]
     end
 
